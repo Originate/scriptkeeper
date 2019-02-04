@@ -11,6 +11,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
     let result = fork()?;
     match result {
         ForkResult::Child => {
+            #[allow(deprecated)]
             unsafe {
                 println!(
                     "traceme: {:?}",
@@ -46,7 +47,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
                     "offset: {:?} - {}, register: {}",
                     offset, offset as u64, register
                 );
-                ptrace::ptrace(Request::PTRACE_CONT, child, null_mut(), null_mut());
+                #[allow(deprecated)]
+                ptrace::ptrace(Request::PTRACE_CONT, child, null_mut(), null_mut())?;
             };
         }
     }
