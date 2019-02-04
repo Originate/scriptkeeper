@@ -6,12 +6,11 @@ use nix::unistd::{fork, ForkResult, Pid};
 use std::ffi::{c_void, CString};
 use std::mem::size_of;
 use std::ptr::{null, null_mut};
-use tracing_poc::foo;
+use tracing_poc::peekuser;
 
-fn main() -> Result<(), Box<std::error::Error>> {
-    unsafe {
-        foo();
-    }
+type R<A> = Result<A, Box<std::error::Error>>;
+
+fn main() -> R<()> {
     let result = fork()?;
     match result {
         ForkResult::Child => {
@@ -41,20 +40,31 @@ fn main() -> Result<(), Box<std::error::Error>> {
             unsafe {
                 println!("wait result: {:?}", libc::wait(null_mut()));
             }
-            let i = 15;
-            let offset = (i * 8) as *mut c_void;
             unsafe {
-                #[allow(deprecated)]
-                let register: c_long =
-                    ptrace::ptrace(Request::PTRACE_PEEKUSER, child, offset, null_mut())?;
-                println!(
-                    "offset: {:?} - {}, register: {}",
-                    offset, offset as u64, register
-                );
+                peekuser(child.as_raw());
+                rust_peekuser(child)?;
                 #[allow(deprecated)]
                 ptrace::ptrace(Request::PTRACE_CONT, child, null_mut(), null_mut())?;
             };
         }
+    }
+    Ok(())
+}
+
+fn rust_peekuser(child: Pid) -> R<()> {
+    let offset = (libc::ORIG_RAX * 8) as *mut c_void;
+    #[allow(deprecated)]
+    unsafe {
+        let register: c_long = libc::ptrace(
+            libc::PTRACE_PEEKUSER,
+            child,
+            offset,
+            null_mut() as *mut c_void,
+        );
+        println!(
+            "offset: {:?} - {}, register: {}",
+            offset, offset as u64, register
+        );
     }
     Ok(())
 }

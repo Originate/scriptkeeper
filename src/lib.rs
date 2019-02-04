@@ -1,3 +1,3 @@
 extern "C" {
-    pub fn foo();
+    pub fn peekuser(child: i32);
 }
