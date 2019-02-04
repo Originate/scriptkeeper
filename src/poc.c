@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <sys/reg.h>   /* For constants
                                    ORIG_EAX etc */
-int main()
+int main_()
 {   pid_t child;
     long orig_rax;
     child = fork();
@@ -24,4 +24,8 @@ int main()
         ptrace(PTRACE_CONT, child, NULL, NULL);
     }
     return 0;
+}
+
+extern void foo() {
+  printf("huhu\n");
 }

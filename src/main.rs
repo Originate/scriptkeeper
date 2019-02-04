@@ -6,8 +6,12 @@ use nix::unistd::{fork, ForkResult, Pid};
 use std::ffi::{c_void, CString};
 use std::mem::size_of;
 use std::ptr::{null, null_mut};
+use tracing_poc::foo;
 
 fn main() -> Result<(), Box<std::error::Error>> {
+    unsafe {
+        foo();
+    }
     let result = fork()?;
     match result {
         ForkResult::Child => {

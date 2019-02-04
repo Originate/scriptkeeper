@@ -34,6 +34,7 @@ dependencies = [
 name = "tracing-poc"
 version = "0.1.0"
 dependencies = [
+ "cc 1.0.28 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
  "nix 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
