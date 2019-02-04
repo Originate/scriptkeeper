@@ -12,7 +12,7 @@ fn main() -> R<()> {
     match result {
         ForkResult::Child => {
             ptrace::traceme()?;
-            execv(&CString::new("/bin/ls")?, &vec![CString::new("ls")?])?;
+            execv(&CString::new("./foo")?, &vec![CString::new("./foo")?])?;
         }
         ForkResult::Parent { child } => {
             println!("wait result: {:?}", wait());
