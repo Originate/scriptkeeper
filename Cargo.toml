@@ -1,0 +1,13 @@
+[package]
+name = "tracing-poc"
+version = "0.1.0"
+authors = ["soenkehahn <SoenkeHahn@gmail.com>"]
+edition = "2018"
+
+[[bin]]
+name = "tracing-poc"
+path = "src/main.rs"
+
+[dependencies]
+nix = "*"
+libc = "*"
