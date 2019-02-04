@@ -9,7 +9,7 @@ fn main() -> R<()> {
     match result {
         ForkResult::Child => {
             ptrace::traceme()?;
-            execv(&CString::new("./foo")?, &vec![CString::new("./foo")?])?;
+            execv(&CString::new("./foo")?, &[CString::new("./foo")?])?;
         }
         ForkResult::Parent { child } => {
             println!("wait result: {:?}", wait());
