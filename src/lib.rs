@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "ci", deny(warnings))]
+
 use libc::c_long;
 use nix::unistd::Pid;
 use std::ffi::c_void;
