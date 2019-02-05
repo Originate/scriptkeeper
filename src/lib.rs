@@ -5,14 +5,18 @@ use std::ptr::null_mut;
 
 pub type R<A> = Result<A, Box<std::error::Error>>;
 
-pub fn peekuser(child: Pid) -> R<c_long> {
-    let offset = (libc::ORIG_RAX * 8) as *mut c_void;
+pub fn peek_orig_rax(child: Pid) -> R<c_long> {
+    let offset = libc::ORIG_RAX * 8;
+    peek_register(child, offset)
+}
+
+pub fn peek_register(child: Pid, offset: i32) -> R<c_long> {
     #[allow(deprecated)]
     unsafe {
         let register: c_long = libc::ptrace(
             libc::PTRACE_PEEKUSER,
             child,
-            offset,
+            offset as *mut c_void,
             null_mut() as *mut c_void,
         );
         println!(
@@ -27,7 +31,7 @@ pub fn peekuser(child: Pid) -> R<c_long> {
 mod test {
     use super::*;
     use nix::sys::ptrace;
-    use nix::sys::wait::wait;
+    use nix::sys::wait::waitpid;
     use nix::unistd::{execv, fork, ForkResult};
     use std::ffi::CString;
 
@@ -44,8 +48,8 @@ mod test {
                 .unwrap();
             }
             ForkResult::Parent { child } => {
-                println!("wait result: {:?}", wait());
-                assert_eq!(peekuser(child).unwrap(), 59);
+                println!("wait result: {:?}", waitpid(child, None));
+                assert_eq!(peek_orig_rax(child).unwrap(), 59);
                 ptrace::cont(child, None).unwrap();
             }
         }
