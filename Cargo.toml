@@ -4,9 +4,15 @@ version = "0.1.0"
 authors = ["soenkehahn <SoenkeHahn@gmail.com>"]
 edition = "2018"
 
+[lib]
+doctest = false
+
 [[bin]]
 name = "tracing-poc"
 path = "src/main.rs"
+
+[build-dependencies]
+cc = "*"
 
 [dependencies]
 nix = "*"
