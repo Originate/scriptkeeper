@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "ci", deny(warnings))]
+
 use nix::sys::ptrace;
 use nix::sys::wait::wait;
 use nix::unistd::{execv, fork, ForkResult};
