@@ -3,6 +3,6 @@
 use tracing_poc::{first_execve_path, R};
 
 fn main() -> R<()> {
-    println!("executable: {}", first_execve_path("./fooo")?);
+    println!("executable: {}", first_execve_path("./foo")?);
     Ok(())
 }
