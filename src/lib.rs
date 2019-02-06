@@ -8,58 +8,9 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::Pid;
 use nix::unistd::{execv, fork, getpid, ForkResult};
-use std::ffi::{c_void, CString};
-use std::ptr::null_mut;
+use std::ffi::CString;
 
 pub type R<A> = Result<A, Box<std::error::Error>>;
-
-pub fn peek_orig_rax(child: Pid) -> R<c_long> {
-    let offset = libc::ORIG_RAX * 8;
-    peek_register(child, offset)
-}
-
-pub fn peek_register(child: Pid, offset: i32) -> R<c_long> {
-    #[allow(deprecated)]
-    unsafe {
-        let register: c_long = libc::ptrace(
-            libc::PTRACE_PEEKUSER,
-            child,
-            offset as *mut c_void,
-            null_mut() as *mut c_void,
-        );
-        println!("offset: {:?}, register: {}", offset, register);
-        Ok(register)
-    }
-}
-
-#[cfg(test)]
-mod test_peek {
-    use super::*;
-    use nix::sys::ptrace;
-    use nix::sys::wait::waitpid;
-    use nix::unistd::{execv, fork, ForkResult};
-    use std::ffi::CString;
-
-    #[test]
-    fn tracks_syscalls() {
-        let result = fork().unwrap();
-        match result {
-            ForkResult::Child => {
-                ptrace::traceme().unwrap();
-                execv(
-                    &CString::new("./foo").unwrap(),
-                    &vec![CString::new("./foo").unwrap()],
-                )
-                .unwrap();
-            }
-            ForkResult::Parent { child } => {
-                println!("wait result: {:?}", waitpid(child, None));
-                assert_eq!(peek_orig_rax(child).unwrap(), 59);
-                ptrace::cont(child, None).unwrap();
-            }
-        }
-    }
-}
 
 extern "C" {
     fn c_ptrace_peekdata(pid: pid_t, address: c_long) -> c_long;
