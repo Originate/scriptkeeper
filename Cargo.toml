@@ -17,6 +17,7 @@ cc = "*"
 [dependencies]
 nix = "*"
 libc = "*"
+tempdir = "*"
 
 [features]
 ci = []
