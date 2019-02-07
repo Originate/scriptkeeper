@@ -238,11 +238,11 @@ mod test_first_execve_path {
         assert_eq!(first_execve_path("./foo").unwrap(), "./foo");
     }
 
-    // #[test]
-    // fn complains_when_the_file_does_not_exist() {
-    //     assert_eq!(
-    //         format!("{:?}", first_execve_path("./does_not_exist")),
-    //         "ENOENT: file not found: ./does_not_exist"
-    //     );
-    // }
+    #[test]
+    fn complains_when_the_file_does_not_exist() {
+        assert_eq!(
+            format!("{}", first_execve_path("./does_not_exist").unwrap_err()),
+            "ENOENT: No such file or directory"
+        );
+    }
 }
