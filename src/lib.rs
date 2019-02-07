@@ -10,7 +10,9 @@ use nix::unistd::Pid;
 use nix::unistd::{execv, fork, getpid, ForkResult};
 use std::ffi::CString;
 use std::fs::{read_to_string, write};
+use std::os::unix::ffi::OsStrExt;
 use std::panic;
+use std::path::Path;
 use tempdir::TempDir;
 
 pub type R<A> = Result<A, Box<std::error::Error>>;
@@ -191,12 +193,18 @@ mod test_fork_with_child_errors {
     }
 }
 
-pub fn first_execve_path(executable: impl ToString + panic::RefUnwindSafe) -> R<String> {
+pub fn first_execve_path(working_dir: Option<&Path>, executable: &Path) -> R<String> {
     fork_with_child_errors(
         || {
+            match working_dir {
+                None => {}
+                Some(dir) => {
+                    std::env::set_current_dir(dir)?;
+                }
+            }
             ptrace::traceme()?;
             signal::kill(getpid(), Some(Signal::SIGSTOP))?;
-            let path = CString::new(executable.to_string())?;
+            let path = CString::new(executable.as_os_str().as_bytes())?;
             execv(&path, &[path.clone()])?;
             Ok(())
         },
@@ -232,16 +240,45 @@ pub fn first_execve_path(executable: impl ToString + panic::RefUnwindSafe) -> R<
 #[cfg(test)]
 mod test_first_execve_path {
     use super::*;
+    use std::process::Command;
+
+    fn run(command: &str, args: Vec<&str>) -> R<()> {
+        let status = Command::new(command).args(args).status()?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err("command failed")?
+        }
+    }
 
     #[test]
-    fn returns_the_path_of_the_spawned_executable() {
-        assert_eq!(first_execve_path("./foo").unwrap(), "./foo");
+    fn returns_the_path_of_the_spawned_executable() -> R<()> {
+        let tempdir = TempDir::new("test")?;
+        let script_path = tempdir.path().join("foo");
+        write(
+            &script_path,
+            r##"
+                #!/usr/bin/env bash
+
+                echo executing foo script > /dev/null
+            "##
+            .trim_start(),
+        )?;
+        run("chmod", vec!["+x", script_path.to_str().unwrap()])?;
+        assert_eq!(
+            first_execve_path(Some(tempdir.path()), Path::new("./foo"))?,
+            "./foo"
+        );
+        Ok(())
     }
 
     #[test]
     fn complains_when_the_file_does_not_exist() {
         assert_eq!(
-            format!("{}", first_execve_path("./does_not_exist").unwrap_err()),
+            format!(
+                "{}",
+                first_execve_path(None, Path::new("./does_not_exist")).unwrap_err()
+            ),
             "ENOENT: No such file or directory"
         );
     }
