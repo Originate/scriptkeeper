@@ -29,13 +29,34 @@ fn ptrace_peekdata(pid: Pid, address: c_ulonglong) -> [u8; 8] {
     }
 }
 
-fn data_to_string(data: [u8; 8]) -> R<String> {
-    let mut result = vec![];
-    for char in data.iter() {
-        if *char == 0 {
-            break;
+fn ptrace_peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = [u8; 8]> {
+    struct Iter {
+        pid: Pid,
+        address: c_ulonglong,
+    };
+
+    impl Iterator for Iter {
+        type Item = [u8; 8];
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let result = ptrace_peekdata(self.pid, self.address);
+            self.address += 8;
+            Some(result)
         }
-        result.push(*char);
+    }
+
+    Iter { pid, address }
+}
+
+fn data_to_string(data: impl Iterator<Item = [u8; 8]>) -> R<String> {
+    let mut result = vec![];
+    'outer: for word in data {
+        for char in word.iter() {
+            if *char == 0 {
+                break 'outer;
+            }
+            result.push(*char);
+        }
     }
     Ok(String::from_utf8(result)?)
 }
@@ -45,9 +66,29 @@ mod test_data_to_string {
     use super::*;
 
     #[test]
-    fn reads_null_terminated_strings() {
-        let data = [102, 111, 111, 0, 0, 0, 0, 0];
+    fn reads_null_terminated_strings_from_one_word() {
+        let data = vec![[102, 111, 111, 0, 0, 0, 0, 0]].into_iter();
         assert_eq!(data_to_string(data).unwrap(), "foo");
+    }
+
+    #[test]
+    fn works_for_multiple_words() {
+        let data = vec![
+            [97, 98, 99, 100, 101, 102, 103, 104],
+            [105, 0, 0, 0, 0, 0, 0, 0],
+        ]
+        .into_iter();
+        assert_eq!(data_to_string(data).unwrap(), "abcdefghi");
+    }
+
+    #[test]
+    fn works_when_null_is_on_the_edge() {
+        let data = vec![
+            [97, 98, 99, 100, 101, 102, 103, 104],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+        .into_iter();
+        assert_eq!(data_to_string(data).unwrap(), "abcdefgh");
     }
 }
 
@@ -223,8 +264,10 @@ pub fn first_execve_path(working_dir: Option<&Path>, executable: &Path) -> R<Str
                             if registers.orig_rax == libc::SYS_execve as c_ulonglong
                                 && registers.rdi > 0
                             {
-                                let word = ptrace_peekdata(child, registers.rdi);
-                                result = Some(data_to_string(word)?);
+                                result = Some(data_to_string(ptrace_peekdata_iter(
+                                    child,
+                                    registers.rdi,
+                                ))?);
                             }
                         }
                     }
@@ -251,23 +294,38 @@ mod test_first_execve_path {
         }
     }
 
-    #[test]
-    fn returns_the_path_of_the_spawned_executable() -> R<()> {
+    fn write_script(filename: &str) -> R<TempDir> {
         let tempdir = TempDir::new("test")?;
-        let script_path = tempdir.path().join("foo");
+        let path = tempdir.path().join(filename);
         write(
-            &script_path,
+            &path,
             r##"
                 #!/usr/bin/env bash
 
-                echo executing foo script > /dev/null
+                true
             "##
             .trim_start(),
         )?;
-        run("chmod", vec!["+x", script_path.to_str().unwrap()])?;
+        run("chmod", vec!["+x", path.to_str().unwrap()])?;
+        Ok(tempdir)
+    }
+
+    #[test]
+    fn returns_the_path_of_the_spawned_executable() -> R<()> {
+        let tempdir = write_script("foo")?;
         assert_eq!(
             first_execve_path(Some(tempdir.path()), Path::new("./foo"))?,
             "./foo"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn works_for_longer_file_names() -> R<()> {
+        let tempdir = write_script("1234567890")?;
+        assert_eq!(
+            first_execve_path(Some(tempdir.path()), Path::new("./1234567890"))?,
+            "./1234567890"
         );
         Ok(())
     }
