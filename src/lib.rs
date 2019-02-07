@@ -118,9 +118,9 @@ pub fn fork_with_child_errors<A>(
             std::process::exit(0);
         }
         ForkResult::Parent { child } => {
-            let result = parent_action(child)?;
+            let result = parent_action(child);
             match read_to_string(&error_file_path)?.as_str() {
-                "" => Ok(result),
+                "" => result,
                 error => Err(error)?,
             }
         }
@@ -203,7 +203,13 @@ mod test_fork_with_child_errors {
                 execv(&CString::new("/bin/true")?, &vec![])?;
                 Ok(())
             },
-            |_child: Pid| {
+            |child: Pid| {
+                loop {
+                    match waitpid(child, None)? {
+                        WaitStatus::Exited(..) => break,
+                        _ => {}
+                    }
+                }
                 Err("test error")?;
                 Ok(())
             },
@@ -229,6 +235,27 @@ mod test_fork_with_child_errors {
             format!("{}", result.unwrap_err()),
             "child_action: please either exec or fail"
         );
+    }
+
+    #[test]
+    fn child_errors_take_precedence_over_parent_errors() {
+        let result: R<()> = fork_with_child_errors(
+            || {
+                Err("test child error")?;
+                Ok(())
+            },
+            |child: Pid| {
+                loop {
+                    match waitpid(child, None)? {
+                        WaitStatus::Exited(..) => break,
+                        _ => {}
+                    }
+                }
+                Err("test parent error")?;
+                Ok(())
+            },
+        );
+        assert_eq!(format!("{}", result.unwrap_err()), "test child error");
     }
 }
 
