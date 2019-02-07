@@ -10,6 +10,7 @@ use nix::unistd::Pid;
 use nix::unistd::{execv, fork, getpid, ForkResult};
 use std::ffi::CString;
 use std::fs::{read_to_string, write};
+use std::panic;
 use tempdir::TempDir;
 
 pub type R<A> = Result<A, Box<std::error::Error>>;
@@ -49,7 +50,7 @@ mod test_data_to_string {
 }
 
 pub fn fork_with_child_errors<A>(
-    child_action: impl FnOnce() -> R<()>,
+    child_action: impl FnOnce() -> R<()> + panic::UnwindSafe,
     parent_action: impl Fn(Pid) -> R<A>,
 ) -> R<A> {
     let tempdir = TempDir::new("tracing-poc")?;
@@ -59,7 +60,13 @@ pub fn fork_with_child_errors<A>(
         ForkResult::Child => {
             Box::leak(Box::new(tempdir));
             let result: R<()> = (|| -> R<()> {
-                child_action()?;
+                match panic::catch_unwind(child_action) {
+                    Ok(r) => r,
+                    Err(err) => match err.downcast_ref::<&str>() {
+                        None => Err("child panicked with an unsupported type")?,
+                        Some(str) => Err(*str)?,
+                    },
+                }?;
                 Err("child_action: please either exec or fail".to_string())?;
                 Ok(())
             })();
@@ -130,6 +137,25 @@ mod test_fork_with_child_errors {
     }
 
     #[test]
+    fn raises_child_panics_in_the_parent() {
+        let result: R<()> = fork_with_child_errors(
+            || {
+                panic!("test panic");
+            },
+            |child: Pid| {
+                loop {
+                    match waitpid(child, None)? {
+                        WaitStatus::Exited(..) => break,
+                        _ => {}
+                    }
+                }
+                Ok(())
+            },
+        );
+        assert_eq!(format!("{}", result.unwrap_err()), "test panic");
+    }
+
+    #[test]
     fn raises_parent_errors_in_the_parent() {
         let result: R<()> = fork_with_child_errors(
             || {
@@ -165,7 +191,7 @@ mod test_fork_with_child_errors {
     }
 }
 
-pub fn first_execve_path(executable: impl ToString) -> R<String> {
+pub fn first_execve_path(executable: impl ToString + panic::RefUnwindSafe) -> R<String> {
     fork_with_child_errors(
         || {
             ptrace::traceme()?;
