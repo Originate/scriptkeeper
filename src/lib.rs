@@ -5,7 +5,7 @@ use nix::sys::ptrace;
 use nix::sys::ptrace::Options;
 use nix::sys::signal;
 use nix::sys::signal::Signal;
-use nix::sys::wait::{waitpid, WaitStatus};
+use nix::sys::wait::{wait, waitpid, WaitStatus};
 use nix::unistd::Pid;
 use nix::unistd::{execv, fork, getpid, ForkResult};
 use std::ffi::CString;
@@ -277,28 +277,33 @@ pub fn first_execve_path(working_dir: Option<&Path>, executable: &Path) -> R<Str
         |child: Pid| -> R<String> {
             let mut result = None;
             waitpid(child, None)?;
-            ptrace::setoptions(child, Options::PTRACE_O_TRACESYSGOOD)?;
+            ptrace::setoptions(
+                child,
+                Options::PTRACE_O_TRACESYSGOOD | Options::PTRACE_O_TRACEFORK,
+            )?;
             ptrace::syscall(child)?;
 
             loop {
-                match waitpid(child, None)? {
-                    WaitStatus::Exited(..) => break,
-                    WaitStatus::PtraceSyscall(..) => {
-                        if result.is_none() {
-                            let registers = ptrace::getregs(child)?;
-                            if registers.orig_rax == libc::SYS_execve as c_ulonglong
-                                && registers.rdi > 0
-                            {
-                                result = Some(data_to_string(ptrace_peekdata_iter(
-                                    child,
-                                    registers.rdi,
-                                ))?);
-                            }
+                let status = wait()?;
+                if let WaitStatus::PtraceSyscall(pid, ..) = status {
+                    let registers = ptrace::getregs(pid)?;
+                    if registers.orig_rax == libc::SYS_execve as c_ulonglong && registers.rdi > 0 {
+                        let path = data_to_string(ptrace_peekdata_iter(pid, registers.rdi))?;
+                        if result.is_none() && child != pid {
+                            result = Some(path);
                         }
                     }
-                    _ => {}
                 }
-                ptrace::syscall(child)?;
+                match status {
+                    WaitStatus::Exited(pid, ..) => {
+                        if child == pid {
+                            break;
+                        }
+                    }
+                    _ => {
+                        ptrace::syscall(status.pid().unwrap())?;
+                    }
+                }
             }
             Ok(result.ok_or("execve didn't happen")?)
         },
@@ -319,38 +324,57 @@ mod test_first_execve_path {
         }
     }
 
-    fn write_script(filename: &str) -> R<TempDir> {
+    fn write_script(script: &str) -> R<TempDir> {
         let tempdir = TempDir::new("test")?;
-        let path = tempdir.path().join(filename);
-        write(
-            &path,
-            r##"
-                #!/usr/bin/env bash
-
-                true
-            "##
-            .trim_start(),
-        )?;
+        let path = tempdir.path().join("script");
+        write(&path, script.trim_start())?;
         run("chmod", vec!["+x", path.to_str().unwrap()])?;
         Ok(tempdir)
     }
 
     #[test]
-    fn returns_the_path_of_the_spawned_executable() -> R<()> {
-        let tempdir = write_script("foo")?;
+    fn returns_the_path_of_the_first_executable_spawned_by_the_script() -> R<()> {
+        let tempdir = write_script(
+            r##"
+                #!/usr/bin/env bash
+
+                cd /bin
+                ./true
+            "##,
+        )?;
         assert_eq!(
-            first_execve_path(Some(tempdir.path()), Path::new("./foo"))?,
-            "./foo"
+            first_execve_path(Some(tempdir.path()), Path::new("./script"))?,
+            "./true"
         );
         Ok(())
     }
 
     #[test]
     fn works_for_longer_file_names() -> R<()> {
-        let tempdir = write_script("1234567890")?;
+        let inner_tempdir = write_script(
+            r##"
+                #!/usr/bin/env bash
+
+                true
+            "##,
+        )?;
+        let inner_script_path = inner_tempdir
+            .path()
+            .join("script")
+            .to_str()
+            .unwrap()
+            .to_string();
+        let tempdir = write_script(&format!(
+            r##"
+                #!/usr/bin/env bash
+
+                {}
+            "##,
+            inner_script_path
+        ))?;
         assert_eq!(
-            first_execve_path(Some(tempdir.path()), Path::new("./1234567890"))?,
-            "./1234567890"
+            first_execve_path(Some(tempdir.path()), Path::new("./script"))?,
+            inner_script_path
         );
         Ok(())
     }
