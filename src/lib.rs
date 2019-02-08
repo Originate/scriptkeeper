@@ -313,7 +313,23 @@ pub fn first_execve_path(working_dir: Option<&Path>, executable: &Path) -> R<Str
 #[cfg(test)]
 mod test_first_execve_path {
     use super::*;
+    use std::path::PathBuf;
     use std::process::Command;
+
+    struct TempFile {
+        tempdir: TempDir,
+    }
+
+    impl TempFile {
+        fn new() -> R<TempFile> {
+            let tempdir = TempDir::new("test")?;
+            Ok(TempFile { tempdir })
+        }
+
+        fn path(&self) -> PathBuf {
+            self.tempdir.path().join("script")
+        }
+    }
 
     fn run(command: &str, args: Vec<&str>) -> R<()> {
         let status = Command::new(command).args(args).status()?;
@@ -324,17 +340,16 @@ mod test_first_execve_path {
         }
     }
 
-    fn write_script(script: &str) -> R<TempDir> {
-        let tempdir = TempDir::new("test")?;
-        let path = tempdir.path().join("script");
-        write(&path, script.trim_start())?;
-        run("chmod", vec!["+x", path.to_str().unwrap()])?;
-        Ok(tempdir)
+    fn write_temp_script(script: &str) -> R<TempFile> {
+        let tempfile = TempFile::new()?;
+        write(&tempfile.path(), script.trim_start())?;
+        run("chmod", vec!["+x", tempfile.path().to_str().unwrap()])?;
+        Ok(tempfile)
     }
 
     #[test]
     fn returns_the_path_of_the_first_executable_spawned_by_the_script() -> R<()> {
-        let tempdir = write_script(
+        let script = write_temp_script(
             r##"
                 #!/usr/bin/env bash
 
@@ -342,39 +357,30 @@ mod test_first_execve_path {
                 ./true
             "##,
         )?;
-        assert_eq!(
-            first_execve_path(Some(tempdir.path()), Path::new("./script"))?,
-            "./true"
-        );
+        assert_eq!(first_execve_path(None, &script.path())?, "./true");
         Ok(())
     }
 
     #[test]
     fn works_for_longer_file_names() -> R<()> {
-        let inner_tempdir = write_script(
+        let inner_script = write_temp_script(
             r##"
                 #!/usr/bin/env bash
 
                 true
             "##,
         )?;
-        let inner_script_path = inner_tempdir
-            .path()
-            .join("script")
-            .to_str()
-            .unwrap()
-            .to_string();
-        let tempdir = write_script(&format!(
+        let script = write_temp_script(&format!(
             r##"
                 #!/usr/bin/env bash
 
                 {}
             "##,
-            inner_script_path
+            inner_script.path().to_str().unwrap().to_string()
         ))?;
         assert_eq!(
-            first_execve_path(Some(tempdir.path()), Path::new("./script"))?,
-            inner_script_path
+            PathBuf::from(first_execve_path(None, &script.path())?),
+            inner_script.path()
         );
         Ok(())
     }
