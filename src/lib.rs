@@ -257,7 +257,7 @@ mod test_fork_with_child_errors {
     }
 }
 
-pub fn first_execve_path(executable: &Path) -> R<PathBuf> {
+pub fn execve_paths(executable: &Path) -> R<Vec<PathBuf>> {
     fork_with_child_errors(
         || {
             ptrace::traceme()?;
@@ -266,8 +266,8 @@ pub fn first_execve_path(executable: &Path) -> R<PathBuf> {
             execv(&path, &[path.clone()])?;
             Ok(())
         },
-        |child: Pid| -> R<PathBuf> {
-            let mut result = None;
+        |child: Pid| -> R<Vec<PathBuf>> {
+            let mut result = vec![];
             waitpid(child, None)?;
             ptrace::setoptions(
                 child,
@@ -281,11 +281,10 @@ pub fn first_execve_path(executable: &Path) -> R<PathBuf> {
                     let registers = ptrace::getregs(pid)?;
                     if registers.orig_rax == libc::SYS_execve as c_ulonglong
                         && registers.rdi > 0
-                        && result.is_none()
                         && child != pid
                     {
                         let path = data_to_string(ptrace_peekdata_iter(pid, registers.rdi))?;
-                        result = Some(PathBuf::from(path));
+                        result.push(PathBuf::from(path));
                     }
                 }
                 match status {
@@ -299,13 +298,13 @@ pub fn first_execve_path(executable: &Path) -> R<PathBuf> {
                     }
                 }
             }
-            Ok(result.ok_or("execve didn't happen")?)
+            Ok(result)
         },
     )
 }
 
 #[cfg(test)]
-mod test_first_execve_path {
+mod test_execve_paths {
     use super::*;
     use std::fs::copy;
     use std::process::Command;
@@ -351,7 +350,28 @@ mod test_first_execve_path {
                 ./true
             "##,
         )?;
-        assert_eq!(first_execve_path(&script.path())?, PathBuf::from("./true"));
+        assert_eq!(
+            execve_paths(&script.path())?.first().unwrap(),
+            &PathBuf::from("./true")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn returns_multiple_executables_spawned_by_the_script() -> R<()> {
+        let script = write_temp_script(
+            r##"
+                #!/usr/bin/env bash
+
+                cd /bin
+                ./true
+                ./false
+            "##,
+        )?;
+        assert_eq!(
+            execve_paths(&script.path())?,
+            vec![PathBuf::from("./true"), PathBuf::from("./false")]
+        );
         Ok(())
     }
 
@@ -367,7 +387,7 @@ mod test_first_execve_path {
             "##,
             long_command.path().to_str().unwrap()
         ))?;
-        assert_eq!(first_execve_path(&script.path())?, long_command.path());
+        assert_eq!(execve_paths(&script.path())?, vec![long_command.path()]);
         Ok(())
     }
 
@@ -376,7 +396,7 @@ mod test_first_execve_path {
         assert_eq!(
             format!(
                 "{}",
-                first_execve_path(Path::new("./does_not_exist")).unwrap_err()
+                execve_paths(Path::new("./does_not_exist")).unwrap_err()
             ),
             "ENOENT: No such file or directory"
         );
