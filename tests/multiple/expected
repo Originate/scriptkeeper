@@ -1,0 +1,1 @@
+executables: ["/bin/true", "/bin/ls"]
