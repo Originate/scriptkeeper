@@ -1,6 +1,6 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 
-use libc::{c_long, c_ulonglong, pid_t};
+use libc::{c_ulonglong, c_void};
 use nix::sys::ptrace;
 use nix::sys::ptrace::Options;
 use nix::sys::signal;
@@ -17,26 +17,22 @@ use tempdir::TempDir;
 
 pub type R<A> = Result<A, Box<std::error::Error>>;
 
-extern "C" {
-    fn c_ptrace_peekdata(pid: pid_t, address: c_long) -> c_long;
-}
-
-fn ptrace_peekdata(pid: Pid, address: c_ulonglong) -> [u8; 8] {
+fn ptrace_peekdata(pid: Pid, address: c_ulonglong) -> R<[u8; 8]> {
     unsafe {
-        let word = c_ptrace_peekdata(pid.as_raw(), address as c_long);
+        let word = ptrace::read(pid, address as *mut c_void)?;
         let ptr: &[u8; 8] = &*(&word as *const i64 as *const [u8; 8]);
-        *ptr
+        Ok(*ptr)
     }
 }
 
-fn ptrace_peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = [u8; 8]> {
+fn ptrace_peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = R<[u8; 8]>> {
     struct Iter {
         pid: Pid,
         address: c_ulonglong,
     };
 
     impl Iterator for Iter {
-        type Item = [u8; 8];
+        type Item = R<[u8; 8]>;
 
         fn next(&mut self) -> Option<Self::Item> {
             let result = ptrace_peekdata(self.pid, self.address);
@@ -48,10 +44,10 @@ fn ptrace_peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = 
     Iter { pid, address }
 }
 
-fn data_to_string(data: impl Iterator<Item = [u8; 8]>) -> R<String> {
+fn data_to_string(data: impl Iterator<Item = R<[u8; 8]>>) -> R<String> {
     let mut result = vec![];
     'outer: for word in data {
-        for char in word.iter() {
+        for char in word?.iter() {
             if *char == 0 {
                 break 'outer;
             }
@@ -67,7 +63,7 @@ mod test_data_to_string {
 
     #[test]
     fn reads_null_terminated_strings_from_one_word() {
-        let data = vec![[102, 111, 111, 0, 0, 0, 0, 0]].into_iter();
+        let data = vec![[102, 111, 111, 0, 0, 0, 0, 0]].into_iter().map(Ok);
         assert_eq!(data_to_string(data).unwrap(), "foo");
     }
 
@@ -77,7 +73,8 @@ mod test_data_to_string {
             [97, 98, 99, 100, 101, 102, 103, 104],
             [105, 0, 0, 0, 0, 0, 0, 0],
         ]
-        .into_iter();
+        .into_iter()
+        .map(Ok);
         assert_eq!(data_to_string(data).unwrap(), "abcdefghi");
     }
 
@@ -87,7 +84,8 @@ mod test_data_to_string {
             [97, 98, 99, 100, 101, 102, 103, 104],
             [0, 0, 0, 0, 0, 0, 0, 0],
         ]
-        .into_iter();
+        .into_iter()
+        .map(Ok);
         assert_eq!(data_to_string(data).unwrap(), "abcdefgh");
     }
 }

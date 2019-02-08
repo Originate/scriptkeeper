@@ -11,9 +11,6 @@ doctest = false
 name = "tracing-poc"
 path = "src/main.rs"
 
-[build-dependencies]
-cc = "*"
-
 [dependencies]
 nix = "*"
 libc = "*"
