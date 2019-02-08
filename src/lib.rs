@@ -307,6 +307,7 @@ pub fn first_execve_path(executable: &Path) -> R<PathBuf> {
 #[cfg(test)]
 mod test_first_execve_path {
     use super::*;
+    use std::fs::copy;
     use std::process::Command;
 
     struct TempFile {
@@ -320,7 +321,7 @@ mod test_first_execve_path {
         }
 
         fn path(&self) -> PathBuf {
-            self.tempdir.path().join("script")
+            self.tempdir.path().join("file")
         }
     }
 
@@ -356,25 +357,17 @@ mod test_first_execve_path {
 
     #[test]
     fn works_for_longer_file_names() -> R<()> {
-        let inner_script = write_temp_script(
-            r##"
-                #!/usr/bin/env bash
-
-                true
-            "##,
-        )?;
+        let long_command = TempFile::new()?;
+        copy("/bin/true", long_command.path())?;
         let script = write_temp_script(&format!(
             r##"
                 #!/usr/bin/env bash
 
                 {}
             "##,
-            inner_script.path().to_str().unwrap().to_string()
+            long_command.path().to_str().unwrap()
         ))?;
-        assert_eq!(
-            PathBuf::from(first_execve_path(&script.path())?),
-            inner_script.path()
-        );
+        assert_eq!(first_execve_path(&script.path())?, long_command.path());
         Ok(())
     }
 
