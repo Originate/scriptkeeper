@@ -19,7 +19,7 @@ jobs:
             cargo clippy -- --deny clippy::all
       - run:
           name: tests
-          command: cargo test --features=ci
+          command: cargo test --features=ci -- --test-threads=1
       - run:
           name: build
           command: cargo build --features=ci
