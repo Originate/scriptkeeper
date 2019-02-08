@@ -12,7 +12,7 @@ use std::ffi::CString;
 use std::fs::{read_to_string, write};
 use std::os::unix::ffi::OsStrExt;
 use std::panic;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tempdir::TempDir;
 
 pub type R<A> = Result<A, Box<std::error::Error>>;
@@ -130,8 +130,6 @@ pub fn fork_with_child_errors<A>(
 #[cfg(test)]
 mod test_fork_with_child_errors {
     use super::*;
-    use std::fs::{read_to_string, write};
-    use tempdir::TempDir;
 
     #[test]
     fn runs_the_child_action() -> R<()> {
@@ -259,7 +257,7 @@ mod test_fork_with_child_errors {
     }
 }
 
-pub fn first_execve_path(executable: &Path) -> R<String> {
+pub fn first_execve_path(executable: &Path) -> R<PathBuf> {
     fork_with_child_errors(
         || {
             ptrace::traceme()?;
@@ -268,7 +266,7 @@ pub fn first_execve_path(executable: &Path) -> R<String> {
             execv(&path, &[path.clone()])?;
             Ok(())
         },
-        |child: Pid| -> R<String> {
+        |child: Pid| -> R<PathBuf> {
             let mut result = None;
             waitpid(child, None)?;
             ptrace::setoptions(
@@ -284,7 +282,7 @@ pub fn first_execve_path(executable: &Path) -> R<String> {
                     if registers.orig_rax == libc::SYS_execve as c_ulonglong && registers.rdi > 0 {
                         let path = data_to_string(ptrace_peekdata_iter(pid, registers.rdi))?;
                         if result.is_none() && child != pid {
-                            result = Some(path);
+                            result = Some(PathBuf::from(path));
                         }
                     }
                 }
@@ -307,7 +305,6 @@ pub fn first_execve_path(executable: &Path) -> R<String> {
 #[cfg(test)]
 mod test_first_execve_path {
     use super::*;
-    use std::path::PathBuf;
     use std::process::Command;
 
     struct TempFile {
@@ -351,7 +348,7 @@ mod test_first_execve_path {
                 ./true
             "##,
         )?;
-        assert_eq!(first_execve_path(&script.path())?, "./true");
+        assert_eq!(first_execve_path(&script.path())?, PathBuf::from("./true"));
         Ok(())
     }
 

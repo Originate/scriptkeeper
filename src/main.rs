@@ -8,7 +8,7 @@ fn main() -> R<()> {
     let mut args = env::args();
     args.next();
     println!(
-        "executable: {}",
+        "executable: {:?}",
         first_execve_path(Path::new(&args.next().ok_or("supply one argument")?))?
     );
     Ok(())
