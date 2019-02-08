@@ -402,3 +402,7 @@ mod test_execve_paths {
         );
     }
 }
+
+pub fn run(script: &Path) -> R<String> {
+    Ok(format!("executables: {:?}\n", execve_paths(script)?))
+}

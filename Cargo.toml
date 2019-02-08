@@ -16,5 +16,8 @@ nix = "*"
 libc = "*"
 tempdir = "*"
 
+[build-dependencies]
+trim-margin = "*"
+
 [features]
 ci = []

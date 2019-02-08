@@ -1,15 +1,15 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 
-use std::path::Path;
+use path::PathBuf;
 use std::*;
-use tracing_poc::{execve_paths, R};
+use tracing_poc::{run, R};
 
 fn main() -> R<()> {
     let mut args = env::args();
     args.next();
-    println!(
-        "executable: {:?}",
-        execve_paths(Path::new(&args.next().ok_or("supply one argument")?))?
+    print!(
+        "{}",
+        run(&PathBuf::from(args.next().ok_or("supply one argument")?))?
     );
     Ok(())
 }
