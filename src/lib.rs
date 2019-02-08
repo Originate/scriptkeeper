@@ -259,15 +259,9 @@ mod test_fork_with_child_errors {
     }
 }
 
-pub fn first_execve_path(working_dir: Option<&Path>, executable: &Path) -> R<String> {
+pub fn first_execve_path(executable: &Path) -> R<String> {
     fork_with_child_errors(
         || {
-            match working_dir {
-                None => {}
-                Some(dir) => {
-                    std::env::set_current_dir(dir)?;
-                }
-            }
             ptrace::traceme()?;
             signal::kill(getpid(), Some(Signal::SIGSTOP))?;
             let path = CString::new(executable.as_os_str().as_bytes())?;
@@ -357,7 +351,7 @@ mod test_first_execve_path {
                 ./true
             "##,
         )?;
-        assert_eq!(first_execve_path(None, &script.path())?, "./true");
+        assert_eq!(first_execve_path(&script.path())?, "./true");
         Ok(())
     }
 
@@ -379,7 +373,7 @@ mod test_first_execve_path {
             inner_script.path().to_str().unwrap().to_string()
         ))?;
         assert_eq!(
-            PathBuf::from(first_execve_path(None, &script.path())?),
+            PathBuf::from(first_execve_path(&script.path())?),
             inner_script.path()
         );
         Ok(())
@@ -390,7 +384,7 @@ mod test_first_execve_path {
         assert_eq!(
             format!(
                 "{}",
-                first_execve_path(None, Path::new("./does_not_exist")).unwrap_err()
+                first_execve_path(Path::new("./does_not_exist")).unwrap_err()
             ),
             "ENOENT: No such file or directory"
         );
