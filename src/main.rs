@@ -9,7 +9,7 @@ fn main() -> R<()> {
     args.next();
     println!(
         "executable: {}",
-        first_execve_path(None, Path::new(&args.next().ok_or("supply one argument")?))?
+        first_execve_path(Path::new(&args.next().ok_or("supply one argument")?))?
     );
     Ok(())
 }
