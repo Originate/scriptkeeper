@@ -279,11 +279,13 @@ pub fn first_execve_path(executable: &Path) -> R<PathBuf> {
                 let status = wait()?;
                 if let WaitStatus::PtraceSyscall(pid, ..) = status {
                     let registers = ptrace::getregs(pid)?;
-                    if registers.orig_rax == libc::SYS_execve as c_ulonglong && registers.rdi > 0 {
+                    if registers.orig_rax == libc::SYS_execve as c_ulonglong
+                        && registers.rdi > 0
+                        && result.is_none()
+                        && child != pid
+                    {
                         let path = data_to_string(ptrace_peekdata_iter(pid, registers.rdi))?;
-                        if result.is_none() && child != pid {
-                            result = Some(PathBuf::from(path));
-                        }
+                        result = Some(PathBuf::from(path));
                     }
                 }
                 match status {
