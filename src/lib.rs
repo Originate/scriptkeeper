@@ -2,7 +2,7 @@
 
 mod tracee_memory;
 
-use crate::tracee_memory::{data_to_string, ptrace_peekdata_iter};
+use crate::tracee_memory::{data_to_string, ptrace_peekdata_iter, ptrace_pokedata, string_to_data};
 use libc::c_ulonglong;
 use nix::sys::ptrace;
 use nix::sys::ptrace::Options;
@@ -12,7 +12,7 @@ use nix::sys::wait::{wait, waitpid, WaitStatus};
 use nix::unistd::Pid;
 use nix::unistd::{execv, fork, getpid, ForkResult};
 use std::ffi::CString;
-use std::fs::{read_to_string, write};
+use std::fs::{copy, read_to_string, write};
 use std::os::unix::ffi::OsStrExt;
 use std::panic;
 use std::path::{Path, PathBuf};
@@ -195,6 +195,8 @@ fn get_execve_path(status: &WaitStatus, script_pid: Pid) -> R<Option<PathBuf>> {
             && script_pid != *pid
         {
             let path = data_to_string(ptrace_peekdata_iter(*pid, registers.rdi))?;
+            copy("/bin/true", "/tmp/a")?;
+            ptrace_pokedata(*pid, registers.rdi, string_to_data("/tmp/a")?)?;
             Ok(Some(PathBuf::from(path)))
         } else {
             Ok(None)
@@ -340,6 +342,22 @@ mod test_execve_paths {
             ),
             "ENOENT: No such file or directory"
         );
+    }
+
+    #[test]
+    fn does_not_execute_the_commands() -> R<()> {
+        let testfile = TempFile::new()?;
+        let script = write_temp_script(&format!(
+            r##"
+                #!/usr/bin/env bash
+
+                touch {}
+            "##,
+            testfile.path().to_str().ok_or("utf8 error")?
+        ))?;
+        execve_paths(&script.path())?;
+        assert!(!testfile.path().exists(), "touch was executed");
+        Ok(())
     }
 }
 
