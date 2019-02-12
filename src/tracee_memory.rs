@@ -102,7 +102,7 @@ mod test {
 
     mod poking {
         use super::*;
-        use crate::fork_with_child_errors;
+        use crate::syscall_mocking::fork_with_child_errors;
         use nix::sys::ptrace::Options;
         use nix::sys::signal;
         use nix::sys::signal::Signal;
