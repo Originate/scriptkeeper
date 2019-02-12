@@ -187,6 +187,23 @@ mod test_fork_with_child_errors {
     }
 }
 
+fn get_execve_path(status: &WaitStatus, script_pid: Pid) -> R<Option<PathBuf>> {
+    if let WaitStatus::PtraceSyscall(pid, ..) = status {
+        let registers = ptrace::getregs(*pid)?;
+        if registers.orig_rax == libc::SYS_execve as c_ulonglong
+            && registers.rdi > 0
+            && script_pid != *pid
+        {
+            let path = data_to_string(ptrace_peekdata_iter(*pid, registers.rdi))?;
+            Ok(Some(PathBuf::from(path)))
+        } else {
+            Ok(None)
+        }
+    } else {
+        Ok(None)
+    }
+}
+
 pub fn execve_paths(executable: &Path) -> R<Vec<PathBuf>> {
     fork_with_child_errors(
         || {
@@ -196,30 +213,23 @@ pub fn execve_paths(executable: &Path) -> R<Vec<PathBuf>> {
             execv(&path, &[path.clone()])?;
             Ok(())
         },
-        |child: Pid| -> R<Vec<PathBuf>> {
+        |script_pid: Pid| -> R<Vec<PathBuf>> {
             let mut result = vec![];
-            waitpid(child, None)?;
+            waitpid(script_pid, None)?;
             ptrace::setoptions(
-                child,
+                script_pid,
                 Options::PTRACE_O_TRACESYSGOOD | Options::PTRACE_O_TRACEFORK,
             )?;
-            ptrace::syscall(child)?;
+            ptrace::syscall(script_pid)?;
 
             loop {
                 let status = wait()?;
-                if let WaitStatus::PtraceSyscall(pid, ..) = status {
-                    let registers = ptrace::getregs(pid)?;
-                    if registers.orig_rax == libc::SYS_execve as c_ulonglong
-                        && registers.rdi > 0
-                        && child != pid
-                    {
-                        let path = data_to_string(ptrace_peekdata_iter(pid, registers.rdi))?;
-                        result.push(PathBuf::from(path));
-                    }
-                }
+                if let Some(path) = get_execve_path(&status, script_pid)? {
+                    result.push(path)
+                };
                 match status {
                     WaitStatus::Exited(pid, ..) => {
-                        if child == pid {
+                        if script_pid == pid {
                             break;
                         }
                     }
