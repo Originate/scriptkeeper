@@ -5,9 +5,6 @@ mod syscall_mocking;
 mod tracee_memory;
 
 use crate::syscall_mocking::{Syscall, SyscallStop, Tracer};
-use crate::tracee_memory::{
-    data_to_string, ptrace_peek_string_array, ptrace_peekdata_iter, ptrace_pokedata, string_to_data,
-};
 use libc::user_regs_struct;
 use nix::unistd::Pid;
 use std::fs::copy;
@@ -38,12 +35,19 @@ impl SyscallMock {
     ) -> R<()> {
         if let (Syscall::Execve, SyscallStop::Enter) = (&syscall, syscall_stop) {
             if self.tracee_pid != pid {
-                let path = data_to_string(ptrace_peekdata_iter(pid, registers.rdi))?;
+                let path = tracee_memory::data_to_string(tracee_memory::peekdata_iter(
+                    pid,
+                    registers.rdi,
+                ))?;
                 copy("/bin/true", "/tmp/a")?;
-                ptrace_pokedata(pid, registers.rdi, string_to_data("/tmp/a")?)?;
+                tracee_memory::pokedata(
+                    pid,
+                    registers.rdi,
+                    tracee_memory::string_to_data("/tmp/a")?,
+                )?;
                 self.execve_paths.push((
                     PathBuf::from(path.clone()),
-                    ptrace_peek_string_array(pid, registers.rsi)?,
+                    tracee_memory::peek_string_array(pid, registers.rsi)?,
                 ));
             }
         }
