@@ -94,8 +94,9 @@ mod test {
 
         #[test]
         fn reads_null_terminated_strings_from_one_word() {
-            let data = vec![cast_to_word([102, 111, 111, 0, 0, 0, 0, 0])]
+            let data = vec![[102, 111, 111, 0, 0, 0, 0, 0]]
                 .into_iter()
+                .map(cast_to_word)
                 .map(Ok);
             assert_eq!(data_to_string(data).unwrap(), "foo");
         }
@@ -103,10 +104,11 @@ mod test {
         #[test]
         fn works_for_multiple_words() {
             let data = vec![
-                cast_to_word([97, 98, 99, 100, 101, 102, 103, 104]),
-                cast_to_word([105, 0, 0, 0, 0, 0, 0, 0]),
+                [97, 98, 99, 100, 101, 102, 103, 104],
+                [105, 0, 0, 0, 0, 0, 0, 0],
             ]
             .into_iter()
+            .map(cast_to_word)
             .map(Ok);
             assert_eq!(data_to_string(data).unwrap(), "abcdefghi");
         }
@@ -114,10 +116,11 @@ mod test {
         #[test]
         fn works_when_null_is_on_the_edge() {
             let data = vec![
-                cast_to_word([97, 98, 99, 100, 101, 102, 103, 104]),
-                cast_to_word([0, 0, 0, 0, 0, 0, 0, 0]),
+                [97, 98, 99, 100, 101, 102, 103, 104],
+                [0, 0, 0, 0, 0, 0, 0, 0],
             ]
             .into_iter()
+            .map(cast_to_word)
             .map(Ok);
             assert_eq!(data_to_string(data).unwrap(), "abcdefgh");
         }
