@@ -46,7 +46,7 @@ impl SyscallMock {
                     tracee_memory::string_to_data("/tmp/a")?,
                 )?;
                 self.execve_paths.push((
-                    PathBuf::from(path.clone()),
+                    PathBuf::from(path),
                     tracee_memory::peek_string_array(pid, registers.rsi)?,
                 ));
             }
@@ -61,7 +61,10 @@ pub fn emulate_executable(executable: &Path) -> R<Vec<(PathBuf, Vec<String>)>> {
 
 #[cfg(test)]
 mod test_emulate_executable {
+    extern crate map_in_place;
+
     use super::*;
+    use map_in_place::MapVecInPlace;
     use std::fs;
     use std::process::Command;
     use tempdir::TempDir;
@@ -95,20 +98,6 @@ mod test_emulate_executable {
         fs::write(&tempfile.path(), script.trim_start())?;
         run("chmod", vec!["+x", tempfile.path().to_str().unwrap()])?;
         Ok(tempfile)
-    }
-
-    trait Mappable<A, B> {
-        type Output;
-
-        fn map(self, f: fn(A) -> B) -> Self::Output;
-    }
-
-    impl<A, B> Mappable<A, B> for Vec<A> {
-        type Output = Vec<B>;
-
-        fn map(self, f: fn(A) -> B) -> Self::Output {
-            self.into_iter().map(f).collect()
-        }
     }
 
     #[test]

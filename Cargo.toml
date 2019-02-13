@@ -19,6 +19,9 @@ tempdir = "*"
 [build-dependencies]
 trim-margin = "*"
 
+[dev-dependencies]
+map_in_place = "*"
+
 [features]
 dev = []
 ci = []
