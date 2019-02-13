@@ -5,7 +5,9 @@ mod syscall_mocking;
 mod tracee_memory;
 
 use crate::syscall_mocking::{Syscall, SyscallStop, Tracer};
-use crate::tracee_memory::{data_to_string, ptrace_peekdata_iter, ptrace_pokedata, string_to_data};
+use crate::tracee_memory::{
+    data_to_string, ptrace_peek_string_array, ptrace_peekdata_iter, ptrace_pokedata, string_to_data,
+};
 use libc::user_regs_struct;
 use nix::unistd::Pid;
 use std::fs::copy;
@@ -16,7 +18,7 @@ pub type R<A> = Result<A, Box<std::error::Error>>;
 #[derive(Debug)]
 pub struct SyscallMock {
     tracee_pid: Pid,
-    execve_paths: Vec<PathBuf>,
+    execve_paths: Vec<(PathBuf, Vec<String>)>,
 }
 
 impl SyscallMock {
@@ -39,14 +41,17 @@ impl SyscallMock {
                 let path = data_to_string(ptrace_peekdata_iter(pid, registers.rdi))?;
                 copy("/bin/true", "/tmp/a")?;
                 ptrace_pokedata(pid, registers.rdi, string_to_data("/tmp/a")?)?;
-                self.execve_paths.push(PathBuf::from(path.clone()));
+                self.execve_paths.push((
+                    PathBuf::from(path.clone()),
+                    ptrace_peek_string_array(pid, registers.rsi)?,
+                ));
             }
         }
         Ok(())
     }
 }
 
-pub fn emulate_executable(executable: &Path) -> R<Vec<PathBuf>> {
+pub fn emulate_executable(executable: &Path) -> R<Vec<(PathBuf, Vec<String>)>> {
     Ok(Tracer::run_against_mock(executable)?.execve_paths)
 }
 
@@ -88,6 +93,20 @@ mod test_emulate_executable {
         Ok(tempfile)
     }
 
+    trait Mappable<A, B> {
+        type Output;
+
+        fn map(self, f: fn(A) -> B) -> Self::Output;
+    }
+
+    impl<A, B> Mappable<A, B> for Vec<A> {
+        type Output = Vec<B>;
+
+        fn map(self, f: fn(A) -> B) -> Self::Output {
+            self.into_iter().map(f).collect()
+        }
+    }
+
     #[test]
     fn returns_the_path_of_the_first_executable_spawned_by_the_script() -> R<()> {
         let script = write_temp_script(
@@ -99,8 +118,8 @@ mod test_emulate_executable {
             "##,
         )?;
         assert_eq!(
-            emulate_executable(&script.path())?.first().unwrap(),
-            &PathBuf::from("./true")
+            emulate_executable(&script.path())?.first().unwrap().0,
+            PathBuf::from("./true")
         );
         Ok(())
     }
@@ -117,7 +136,7 @@ mod test_emulate_executable {
             "##,
         )?;
         assert_eq!(
-            emulate_executable(&script.path())?,
+            emulate_executable(&script.path())?.map(|x| x.0),
             vec![PathBuf::from("./true"), PathBuf::from("./false")]
         );
         Ok(())
@@ -136,7 +155,7 @@ mod test_emulate_executable {
             long_command.path().to_str().unwrap()
         ))?;
         assert_eq!(
-            emulate_executable(&script.path())?,
+            emulate_executable(&script.path())?.map(|x| x.0),
             vec![long_command.path()]
         );
         Ok(())
