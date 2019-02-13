@@ -1,46 +1,53 @@
+#![cfg_attr(feature = "dev", allow(dead_code, unused_variables))]
 #![cfg_attr(feature = "ci", deny(warnings))]
 
 mod syscall_mocking;
 mod tracee_memory;
 
-use crate::syscall_mocking::run_against_mock;
+use crate::syscall_mocking::{Syscall, SyscallStop, Tracer};
 use crate::tracee_memory::{data_to_string, ptrace_peekdata_iter, ptrace_pokedata, string_to_data};
-use libc::{c_ulonglong, user_regs_struct};
+use libc::user_regs_struct;
 use nix::unistd::Pid;
 use std::fs::copy;
 use std::path::{Path, PathBuf};
 
 pub type R<A> = Result<A, Box<std::error::Error>>;
 
+#[derive(Debug)]
 pub struct SyscallMock {
-    parent_pid: Pid,
+    script_pid: Pid,
     execve_paths: Vec<PathBuf>,
 }
 
 impl SyscallMock {
-    fn new(parent_pid: Pid) -> SyscallMock {
+    fn new(script_pid: Pid) -> SyscallMock {
         SyscallMock {
-            parent_pid,
+            script_pid,
             execve_paths: vec![],
         }
     }
 
-    fn handle_syscall(&mut self, pid: Pid, registers: user_regs_struct) -> R<()> {
-        if registers.orig_rax == libc::SYS_execve as c_ulonglong
-            && registers.rdi > 0
-            && self.parent_pid != pid
-        {
-            let path = data_to_string(ptrace_peekdata_iter(pid, registers.rdi))?;
-            copy("/bin/true", "/tmp/a")?;
-            ptrace_pokedata(pid, registers.rdi, string_to_data("/tmp/a")?)?;
-            self.execve_paths.push(PathBuf::from(path.clone()));
+    fn handle_syscall(
+        &mut self,
+        pid: Pid,
+        syscall_stop: SyscallStop,
+        syscall: Syscall,
+        registers: user_regs_struct,
+    ) -> R<()> {
+        if let (Syscall::Execve, SyscallStop::Enter) = (&syscall, syscall_stop) {
+            if self.script_pid != pid {
+                let path = data_to_string(ptrace_peekdata_iter(pid, registers.rdi))?;
+                copy("/bin/true", "/tmp/a")?;
+                ptrace_pokedata(pid, registers.rdi, string_to_data("/tmp/a")?)?;
+                self.execve_paths.push(PathBuf::from(path.clone()));
+            }
         }
         Ok(())
     }
 }
 
 pub fn execve_paths(executable: &Path) -> R<Vec<PathBuf>> {
-    Ok(run_against_mock(executable)?.execve_paths)
+    Ok(Tracer::run_against_mock(executable)?.execve_paths)
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 use crate::{SyscallMock, R};
+use libc::{c_ulonglong, user_regs_struct};
 use nix::sys::ptrace;
 use nix::sys::ptrace::Options;
 use nix::sys::signal;
@@ -6,6 +7,7 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::{wait, waitpid, WaitStatus};
 use nix::unistd::Pid;
 use nix::unistd::{execv, fork, getpid, ForkResult};
+use std::collections::HashMap;
 use std::ffi::CString;
 use std::fs::{read_to_string, write};
 use std::os::unix::ffi::OsStrExt;
@@ -13,49 +15,192 @@ use std::panic;
 use std::path::Path;
 use tempdir::TempDir;
 
-pub fn run_against_mock(executable: &Path) -> R<SyscallMock> {
-    fork_with_child_errors(
-        || {
-            ptrace::traceme()?;
-            signal::kill(getpid(), Some(Signal::SIGSTOP))?;
-            let path = CString::new(executable.as_os_str().as_bytes())?;
-            execv(&path, &[path.clone()])?;
-            Ok(())
-        },
-        |script_pid: Pid| -> R<SyscallMock> {
-            let mut syscall_mock = SyscallMock::new(script_pid);
-            waitpid(script_pid, None)?;
-            ptrace::setoptions(
-                script_pid,
-                Options::PTRACE_O_TRACESYSGOOD | Options::PTRACE_O_TRACEFORK,
-            )?;
-            ptrace::syscall(script_pid)?;
-            loop {
-                let status = wait()?;
-                syscall_mock.call_mock(status)?;
-                match status {
-                    WaitStatus::Exited(pid, ..) => {
-                        if script_pid == pid {
-                            break;
-                        }
-                    }
-                    _ => {
-                        ptrace::syscall(status.pid().unwrap())?;
-                    }
-                }
-            }
-            Ok(syscall_mock)
-        },
-    )
+#[derive(PartialEq, Debug, Clone, Eq, Hash)]
+pub enum Syscall {
+    Execve,
+    Unknown(c_ulonglong),
 }
 
-impl SyscallMock {
-    fn call_mock(&mut self, status: WaitStatus) -> R<()> {
-        if let WaitStatus::PtraceSyscall(pid, ..) = status {
-            let registers = ptrace::getregs(pid)?;
-            self.handle_syscall(pid, registers)?;
+impl From<user_regs_struct> for Syscall {
+    fn from(registers: user_regs_struct) -> Self {
+        if registers.orig_rax == libc::SYS_execve as c_ulonglong {
+            Syscall::Execve
+        } else {
+            Syscall::Unknown(registers.orig_rax)
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SyscallStop {
+    Enter,
+    Exit,
+}
+
+pub struct Tracer {
+    script_pid: Pid,
+    syscall_mock: SyscallMock,
+    entered_syscalls: HashMap<Pid, Syscall>,
+}
+
+impl Tracer {
+    fn new(script_pid: Pid) -> Self {
+        Tracer {
+            script_pid,
+            syscall_mock: SyscallMock::new(script_pid),
+            entered_syscalls: HashMap::new(),
+        }
+    }
+
+    pub fn run_against_mock(executable: &Path) -> R<SyscallMock> {
+        fork_with_child_errors(
+            || {
+                ptrace::traceme()?;
+                signal::kill(getpid(), Some(Signal::SIGSTOP))?;
+                let path = CString::new(executable.as_os_str().as_bytes())?;
+                execv(&path, &[path.clone()])?;
+                Ok(())
+            },
+            |script_pid: Pid| -> R<SyscallMock> {
+                waitpid(script_pid, None)?;
+                ptrace::setoptions(
+                    script_pid,
+                    Options::PTRACE_O_TRACESYSGOOD | Options::PTRACE_O_TRACEFORK,
+                )?;
+                ptrace::syscall(script_pid)?;
+
+                let mut syscall_mock = Tracer::new(script_pid);
+                syscall_mock.trace()?;
+                Ok(syscall_mock.syscall_mock)
+            },
+        )
+    }
+
+    fn trace(&mut self) -> R<()> {
+        loop {
+            let status = wait()?;
+            self.handle_wait_status(status)?;
+            match status {
+                WaitStatus::Exited(pid, ..) => {
+                    if self.script_pid == pid {
+                        break;
+                    }
+                }
+                _ => {
+                    ptrace::syscall(status.pid().unwrap())?;
+                }
+            }
         }
         Ok(())
+    }
+
+    fn handle_wait_status(&mut self, status: WaitStatus) -> R<()> {
+        if let WaitStatus::PtraceSyscall(pid, ..) = status {
+            let registers = ptrace::getregs(pid)?;
+            let syscall = Syscall::from(registers);
+            let syscall_stop = self.update_syscall_state(pid, &syscall)?;
+            self.syscall_mock
+                .handle_syscall(pid, syscall_stop, syscall, registers)?;
+        }
+        Ok(())
+    }
+
+    fn update_syscall_state(&mut self, pid: Pid, syscall: &Syscall) -> R<SyscallStop> {
+        Ok(match self.entered_syscalls.get(&pid) {
+            None => {
+                self.entered_syscalls.insert(pid, syscall.clone());
+                SyscallStop::Enter
+            }
+            Some(old) => {
+                if old != syscall {
+                    Err("update_syscall_state: exiting with the wrong syscall")?
+                } else {
+                    self.entered_syscalls.remove(&pid);
+                    SyscallStop::Exit
+                }
+            }
+        })
+    }
+}
+
+#[cfg(test)]
+mod test_tracer {
+    use super::*;
+
+    mod syscall_state {
+        use super::*;
+
+        #[test]
+        fn returns_entry_for_new_syscalls() -> R<()> {
+            let mut tracer = Tracer::new(Pid::from_raw(1));
+            assert_eq!(
+                tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?,
+                SyscallStop::Enter
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn tracks_entry_and_exit_for_multiple_syscalls() -> R<()> {
+            let mut tracer = Tracer::new(Pid::from_raw(1));
+            tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?;
+            assert_eq!(
+                tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?,
+                SyscallStop::Exit
+            );
+            assert_eq!(
+                tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?,
+                SyscallStop::Enter
+            );
+            assert_eq!(
+                tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?,
+                SyscallStop::Exit
+            );
+            Ok(())
+        }
+
+        mod when_a_different_process_is_inside_a_system_call {
+            use super::*;
+
+            #[test]
+            fn tracks_entry_and_exit_for_multiple_syscalls() -> R<()> {
+                let mut tracer = Tracer::new(Pid::from_raw(1));
+                tracer.update_syscall_state(Pid::from_raw(42), &Syscall::Unknown(23))?;
+                assert_eq!(
+                    tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?,
+                    SyscallStop::Enter
+                );
+                assert_eq!(
+                    tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?,
+                    SyscallStop::Exit
+                );
+                assert_eq!(
+                    tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?,
+                    SyscallStop::Enter
+                );
+                assert_eq!(
+                    tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?,
+                    SyscallStop::Exit
+                );
+                Ok(())
+            }
+        }
+
+        #[test]
+        fn complains_when_exiting_with_a_different_syscall() -> R<()> {
+            let mut tracer = Tracer::new(Pid::from_raw(1));
+            tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(1))?;
+            assert_eq!(
+                format!(
+                    "{}",
+                    tracer
+                        .update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(2))
+                        .unwrap_err()
+                ),
+                "update_syscall_state: exiting with the wrong syscall"
+            );
+            Ok(())
+        }
     }
 }
 

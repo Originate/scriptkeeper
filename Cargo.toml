@@ -20,4 +20,5 @@ tempdir = "*"
 trim-margin = "*"
 
 [features]
+dev = []
 ci = []
