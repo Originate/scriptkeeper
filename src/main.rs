@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "dev", allow(dead_code, unused_variables))]
+#![cfg_attr(feature = "dev", allow(dead_code, unused_variables, unused_imports))]
 #![cfg_attr(feature = "ci", deny(warnings))]
 
 use path::PathBuf;
