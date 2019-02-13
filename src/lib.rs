@@ -15,14 +15,14 @@ pub type R<A> = Result<A, Box<std::error::Error>>;
 
 #[derive(Debug)]
 pub struct SyscallMock {
-    script_pid: Pid,
+    tracee_pid: Pid,
     execve_paths: Vec<PathBuf>,
 }
 
 impl SyscallMock {
-    fn new(script_pid: Pid) -> SyscallMock {
+    fn new(tracee_pid: Pid) -> SyscallMock {
         SyscallMock {
-            script_pid,
+            tracee_pid,
             execve_paths: vec![],
         }
     }
@@ -35,7 +35,7 @@ impl SyscallMock {
         registers: user_regs_struct,
     ) -> R<()> {
         if let (Syscall::Execve, SyscallStop::Enter) = (&syscall, syscall_stop) {
-            if self.script_pid != pid {
+            if self.tracee_pid != pid {
                 let path = data_to_string(ptrace_peekdata_iter(pid, registers.rdi))?;
                 copy("/bin/true", "/tmp/a")?;
                 ptrace_pokedata(pid, registers.rdi, string_to_data("/tmp/a")?)?;
@@ -46,12 +46,12 @@ impl SyscallMock {
     }
 }
 
-pub fn execve_paths(executable: &Path) -> R<Vec<PathBuf>> {
+pub fn emulate_executable(executable: &Path) -> R<Vec<PathBuf>> {
     Ok(Tracer::run_against_mock(executable)?.execve_paths)
 }
 
 #[cfg(test)]
-mod test_execve_paths {
+mod test_emulate_executable {
     use super::*;
     use std::fs;
     use std::process::Command;
@@ -99,7 +99,7 @@ mod test_execve_paths {
             "##,
         )?;
         assert_eq!(
-            execve_paths(&script.path())?.first().unwrap(),
+            emulate_executable(&script.path())?.first().unwrap(),
             &PathBuf::from("./true")
         );
         Ok(())
@@ -117,7 +117,7 @@ mod test_execve_paths {
             "##,
         )?;
         assert_eq!(
-            execve_paths(&script.path())?,
+            emulate_executable(&script.path())?,
             vec![PathBuf::from("./true"), PathBuf::from("./false")]
         );
         Ok(())
@@ -135,7 +135,10 @@ mod test_execve_paths {
             "##,
             long_command.path().to_str().unwrap()
         ))?;
-        assert_eq!(execve_paths(&script.path())?, vec![long_command.path()]);
+        assert_eq!(
+            emulate_executable(&script.path())?,
+            vec![long_command.path()]
+        );
         Ok(())
     }
 
@@ -144,7 +147,7 @@ mod test_execve_paths {
         assert_eq!(
             format!(
                 "{}",
-                execve_paths(Path::new("./does_not_exist")).unwrap_err()
+                emulate_executable(Path::new("./does_not_exist")).unwrap_err()
             ),
             "ENOENT: No such file or directory"
         );
@@ -161,12 +164,12 @@ mod test_execve_paths {
             "##,
             testfile.path().to_str().ok_or("utf8 error")?
         ))?;
-        execve_paths(&script.path())?;
+        emulate_executable(&script.path())?;
         assert!(!testfile.path().exists(), "touch was executed");
         Ok(())
     }
 }
 
 pub fn run(script: &Path) -> R<String> {
-    Ok(format!("executables: {:?}\n", execve_paths(script)?))
+    Ok(format!("executables: {:?}\n", emulate_executable(script)?))
 }
