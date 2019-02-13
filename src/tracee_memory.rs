@@ -11,14 +11,11 @@ fn cast_to_byte_array(word: c_ulonglong) -> [u8; 8] {
     *ptr
 }
 
-fn ptrace_peekdata(pid: Pid, address: c_ulonglong) -> R<c_ulonglong> {
+fn peekdata(pid: Pid, address: c_ulonglong) -> R<c_ulonglong> {
     Ok(ptrace::read(pid, address as *mut c_void)? as c_ulonglong)
 }
 
-pub fn ptrace_peekdata_iter(
-    pid: Pid,
-    address: c_ulonglong,
-) -> impl Iterator<Item = R<c_ulonglong>> {
+pub fn peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = R<c_ulonglong>> {
     struct Iter {
         pid: Pid,
         address: c_ulonglong,
@@ -28,7 +25,7 @@ pub fn ptrace_peekdata_iter(
         type Item = R<c_ulonglong>;
 
         fn next(&mut self) -> Option<Self::Item> {
-            let result = ptrace_peekdata(self.pid, self.address);
+            let result = peekdata(self.pid, self.address);
             self.address += 8;
             Some(result)
         }
@@ -50,14 +47,14 @@ pub fn data_to_string(data: impl Iterator<Item = R<c_ulonglong>>) -> R<String> {
     Ok(String::from_utf8(result)?)
 }
 
-pub fn ptrace_peek_string_array(pid: Pid, address: c_ulonglong) -> R<Vec<String>> {
+pub fn peek_string_array(pid: Pid, address: c_ulonglong) -> R<Vec<String>> {
     let mut result = vec![];
-    for word in ptrace_peekdata_iter(pid, address).skip(1) {
+    for word in peekdata_iter(pid, address).skip(1) {
         let word = word?;
         if word == 0 {
             break;
         }
-        let arg = data_to_string(ptrace_peekdata_iter(pid, word as c_ulonglong))?;
+        let arg = data_to_string(peekdata_iter(pid, word as c_ulonglong))?;
         result.push(arg);
     }
     Ok(result)
@@ -71,7 +68,7 @@ fn cast_to_word(bytes: [u8; 8]) -> c_ulonglong {
     void_ptr
 }
 
-pub fn ptrace_pokedata(pid: Pid, address: c_ulonglong, words: c_ulonglong) -> R<()> {
+pub fn pokedata(pid: Pid, address: c_ulonglong, words: c_ulonglong) -> R<()> {
     ptrace::write(pid, address as *mut c_void, words as *mut c_void)?;
     Ok(())
 }
@@ -190,9 +187,9 @@ mod test {
                             WaitStatus::PtraceSyscall(..) => {
                                 let registers = ptrace::getregs(child)?;
                                 if registers.orig_rax == libc::SYS_execve as c_ulonglong {
-                                    ptrace_pokedata(child, registers.rdi, string_to_data("/foo")?)?;
+                                    pokedata(child, registers.rdi, string_to_data("/foo")?)?;
                                     let result =
-                                        data_to_string(ptrace_peekdata_iter(child, registers.rdi))?;
+                                        data_to_string(peekdata_iter(child, registers.rdi))?;
                                     assert_eq!(result, "/foo");
                                 }
                             }
