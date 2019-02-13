@@ -38,16 +38,16 @@ pub enum SyscallStop {
 }
 
 pub struct Tracer {
-    script_pid: Pid,
+    tracee_pid: Pid,
     syscall_mock: SyscallMock,
     entered_syscalls: HashMap<Pid, Syscall>,
 }
 
 impl Tracer {
-    fn new(script_pid: Pid) -> Self {
+    fn new(tracee_pid: Pid) -> Self {
         Tracer {
-            script_pid,
-            syscall_mock: SyscallMock::new(script_pid),
+            tracee_pid,
+            syscall_mock: SyscallMock::new(tracee_pid),
             entered_syscalls: HashMap::new(),
         }
     }
@@ -61,15 +61,15 @@ impl Tracer {
                 execv(&path, &[path.clone()])?;
                 Ok(())
             },
-            |script_pid: Pid| -> R<SyscallMock> {
-                waitpid(script_pid, None)?;
+            |tracee_pid: Pid| -> R<SyscallMock> {
+                waitpid(tracee_pid, None)?;
                 ptrace::setoptions(
-                    script_pid,
+                    tracee_pid,
                     Options::PTRACE_O_TRACESYSGOOD | Options::PTRACE_O_TRACEFORK,
                 )?;
-                ptrace::syscall(script_pid)?;
+                ptrace::syscall(tracee_pid)?;
 
-                let mut syscall_mock = Tracer::new(script_pid);
+                let mut syscall_mock = Tracer::new(tracee_pid);
                 syscall_mock.trace()?;
                 Ok(syscall_mock.syscall_mock)
             },
@@ -82,7 +82,7 @@ impl Tracer {
             self.handle_wait_status(status)?;
             match status {
                 WaitStatus::Exited(pid, ..) => {
-                    if self.script_pid == pid {
+                    if self.tracee_pid == pid {
                         break;
                     }
                 }
@@ -127,7 +127,7 @@ impl Tracer {
 mod test_tracer {
     use super::*;
 
-    mod syscall_state {
+    mod update_syscall_state {
         use super::*;
 
         #[test]
