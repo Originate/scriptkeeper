@@ -1,29 +1,31 @@
 use crate::R;
-use libc::{c_long, c_ulonglong, c_void};
+use libc::{c_ulonglong, c_void};
 use nix::sys::ptrace;
 use nix::unistd::Pid;
 
-fn cast_to_byte_array(word: c_long) -> [u8; 8] {
+fn cast_to_byte_array(word: c_ulonglong) -> [u8; 8] {
     let ptr: &[u8; 8];
     unsafe {
-        ptr = &*(&word as *const i64 as *const [u8; 8]);
+        ptr = &*(&word as *const u64 as *const [u8; 8]);
     }
     *ptr
 }
 
-fn ptrace_peekdata(pid: Pid, address: c_ulonglong) -> R<c_long> {
-    let word = ptrace::read(pid, address as *mut c_void)?;
-    Ok(word)
+fn ptrace_peekdata(pid: Pid, address: c_ulonglong) -> R<c_ulonglong> {
+    Ok(ptrace::read(pid, address as *mut c_void)? as c_ulonglong)
 }
 
-pub fn ptrace_peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = R<c_long>> {
+pub fn ptrace_peekdata_iter(
+    pid: Pid,
+    address: c_ulonglong,
+) -> impl Iterator<Item = R<c_ulonglong>> {
     struct Iter {
         pid: Pid,
         address: c_ulonglong,
     };
 
     impl Iterator for Iter {
-        type Item = R<c_long>;
+        type Item = R<c_ulonglong>;
 
         fn next(&mut self) -> Option<Self::Item> {
             let result = ptrace_peekdata(self.pid, self.address);
@@ -35,7 +37,7 @@ pub fn ptrace_peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Ite
     Iter { pid, address }
 }
 
-pub fn data_to_string(data: impl Iterator<Item = R<c_long>>) -> R<String> {
+pub fn data_to_string(data: impl Iterator<Item = R<c_ulonglong>>) -> R<String> {
     let mut result = vec![];
     'outer: for word in data {
         for char in cast_to_byte_array(word?).iter() {
@@ -61,7 +63,7 @@ pub fn ptrace_peek_string_array(pid: Pid, address: c_ulonglong) -> R<Vec<String>
     Ok(result)
 }
 
-fn cast_to_word(bytes: [u8; 8]) -> c_long {
+fn cast_to_word(bytes: [u8; 8]) -> c_ulonglong {
     let void_ptr;
     unsafe {
         void_ptr = std::mem::transmute(bytes);
@@ -69,16 +71,12 @@ fn cast_to_word(bytes: [u8; 8]) -> c_long {
     void_ptr
 }
 
-pub fn ptrace_pokedata(pid: Pid, address: c_ulonglong, bytes: [u8; 8]) -> R<()> {
-    ptrace::write(
-        pid,
-        address as *mut c_void,
-        cast_to_word(bytes) as *mut c_void,
-    )?;
+pub fn ptrace_pokedata(pid: Pid, address: c_ulonglong, words: c_ulonglong) -> R<()> {
+    ptrace::write(pid, address as *mut c_void, words as *mut c_void)?;
     Ok(())
 }
 
-pub fn string_to_data(string: &str) -> R<[u8; 8]> {
+pub fn string_to_data(string: &str) -> R<c_ulonglong> {
     if string.len() >= 8 {
         Err("string_to_data: string too long")?
     } else {
@@ -86,7 +84,7 @@ pub fn string_to_data(string: &str) -> R<[u8; 8]> {
         for (i, char) in string.as_bytes().iter().enumerate() {
             result[i] = *char;
         }
-        Ok(result)
+        Ok(cast_to_word(result))
     }
 }
 
@@ -143,7 +141,10 @@ mod test {
 
             #[test]
             fn converts_strings_to_bytes() -> R<()> {
-                assert_eq!(string_to_data("foo")?, [102, 111, 111, 0, 0, 0, 0, 0]);
+                assert_eq!(
+                    string_to_data("foo")?,
+                    cast_to_word([102, 111, 111, 0, 0, 0, 0, 0])
+                );
                 Ok(())
             }
 
@@ -157,7 +158,10 @@ mod test {
                     format!("{}", string_to_data("12345678").unwrap_err()),
                     "string_to_data: string too long"
                 );
-                assert_eq!(string_to_data("1234567")?, [49, 50, 51, 52, 53, 54, 55, 0]);
+                assert_eq!(
+                    string_to_data("1234567")?,
+                    cast_to_word([49, 50, 51, 52, 53, 54, 55, 0])
+                );
                 Ok(())
             }
         }
