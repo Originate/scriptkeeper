@@ -48,6 +48,19 @@ pub fn data_to_string(data: impl Iterator<Item = R<c_long>>) -> R<String> {
     Ok(String::from_utf8(result)?)
 }
 
+pub fn ptrace_peek_string_array(pid: Pid, address: c_ulonglong) -> R<Vec<String>> {
+    let mut result = vec![];
+    for word in ptrace_peekdata_iter(pid, address).skip(1) {
+        let word = word?;
+        if word == 0 {
+            break;
+        }
+        let arg = data_to_string(ptrace_peekdata_iter(pid, word as c_ulonglong))?;
+        result.push(arg);
+    }
+    Ok(result)
+}
+
 fn cast_to_word(bytes: [u8; 8]) -> c_long {
     let void_ptr;
     unsafe {
