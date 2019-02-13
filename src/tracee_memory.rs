@@ -1,24 +1,29 @@
 use crate::R;
-use libc::{c_ulonglong, c_void};
+use libc::{c_long, c_ulonglong, c_void};
 use nix::sys::ptrace;
 use nix::unistd::Pid;
 
-fn ptrace_peekdata(pid: Pid, address: c_ulonglong) -> R<[u8; 8]> {
+fn cast_to_byte_array(word: c_long) -> [u8; 8] {
+    let ptr: &[u8; 8];
     unsafe {
-        let word = ptrace::read(pid, address as *mut c_void)?;
-        let ptr: &[u8; 8] = &*(&word as *const i64 as *const [u8; 8]);
-        Ok(*ptr)
+        ptr = &*(&word as *const i64 as *const [u8; 8]);
     }
+    *ptr
 }
 
-pub fn ptrace_peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = R<[u8; 8]>> {
+fn ptrace_peekdata(pid: Pid, address: c_ulonglong) -> R<c_long> {
+    let word = ptrace::read(pid, address as *mut c_void)?;
+    Ok(word)
+}
+
+pub fn ptrace_peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = R<c_long>> {
     struct Iter {
         pid: Pid,
         address: c_ulonglong,
     };
 
     impl Iterator for Iter {
-        type Item = R<[u8; 8]>;
+        type Item = R<c_long>;
 
         fn next(&mut self) -> Option<Self::Item> {
             let result = ptrace_peekdata(self.pid, self.address);
@@ -30,10 +35,10 @@ pub fn ptrace_peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Ite
     Iter { pid, address }
 }
 
-pub fn data_to_string(data: impl Iterator<Item = R<[u8; 8]>>) -> R<String> {
+pub fn data_to_string(data: impl Iterator<Item = R<c_long>>) -> R<String> {
     let mut result = vec![];
     'outer: for word in data {
-        for char in word?.iter() {
+        for char in cast_to_byte_array(word?).iter() {
             if *char == 0 {
                 break 'outer;
             }
@@ -43,12 +48,20 @@ pub fn data_to_string(data: impl Iterator<Item = R<[u8; 8]>>) -> R<String> {
     Ok(String::from_utf8(result)?)
 }
 
-pub fn ptrace_pokedata(pid: Pid, address: c_ulonglong, word: [u8; 8]) -> R<()> {
+fn cast_to_word(bytes: [u8; 8]) -> c_long {
     let void_ptr;
     unsafe {
-        void_ptr = std::mem::transmute(word);
+        void_ptr = std::mem::transmute(bytes);
     }
-    ptrace::write(pid, address as *mut c_void, void_ptr)?;
+    void_ptr
+}
+
+pub fn ptrace_pokedata(pid: Pid, address: c_ulonglong, bytes: [u8; 8]) -> R<()> {
+    ptrace::write(
+        pid,
+        address as *mut c_void,
+        cast_to_word(bytes) as *mut c_void,
+    )?;
     Ok(())
 }
 
@@ -73,15 +86,17 @@ mod test {
 
         #[test]
         fn reads_null_terminated_strings_from_one_word() {
-            let data = vec![[102, 111, 111, 0, 0, 0, 0, 0]].into_iter().map(Ok);
+            let data = vec![cast_to_word([102, 111, 111, 0, 0, 0, 0, 0])]
+                .into_iter()
+                .map(Ok);
             assert_eq!(data_to_string(data).unwrap(), "foo");
         }
 
         #[test]
         fn works_for_multiple_words() {
             let data = vec![
-                [97, 98, 99, 100, 101, 102, 103, 104],
-                [105, 0, 0, 0, 0, 0, 0, 0],
+                cast_to_word([97, 98, 99, 100, 101, 102, 103, 104]),
+                cast_to_word([105, 0, 0, 0, 0, 0, 0, 0]),
             ]
             .into_iter()
             .map(Ok);
@@ -91,8 +106,8 @@ mod test {
         #[test]
         fn works_when_null_is_on_the_edge() {
             let data = vec![
-                [97, 98, 99, 100, 101, 102, 103, 104],
-                [0, 0, 0, 0, 0, 0, 0, 0],
+                cast_to_word([97, 98, 99, 100, 101, 102, 103, 104]),
+                cast_to_word([0, 0, 0, 0, 0, 0, 0, 0]),
             ]
             .into_iter()
             .map(Ok);
