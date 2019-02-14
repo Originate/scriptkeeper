@@ -1,9 +1,9 @@
 #![cfg_attr(feature = "dev", allow(dead_code, unused_variables, unused_imports))]
 #![cfg_attr(feature = "ci", deny(warnings))]
 
+use check_protocols::{run, R};
 use path::PathBuf;
 use std::*;
-use tracing_poc::{run, R};
 
 fn main() -> R<()> {
     let mut args = env::args();

@@ -1,6 +1,6 @@
+use check_protocols::{run, R};
 use path::PathBuf;
 use std::*;
-use tracing_poc::{run, R};
 
 #[allow(dead_code)]
 fn run_high_level_test(directory: &str) -> R<()> {
