@@ -1,15 +1,17 @@
+use crate::protocol;
+use crate::protocol::Protocol;
 use crate::syscall_mocking::{Syscall, SyscallStop, Tracer};
 use crate::tracee_memory;
 use crate::R;
 use libc::user_regs_struct;
 use nix::unistd::Pid;
 use std::fs::copy;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Debug)]
 pub struct SyscallMock {
     tracee_pid: Pid,
-    execve_paths: Vec<(PathBuf, Vec<String>)>,
+    execve_paths: Protocol,
 }
 
 impl SyscallMock {
@@ -39,17 +41,17 @@ impl SyscallMock {
                     registers.rdi,
                     tracee_memory::string_to_data("/tmp/a")?,
                 )?;
-                self.execve_paths.push((
-                    PathBuf::from(path),
-                    tracee_memory::peek_string_array(pid, registers.rsi)?,
-                ));
+                self.execve_paths.push(protocol::Step {
+                    command: path,
+                    arguments: tracee_memory::peek_string_array(pid, registers.rsi)?,
+                });
             }
         }
         Ok(())
     }
 }
 
-pub fn emulate_executable(executable: &Path) -> R<Vec<(PathBuf, Vec<String>)>> {
+pub fn emulate_executable(executable: &Path) -> R<Protocol> {
     Ok(Tracer::run_against_mock(executable)?.execve_paths)
 }
 
@@ -58,25 +60,10 @@ mod test_emulate_executable {
     extern crate map_in_place;
 
     use super::*;
+    use crate::utils::testing::TempFile;
     use map_in_place::MapVecInPlace;
     use std::fs;
     use std::process::Command;
-    use tempdir::TempDir;
-
-    struct TempFile {
-        tempdir: TempDir,
-    }
-
-    impl TempFile {
-        fn new() -> R<TempFile> {
-            let tempdir = TempDir::new("test")?;
-            Ok(TempFile { tempdir })
-        }
-
-        fn path(&self) -> PathBuf {
-            self.tempdir.path().join("file")
-        }
-    }
 
     fn run(command: &str, args: Vec<&str>) -> R<()> {
         let status = Command::new(command).args(args).status()?;
@@ -105,8 +92,8 @@ mod test_emulate_executable {
             "##,
         )?;
         assert_eq!(
-            emulate_executable(&script.path())?.first().unwrap().0,
-            PathBuf::from("./true")
+            emulate_executable(&script.path())?.first().unwrap().command,
+            "./true"
         );
         Ok(())
     }
@@ -123,8 +110,8 @@ mod test_emulate_executable {
             "##,
         )?;
         assert_eq!(
-            emulate_executable(&script.path())?.map(|x| x.0),
-            vec![PathBuf::from("./true"), PathBuf::from("./false")]
+            emulate_executable(&script.path())?.map(|x| x.command),
+            vec!["./true", "./false"]
         );
         Ok(())
     }
@@ -142,8 +129,8 @@ mod test_emulate_executable {
             long_command.path().to_str().unwrap()
         ))?;
         assert_eq!(
-            emulate_executable(&script.path())?.map(|x| x.0),
-            vec![long_command.path()]
+            emulate_executable(&script.path())?.map(|x| x.command),
+            vec![long_command.path().to_string_lossy()]
         );
         Ok(())
     }
@@ -168,7 +155,7 @@ mod test_emulate_executable {
 
                 touch {}
             "##,
-            testfile.path().to_str().ok_or("utf8 error")?
+            testfile.path().to_string_lossy()
         ))?;
         emulate_executable(&script.path())?;
         assert!(!testfile.path().exists(), "touch was executed");

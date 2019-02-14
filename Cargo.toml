@@ -15,12 +15,14 @@ path = "src/main.rs"
 nix = "*"
 libc = "*"
 tempdir = "*"
+yaml-rust = "*"
 
 [build-dependencies]
 trim-margin = "*"
 
 [dev-dependencies]
 map_in_place = "*"
+trim-margin = "*"
 
 [features]
 dev = []
