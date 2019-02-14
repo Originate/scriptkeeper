@@ -1,4 +1,5 @@
-use crate::{SyscallMock, R};
+use crate::emulation::SyscallMock;
+use crate::R;
 use libc::{c_ulonglong, user_regs_struct};
 use nix::sys::ptrace;
 use nix::sys::ptrace::Options;
