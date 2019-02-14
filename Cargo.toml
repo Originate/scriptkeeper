@@ -1,5 +1,5 @@
 [package]
-name = "tracing-poc"
+name = "check-protocols"
 version = "0.1.0"
 authors = ["soenkehahn <SoenkeHahn@gmail.com>"]
 edition = "2018"
@@ -8,7 +8,7 @@ edition = "2018"
 doctest = false
 
 [[bin]]
-name = "tracing-poc"
+name = "check-protocols"
 path = "src/main.rs"
 
 [dependencies]
