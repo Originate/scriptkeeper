@@ -32,7 +32,7 @@ impl From<user_regs_struct> for Syscall {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SyscallStop {
     Enter,
     Exit,
