@@ -1,0 +1,8 @@
+[package]
+name = "test-utils"
+version = "0.1.0"
+authors = ["soenkehahn <SoenkeHahn@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+tempdir = "*"

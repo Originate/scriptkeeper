@@ -76,11 +76,11 @@ mod load {
     extern crate trim_margin;
 
     use super::*;
-    use crate::utils::testing::TempFile;
     use crate::R;
     use map_in_place::MapVecInPlace;
     use std::path::PathBuf;
     use std::*;
+    use test_utils::TempFile;
     use trim_margin::MarginTrimmable;
 
     fn test_read_protocol(protocol_string: &str, expected: Vec<(&str, Vec<&str>)>) -> R<()> {
