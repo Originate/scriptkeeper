@@ -16,6 +16,7 @@ nix = "*"
 libc = "*"
 tempdir = "*"
 yaml-rust = "*"
+linked-hash-map = "*"
 
 [build-dependencies]
 trim-margin = "*"

@@ -1,4 +1,5 @@
 use crate::R;
+use linked_hash_map::LinkedHashMap;
 use yaml_rust::Yaml;
 
 pub trait YamlExt {
@@ -18,5 +19,17 @@ impl YamlExt for Yaml {
         Ok(self
             .as_vec()
             .ok_or_else(|| format!("expected: array, got: {:?}", self))?)
+    }
+}
+
+pub trait MapExt {
+    fn expect_field(&self, field: &str) -> R<&Yaml>;
+}
+
+impl MapExt for LinkedHashMap<Yaml, Yaml> {
+    fn expect_field(&self, field: &str) -> R<&Yaml> {
+        Ok(self
+            .get(&Yaml::String(field.to_string()))
+            .ok_or_else(|| format!("expected field '{}', got: {:?}", field, self))?)
     }
 }
