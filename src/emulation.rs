@@ -60,8 +60,8 @@ mod test_emulate_executable {
     extern crate map_in_place;
 
     use super::*;
-    use crate::utils::testing::TempFile;
     use map_in_place::MapVecInPlace;
+    use test_utils::TempFile;
 
     #[test]
     fn returns_the_path_of_the_first_executable_spawned_by_the_script() -> R<()> {
