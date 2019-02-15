@@ -131,6 +131,30 @@ fn failing_later() -> R<()> {
     Ok(())
 }
 
+#[test]
+fn reports_the_first_error() -> R<()> {
+    test_run(
+        r##"
+            |#!/usr/bin/env bash
+            |
+            |/bin/false first
+            |/bin/false second
+        "##,
+        r##"
+            |- /bin/true first
+            |- /bin/true second
+        "##,
+        &trim_margin(
+            "
+                |error:
+                |expected: /bin/true first
+                |received: /bin/false first
+            ",
+        )?,
+    )?;
+    Ok(())
+}
+
 mod mismatch_in_number_of_commands {
     use super::*;
 

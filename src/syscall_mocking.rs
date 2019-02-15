@@ -45,15 +45,18 @@ pub struct Tracer {
 }
 
 impl Tracer {
-    fn new(tracee_pid: Pid) -> Self {
+    fn new(tracee_pid: Pid, syscall_mock: SyscallMock) -> Self {
         Tracer {
             tracee_pid,
-            syscall_mock: SyscallMock::new(tracee_pid),
+            syscall_mock,
             entered_syscalls: HashMap::new(),
         }
     }
 
-    pub fn run_against_mock(executable: &Path) -> R<SyscallMock> {
+    pub fn run_against_mock<F>(executable: &Path, mk_syscall_mock: F) -> R<SyscallMock>
+    where
+        F: FnOnce(Pid) -> SyscallMock,
+    {
         fork_with_child_errors(
             || {
                 ptrace::traceme()?;
@@ -70,7 +73,7 @@ impl Tracer {
                 )?;
                 ptrace::syscall(tracee_pid)?;
 
-                let mut syscall_mock = Tracer::new(tracee_pid);
+                let mut syscall_mock = Tracer::new(tracee_pid, mk_syscall_mock(tracee_pid));
                 syscall_mock.trace()?;
                 Ok(syscall_mock.syscall_mock)
             },
@@ -130,10 +133,16 @@ mod test_tracer {
 
     mod update_syscall_state {
         use super::*;
+        use std::collections::vec_deque::VecDeque;
+
+        fn tracer() -> Tracer {
+            let pid = Pid::from_raw(1);
+            Tracer::new(pid, SyscallMock::new(pid, VecDeque::new()))
+        }
 
         #[test]
         fn returns_entry_for_new_syscalls() -> R<()> {
-            let mut tracer = Tracer::new(Pid::from_raw(1));
+            let mut tracer = tracer();
             assert_eq!(
                 tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?,
                 SyscallStop::Enter
@@ -143,7 +152,7 @@ mod test_tracer {
 
         #[test]
         fn tracks_entry_and_exit_for_multiple_syscalls() -> R<()> {
-            let mut tracer = Tracer::new(Pid::from_raw(1));
+            let mut tracer = tracer();
             tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?;
             assert_eq!(
                 tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?,
@@ -165,7 +174,7 @@ mod test_tracer {
 
             #[test]
             fn tracks_entry_and_exit_for_multiple_syscalls() -> R<()> {
-                let mut tracer = Tracer::new(Pid::from_raw(1));
+                let mut tracer = tracer();
                 tracer.update_syscall_state(Pid::from_raw(42), &Syscall::Unknown(23))?;
                 assert_eq!(
                     tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(23))?,
@@ -189,7 +198,7 @@ mod test_tracer {
 
         #[test]
         fn complains_when_exiting_with_a_different_syscall() -> R<()> {
-            let mut tracer = Tracer::new(Pid::from_raw(1));
+            let mut tracer = tracer();
             tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(1))?;
             assert_eq!(
                 format!(
@@ -207,7 +216,7 @@ mod test_tracer {
 
 pub fn fork_with_child_errors<A>(
     child_action: impl FnOnce() -> R<()> + panic::UnwindSafe,
-    parent_action: impl Fn(Pid) -> R<A>,
+    parent_action: impl FnOnce(Pid) -> R<A>,
 ) -> R<A> {
     let tempdir = TempDir::new("check-protocols")?;
     let error_file_path = tempdir.path().join("error");
