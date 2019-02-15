@@ -11,14 +11,16 @@ use std::path::Path;
 #[derive(Debug)]
 pub struct SyscallMock {
     tracee_pid: Pid,
-    execve_paths: Protocol,
+    expected: Protocol,
+    errors: Option<String>,
 }
 
 impl SyscallMock {
-    pub fn new(tracee_pid: Pid) -> SyscallMock {
+    pub fn new(tracee_pid: Pid, expected: Protocol) -> SyscallMock {
         SyscallMock {
             tracee_pid,
-            execve_paths: vec![],
+            expected,
+            errors: None,
         }
     }
 
@@ -31,72 +33,67 @@ impl SyscallMock {
     ) -> R<()> {
         if let (Syscall::Execve, SyscallStop::Enter) = (&syscall, syscall_stop) {
             if self.tracee_pid != pid {
-                let path = tracee_memory::data_to_string(tracee_memory::peekdata_iter(
+                let command = tracee_memory::data_to_string(tracee_memory::peekdata_iter(
                     pid,
                     registers.rdi,
                 ))?;
+                let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
+                self.handle_step(&protocol::Step { command, arguments });
                 copy("/bin/true", "/tmp/a")?;
                 tracee_memory::pokedata(
                     pid,
                     registers.rdi,
                     tracee_memory::string_to_data("/tmp/a")?,
                 )?;
-                self.execve_paths.push(protocol::Step {
-                    command: path,
-                    arguments: tracee_memory::peek_string_array(pid, registers.rsi)?,
-                });
             }
         }
         Ok(())
     }
+
+    fn handle_step(&mut self, next_received_step: &protocol::Step) {
+        match self.expected.pop_front() {
+            Some(next_expected_step) => match next_expected_step.compare(next_received_step) {
+                Ok(()) => {}
+                Err(error) => self.push_error(error),
+            },
+            None => self.push_error(protocol::Step::format_error(
+                "<protocol end>",
+                &next_received_step.format(),
+            )),
+        }
+    }
+
+    fn handle_end(&mut self) {
+        if let Some(expected_step) = self.expected.pop_front() {
+            self.push_error(protocol::Step::format_error(
+                &expected_step.format(),
+                "<script terminated>",
+            ));
+        }
+    }
+
+    fn push_error(&mut self, error: String) {
+        if self.errors.is_none() {
+            self.errors = Some(error);
+        }
+    }
 }
 
-pub fn emulate_executable(executable: &Path) -> R<Protocol> {
-    Ok(Tracer::run_against_mock(executable)?.execve_paths)
+pub fn run_against_protocol(executable: &Path, expected: Protocol) -> R<Option<String>> {
+    let mut syscall_mock = Tracer::run_against_mock(executable, |tracee_pid| {
+        SyscallMock::new(tracee_pid, expected)
+    })?;
+    syscall_mock.handle_end();
+    Ok(syscall_mock.errors)
 }
 
 #[cfg(test)]
-mod test_emulate_executable {
+mod run_against_protocol {
     extern crate map_in_place;
 
     use super::*;
-    use map_in_place::MapVecInPlace;
+    use std::collections::vec_deque::VecDeque;
     use test_utils::TempFile;
-
-    #[test]
-    fn returns_the_path_of_the_first_executable_spawned_by_the_script() -> R<()> {
-        let script = TempFile::write_temp_script(
-            r##"
-                #!/usr/bin/env bash
-
-                cd /bin
-                ./true
-            "##,
-        )?;
-        assert_eq!(
-            emulate_executable(&script.path())?.first().unwrap().command,
-            "./true"
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn returns_multiple_executables_spawned_by_the_script() -> R<()> {
-        let script = TempFile::write_temp_script(
-            r##"
-                #!/usr/bin/env bash
-
-                cd /bin
-                ./true
-                ./false
-            "##,
-        )?;
-        assert_eq!(
-            emulate_executable(&script.path())?.map(|x| x.command),
-            vec!["./true", "./false"]
-        );
-        Ok(())
-    }
 
     #[test]
     fn works_for_longer_file_names() -> R<()> {
@@ -108,11 +105,18 @@ mod test_emulate_executable {
 
                 {}
             "##,
-            long_command.path().to_str().unwrap()
+            long_command.path().to_string_lossy()
         ))?;
         assert_eq!(
-            emulate_executable(&script.path())?.map(|x| x.command),
-            vec![long_command.path().to_string_lossy()]
+            run_against_protocol(
+                &script.path(),
+                vec![protocol::Step {
+                    command: long_command.path().to_string_lossy().into_owned(),
+                    arguments: vec![]
+                }]
+                .into()
+            )?,
+            None
         );
         Ok(())
     }
@@ -122,7 +126,7 @@ mod test_emulate_executable {
         assert_eq!(
             format!(
                 "{}",
-                emulate_executable(Path::new("./does_not_exist")).unwrap_err()
+                run_against_protocol(Path::new("./does_not_exist"), VecDeque::new()).unwrap_err()
             ),
             "ENOENT: No such file or directory"
         );
@@ -139,7 +143,7 @@ mod test_emulate_executable {
             "##,
             testfile.path().to_string_lossy()
         ))?;
-        emulate_executable(&script.path())?;
+        run_against_protocol(&script.path(), VecDeque::new())?;
         assert!(!testfile.path().exists(), "touch was executed");
         Ok(())
     }

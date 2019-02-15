@@ -5,25 +5,37 @@ mod yaml;
 use crate::protocol::yaml::*;
 use crate::utils::path_to_string;
 use crate::R;
+use std::collections::vec_deque::VecDeque;
 use std::fs;
 use std::path::Path;
 use yaml_rust::{Yaml, YamlLoader};
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Step {
     pub command: String,
     pub arguments: Vec<String>,
 }
 
 impl Step {
-    fn format(&self) -> String {
+    pub fn format(&self) -> String {
         let mut words = vec![self.command.clone()];
         words.append(&mut self.arguments.clone());
         words.join(" ")
     }
+
+    pub fn compare(&self, other: &Step) -> Result<(), String> {
+        if self != other {
+            Err(Step::format_error(&self.format(), &other.format()))?;
+        }
+        Ok(())
+    }
+
+    pub fn format_error(expected: &str, received: &str) -> String {
+        format!("error:\nexpected: {}\nreceived: {}\n", expected, received)
+    }
 }
 
-pub type Protocol = Vec<Step>;
+pub type Protocol = VecDeque<Step>;
 
 fn read_protocol_file(executable_path: &Path) -> R<String> {
     let protocol_file = executable_path.with_extension("protocol.yaml");
@@ -214,43 +226,5 @@ mod load {
             format!("{}", load(&PathBuf::from("./does-not-exist")).unwrap_err()),
             "protocol file not found: ./does-not-exist.protocol.yaml"
         );
-    }
-}
-
-pub struct TestResult {
-    pub expected: Protocol,
-    pub received: Protocol,
-}
-
-impl TestResult {
-    pub fn format(&self) -> String {
-        let mut expected_iter = self.expected.iter();
-        let mut received_iter = self.received.iter();
-        loop {
-            match (expected_iter.next(), received_iter.next()) {
-                (Some(expected_step), Some(received_step)) => {
-                    if received_step != expected_step {
-                        return TestResult::format_error(
-                            &expected_step.format(),
-                            &received_step.format(),
-                        );
-                    }
-                }
-                (Some(expected_step), None) => {
-                    return TestResult::format_error(&expected_step.format(), "<script terminated>");
-                }
-                (None, Some(received_step)) => {
-                    return TestResult::format_error("<protocol end>", &received_step.format());
-                }
-                (None, None) => {
-                    break;
-                }
-            }
-        }
-        "All tests passed.\n".to_string()
-    }
-
-    fn format_error(expected: &str, received: &str) -> String {
-        format!("error:\nexpected: {}\nreceived: {}\n", expected, received)
     }
 }
