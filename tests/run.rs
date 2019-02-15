@@ -130,3 +130,53 @@ fn failing_later() -> R<()> {
     )?;
     Ok(())
 }
+
+mod mismatch_in_number_of_commands {
+    use super::*;
+
+    #[test]
+    fn more_expected_commands() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |
+                |/bin/ls
+            "##,
+            r##"
+                |- /bin/ls
+                |- /bin/true
+            "##,
+            &trim_margin(
+                "
+                    |error:
+                    |expected: /bin/true
+                    |received: <script terminated>
+                ",
+            )?,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn more_received_commands() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |
+                |/bin/ls
+                |/bin/true
+            "##,
+            r##"
+                |- /bin/ls
+            "##,
+            &trim_margin(
+                "
+                    |error:
+                    |expected: <protocol end>
+                    |received: /bin/true
+                ",
+            )?,
+        )?;
+        Ok(())
+    }
+}

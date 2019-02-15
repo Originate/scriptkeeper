@@ -142,15 +142,33 @@ pub struct TestResult {
 
 impl TestResult {
     pub fn format(&self) -> String {
-        for (expected_step, received_step) in self.expected.iter().zip(&self.received) {
-            if received_step != expected_step {
-                return format!(
-                    "error:\nexpected: {}\nreceived: {}\n",
-                    expected_step.format(),
-                    received_step.format(),
-                );
+        let mut expected_iter = self.expected.iter();
+        let mut received_iter = self.received.iter();
+        loop {
+            match (expected_iter.next(), received_iter.next()) {
+                (Some(expected_step), Some(received_step)) => {
+                    if received_step != expected_step {
+                        return TestResult::format_error(
+                            &expected_step.format(),
+                            &received_step.format(),
+                        );
+                    }
+                }
+                (Some(expected_step), None) => {
+                    return TestResult::format_error(&expected_step.format(), "<script terminated>");
+                }
+                (None, Some(received_step)) => {
+                    return TestResult::format_error("<protocol end>", &received_step.format());
+                }
+                (None, None) => {
+                    break;
+                }
             }
         }
         "All tests passed.\n".to_string()
+    }
+
+    fn format_error(expected: &str, received: &str) -> String {
+        format!("error:\nexpected: {}\nreceived: {}\n", expected, received)
     }
 }
