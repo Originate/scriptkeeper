@@ -2,7 +2,7 @@ extern crate yaml_rust;
 
 mod yaml;
 
-use crate::protocol::yaml::YamlExt;
+use crate::protocol::yaml::*;
 use crate::utils::path_to_string;
 use crate::R;
 use std::fs;
@@ -43,20 +43,102 @@ fn read_protocol_file(executable_path: &Path) -> R<String> {
     })
 }
 
-fn parse_yaml(yaml: Yaml) -> R<Protocol> {
-    let mut result = vec![];
-    for step in yaml.expect_array()? {
-        let step: &str = step.expect_str()?;
-        let mut words = step.split_whitespace();
+fn parse_step(yaml: &Yaml) -> R<Step> {
+    fn from_string(string: &str) -> R<Step> {
+        let mut words = string.split_whitespace();
         let (command, arguments) = {
             match words.next() {
-                None => Err(format!("expected: command and arguments, got: {:?}", step))?,
+                None => Err(format!(
+                    "expected: space-separated command and arguments, got: {:?}",
+                    string
+                ))?,
                 Some(command) => (command.to_string(), words.map(String::from).collect()),
             }
         };
-        result.push(Step { command, arguments });
+        Ok(Step { command, arguments })
     }
-    Ok(result)
+    match yaml {
+        Yaml::String(string) => from_string(string),
+        Yaml::Hash(object) => from_string(object.expect_field("command")?.expect_str()?),
+        _ => Err(format!("expected: string or array, got: {:?}", yaml))?,
+    }
+}
+
+#[cfg(test)]
+mod parse_step {
+    use super::*;
+    use yaml_rust::Yaml;
+
+    fn test_parse_step(yaml: &str, expected: &Step) -> R<()> {
+        let yaml = YamlLoader::load_from_str(yaml)?;
+        assert_eq!(yaml.len(), 1);
+        let yaml = &yaml[0];
+        assert_eq!(&parse_step(yaml)?, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_strings_to_steps() -> R<()> {
+        test_parse_step(
+            r#""foo""#,
+            &Step {
+                command: "foo".to_string(),
+                arguments: vec![],
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parses_arguments() -> R<()> {
+        test_parse_step(
+            r#""foo bar""#,
+            &Step {
+                command: "foo".to_string(),
+                arguments: vec!["bar".to_string()],
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parses_objects_to_steps() -> R<()> {
+        test_parse_step(
+            r#"{command: "foo"}"#,
+            &Step {
+                command: "foo".to_string(),
+                arguments: vec![],
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn allows_to_put_arguments_in_the_command_field() -> R<()> {
+        test_parse_step(
+            r#"{command: "foo bar"}"#,
+            &Step {
+                command: "foo".to_string(),
+                arguments: vec!["bar".to_string()],
+            },
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn gives_nice_parse_errors() {
+        assert_eq!(
+            format!("{}", parse_step(&Yaml::Null).unwrap_err()),
+            "expected: string or array, got: Null"
+        )
+    }
+}
+
+fn parse_protocol(yaml: Yaml) -> R<Protocol> {
+    yaml.expect_array()?
+        .iter()
+        .map(parse_step)
+        .collect::<R<Protocol>>()
 }
 
 pub fn load(executable_path: &Path) -> R<Protocol> {
@@ -68,7 +150,7 @@ pub fn load(executable_path: &Path) -> R<Protocol> {
         }
         yaml.into_iter().next().unwrap()
     };
-    parse_yaml(document)
+    parse_protocol(document)
 }
 
 #[cfg(test)]
