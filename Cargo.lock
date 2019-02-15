@@ -121,6 +121,7 @@ name = "test-utils"
 version = "0.1.0"
 dependencies = [
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "trim-margin 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

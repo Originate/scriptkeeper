@@ -2,8 +2,13 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use tempdir::TempDir;
+use trim_margin::MarginTrimmable;
 
 type R<A> = Result<A, Box<std::error::Error>>;
+
+pub fn trim_margin(str: &str) -> R<String> {
+    Ok(str.trim_margin().ok_or("include a margin prefix '|'")?)
+}
 
 fn run(command: &str, args: Vec<&str>) -> R<()> {
     let status = Command::new(command).args(args).status()?;
