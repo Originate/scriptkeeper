@@ -180,3 +180,19 @@ mod mismatch_in_number_of_commands {
         Ok(())
     }
 }
+
+#[test]
+fn works_with_js_scripts() -> R<()> {
+    test_run(
+        r##"
+            |#!/usr/bin/env node
+            |const child_process = require('child_process');
+            |child_process.spawnSync("ls");
+        "##,
+        r##"
+            |- /bin/ls
+        "##,
+        "All things must pass.\n ",
+    )?;
+    Ok(())
+}
