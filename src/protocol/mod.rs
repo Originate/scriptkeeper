@@ -73,25 +73,18 @@ pub fn load(executable_path: &Path) -> R<Protocol> {
 
 #[cfg(test)]
 mod load {
-    extern crate trim_margin;
 
     use super::*;
     use crate::R;
     use map_in_place::MapVecInPlace;
     use std::path::PathBuf;
     use std::*;
-    use test_utils::TempFile;
-    use trim_margin::MarginTrimmable;
+    use test_utils::{trim_margin, TempFile};
 
     fn test_read_protocol(protocol_string: &str, expected: Vec<(&str, Vec<&str>)>) -> R<()> {
         let tempfile = TempFile::new()?;
         let protocol_file = tempfile.path().with_extension("protocol.yaml");
-        fs::write(
-            &protocol_file,
-            protocol_string
-                .trim_margin()
-                .ok_or("include a margin prefix '|'")?,
-        )?;
+        fs::write(&protocol_file, trim_margin(protocol_string)?)?;
         assert_eq!(
             load(&tempfile.path())?,
             expected.map(|(command, args)| Step {

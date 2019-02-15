@@ -22,7 +22,6 @@ trim-margin = "*"
 
 [dev-dependencies]
 map_in_place = "*"
-trim-margin = "*"
 test-utils = { path = "test-utils" }
 
 [features]
