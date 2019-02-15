@@ -62,28 +62,10 @@ mod test_emulate_executable {
     use super::*;
     use crate::utils::testing::TempFile;
     use map_in_place::MapVecInPlace;
-    use std::fs;
-    use std::process::Command;
-
-    fn run(command: &str, args: Vec<&str>) -> R<()> {
-        let status = Command::new(command).args(args).status()?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err("command failed")?
-        }
-    }
-
-    fn write_temp_script(script: &str) -> R<TempFile> {
-        let tempfile = TempFile::new()?;
-        fs::write(&tempfile.path(), script.trim_start())?;
-        run("chmod", vec!["+x", tempfile.path().to_str().unwrap()])?;
-        Ok(tempfile)
-    }
 
     #[test]
     fn returns_the_path_of_the_first_executable_spawned_by_the_script() -> R<()> {
-        let script = write_temp_script(
+        let script = TempFile::write_temp_script(
             r##"
                 #!/usr/bin/env bash
 
@@ -100,7 +82,7 @@ mod test_emulate_executable {
 
     #[test]
     fn returns_multiple_executables_spawned_by_the_script() -> R<()> {
-        let script = write_temp_script(
+        let script = TempFile::write_temp_script(
             r##"
                 #!/usr/bin/env bash
 
@@ -120,7 +102,7 @@ mod test_emulate_executable {
     fn works_for_longer_file_names() -> R<()> {
         let long_command = TempFile::new()?;
         copy("/bin/true", long_command.path())?;
-        let script = write_temp_script(&format!(
+        let script = TempFile::write_temp_script(&format!(
             r##"
                 #!/usr/bin/env bash
 
@@ -149,7 +131,7 @@ mod test_emulate_executable {
     #[test]
     fn does_not_execute_the_commands() -> R<()> {
         let testfile = TempFile::new()?;
-        let script = write_temp_script(&format!(
+        let script = TempFile::write_temp_script(&format!(
             r##"
                 #!/usr/bin/env bash
 
