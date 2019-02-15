@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<error::Error>> {
                     r##"
                         |#[test]
                         |fn high_level_{}() -> R<()> {{
-                        |    run_high_level_test("{}")?;
+                        |    test_run_from_directory("{}")?;
                         |    Ok(())
                         |}}
                     "##,

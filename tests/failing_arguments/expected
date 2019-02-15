@@ -1,3 +1,0 @@
-error:
-expected: /bin/true foo
-received: /bin/true bar

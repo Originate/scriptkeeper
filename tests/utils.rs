@@ -3,7 +3,7 @@ use path::PathBuf;
 use std::*;
 
 #[allow(dead_code)]
-fn run_high_level_test(directory: &str) -> R<()> {
+fn test_run_from_directory(directory: &str) -> R<()> {
     let script_file = PathBuf::from(directory).join("script");
     let output = run(&script_file)
         .map_err(|error| format!("can't execute {:?}: {}", &script_file, error))?;
