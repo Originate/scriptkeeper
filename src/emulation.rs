@@ -38,7 +38,7 @@ impl SyscallMock {
                     registers.rdi,
                 ))?;
                 let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
-                self.handle_step(&protocol::Step { command, arguments });
+                self.handle_step(&command, arguments);
                 copy("/bin/true", "/tmp/a")?;
                 tracee_memory::pokedata(
                     pid,
@@ -50,15 +50,17 @@ impl SyscallMock {
         Ok(())
     }
 
-    fn handle_step(&mut self, next_received_step: &protocol::Step) {
+    fn handle_step(&mut self, received_command: &str, received_arguments: Vec<String>) {
         match self.expected.pop_front() {
-            Some(next_expected_step) => match next_expected_step.compare(next_received_step) {
-                Ok(()) => {}
-                Err(error) => self.push_error(error),
-            },
+            Some(next_expected_step) => {
+                match next_expected_step.compare(received_command, received_arguments) {
+                    Ok(()) => {}
+                    Err(error) => self.push_error(error),
+                }
+            }
             None => self.push_error(protocol::Step::format_error(
                 "<protocol end>",
-                &next_received_step.format(),
+                &protocol::format_command(&received_command, received_arguments),
             )),
         }
     }
@@ -66,7 +68,7 @@ impl SyscallMock {
     fn handle_end(&mut self) {
         if let Some(expected_step) = self.expected.pop_front() {
             self.push_error(protocol::Step::format_error(
-                &expected_step.format(),
+                &protocol::format_command(&expected_step.command, expected_step.arguments),
                 "<script terminated>",
             ));
         }
