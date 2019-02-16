@@ -133,11 +133,15 @@ mod test_tracer {
 
     mod update_syscall_state {
         use super::*;
+        use crate::executable_mock::ExecutableMock;
         use std::collections::vec_deque::VecDeque;
 
         fn tracer() -> Tracer {
             let pid = Pid::from_raw(1);
-            Tracer::new(pid, SyscallMock::new(pid, VecDeque::new()))
+            Tracer::new(
+                pid,
+                SyscallMock::new(ExecutableMock::get_test_mock(), pid, VecDeque::new()),
+            )
         }
 
         #[test]
