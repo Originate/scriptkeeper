@@ -1,4 +1,5 @@
-use check_protocols::{run, R};
+use check_protocols::executable_mock::ExecutableMock;
+use check_protocols::{run_check_protocols, R};
 use std::fs;
 use test_utils::{trim_margin, TempFile};
 
@@ -8,7 +9,7 @@ fn test_run(script_code: &str, protocol: &str, expected_output: &str) -> R<()> {
         script.path().with_extension("protocol.yaml"),
         trim_margin(protocol)?,
     )?;
-    let output = run(&script.path())?;
+    let output = run_check_protocols(ExecutableMock::get_test_mock(), &script.path())?;
     assert_eq!(output, expected_output);
     Ok(())
 }
@@ -218,6 +219,44 @@ fn mock_stdout() -> R<()> {
             |- command: /bin/true
             |  stdout: test_output
             |- /bin/true test_output
+        "##,
+        &trim_margin("All tests passed.")?,
+    )?;
+    Ok(())
+}
+
+#[test]
+fn mock_stdout_with_special_characters() -> R<()> {
+    test_run(
+        r##"
+            |#!/usr/bin/env bash
+            |
+            |output=$(/bin/true)
+            |/bin/true $output
+        "##,
+        r##"
+            |- command: /bin/true
+            |  stdout: 'foo"'
+            |- '/bin/true foo"'
+        "##,
+        &trim_margin("All tests passed.")?,
+    )?;
+    Ok(())
+}
+
+#[test]
+fn mock_stdout_with_newlines() -> R<()> {
+    test_run(
+        r##"
+            |#!/usr/bin/env bash
+            |
+            |output=$(/bin/true)
+            |/bin/true $output
+        "##,
+        r##"
+            |- command: /bin/true
+            |  stdout: 'foo\nbar'
+            |- '/bin/true foo\nbar'
         "##,
         &trim_margin("All tests passed.")?,
     )?;

@@ -1,3 +1,4 @@
+use crate::executable_mock::ExecutableMock;
 use crate::protocol;
 use crate::protocol::Protocol;
 use crate::short_temp_files::ShortTempFile;
@@ -7,11 +8,11 @@ use crate::utils::path_to_string;
 use crate::R;
 use libc::user_regs_struct;
 use nix::unistd::Pid;
-use std::fs;
 use std::path::Path;
 
 #[derive(Debug)]
 pub struct SyscallMock {
+    executable_mock: ExecutableMock,
     tracee_pid: Pid,
     expected: Protocol,
     errors: Option<String>,
@@ -19,8 +20,13 @@ pub struct SyscallMock {
 }
 
 impl SyscallMock {
-    pub fn new(tracee_pid: Pid, expected: Protocol) -> SyscallMock {
+    pub fn new(
+        executable_mock: ExecutableMock,
+        tracee_pid: Pid,
+        expected: Protocol,
+    ) -> SyscallMock {
         SyscallMock {
+            executable_mock,
             tracee_pid,
             expected,
             errors: None,
@@ -42,8 +48,8 @@ impl SyscallMock {
                     registers.rdi,
                 ))?;
                 let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
-                let mock_executable_contents = self.handle_step(&command, arguments)?;
-                let temp_executable = ShortTempFile::new(&mock_executable_contents)?;
+                let mock_child_process_contents = self.handle_step(&command, arguments)?;
+                let temp_executable = ShortTempFile::new(&mock_child_process_contents)?;
                 tracee_memory::pokedata(
                     pid,
                     registers.rdi,
@@ -73,14 +79,10 @@ impl SyscallMock {
                     "<protocol end>",
                     &protocol::format_command(&received_command, received_arguments),
                 ));
-                "".to_string()
+                vec![]
             }
         };
-        if stdout == "" {
-            Ok(fs::read("/bin/true")?)
-        } else {
-            Ok(format!("#!/bin/sh\necho {}\n", &stdout).bytes().collect())
-        }
+        Ok(self.executable_mock.render_mock_executable(stdout))
     }
 
     fn handle_end(&mut self) {
@@ -99,9 +101,13 @@ impl SyscallMock {
     }
 }
 
-pub fn run_against_protocol(executable: &Path, expected: Protocol) -> R<Option<String>> {
+pub fn run_against_protocol(
+    executable_mock: ExecutableMock,
+    executable: &Path,
+    expected: Protocol,
+) -> R<Option<String>> {
     let mut syscall_mock = Tracer::run_against_mock(executable, |tracee_pid| {
-        SyscallMock::new(tracee_pid, expected)
+        SyscallMock::new(executable_mock, tracee_pid, expected)
     })?;
     syscall_mock.handle_end();
     Ok(syscall_mock.errors)
@@ -112,7 +118,9 @@ mod run_against_protocol {
     extern crate map_in_place;
 
     use super::*;
+    use crate::executable_mock::ExecutableMock;
     use std::collections::vec_deque::VecDeque;
+    use std::fs;
     use test_utils::TempFile;
 
     #[test]
@@ -129,11 +137,12 @@ mod run_against_protocol {
         ))?;
         assert_eq!(
             run_against_protocol(
+                ExecutableMock::get_test_mock(),
                 &script.path(),
                 vec![protocol::Step {
                     command: long_command.path().to_string_lossy().into_owned(),
                     arguments: vec![],
-                    stdout: "".to_string()
+                    stdout: vec![]
                 }]
                 .into()
             )?,
@@ -147,7 +156,12 @@ mod run_against_protocol {
         assert_eq!(
             format!(
                 "{}",
-                run_against_protocol(Path::new("./does_not_exist"), VecDeque::new()).unwrap_err()
+                run_against_protocol(
+                    ExecutableMock::get_test_mock(),
+                    Path::new("./does_not_exist"),
+                    VecDeque::new()
+                )
+                .unwrap_err()
             ),
             "ENOENT: No such file or directory"
         );
@@ -164,7 +178,11 @@ mod run_against_protocol {
             "##,
             testfile.path().to_string_lossy()
         ))?;
-        run_against_protocol(&script.path(), VecDeque::new())?;
+        run_against_protocol(
+            ExecutableMock::get_test_mock(),
+            &script.path(),
+            VecDeque::new(),
+        )?;
         assert!(!testfile.path().exists(), "touch was executed");
         Ok(())
     }

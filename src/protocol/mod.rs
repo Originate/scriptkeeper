@@ -20,7 +20,7 @@ pub fn format_command(command: &str, mut arguments: Vec<String>) -> String {
 pub struct Step {
     pub command: String,
     pub arguments: Vec<String>,
-    pub stdout: String,
+    pub stdout: Vec<u8>,
 }
 
 impl Step {
@@ -39,7 +39,7 @@ impl Step {
             Ok(Step {
                 command,
                 arguments,
-                stdout: "".to_string(),
+                stdout: vec![],
             })
         }
         match yaml {
@@ -47,7 +47,7 @@ impl Step {
             Yaml::Hash(object) => {
                 let mut step = from_string(object.expect_field("command")?.expect_str()?)?;
                 if let Some(stdout) = object.get(&Yaml::String("stdout".to_string())) {
-                    step.stdout = stdout.expect_str()?.to_string();
+                    step.stdout = stdout.expect_str()?.bytes().collect();
                 }
                 Ok(step)
             }
@@ -90,7 +90,7 @@ mod parse_step {
             &Step {
                 command: "foo".to_string(),
                 arguments: vec![],
-                stdout: "".to_string(),
+                stdout: vec![],
             },
         )?;
         Ok(())
@@ -103,7 +103,7 @@ mod parse_step {
             &Step {
                 command: "foo".to_string(),
                 arguments: vec!["bar".to_string()],
-                stdout: "".to_string(),
+                stdout: vec![],
             },
         )?;
         Ok(())
@@ -116,7 +116,7 @@ mod parse_step {
             &Step {
                 command: "foo".to_string(),
                 arguments: vec![],
-                stdout: "".to_string(),
+                stdout: vec![],
             },
         )?;
         Ok(())
@@ -129,7 +129,7 @@ mod parse_step {
             &Step {
                 command: "foo".to_string(),
                 arguments: vec!["bar".to_string()],
-                stdout: "".to_string(),
+                stdout: vec![],
             },
         )?;
         Ok(())
@@ -150,7 +150,7 @@ mod parse_step {
             &Step {
                 command: "foo".to_string(),
                 arguments: vec![],
-                stdout: "bar".to_string(),
+                stdout: b"bar".to_vec(),
             },
         )?;
         Ok(())
@@ -215,7 +215,7 @@ mod load {
             expected.map(|(command, args)| Step {
                 command: command.to_string(),
                 arguments: args.map(String::from),
-                stdout: "".to_string()
+                stdout: vec![]
             })
         );
         Ok(())
