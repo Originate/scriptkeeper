@@ -42,8 +42,8 @@ impl SyscallMock {
                     registers.rdi,
                 ))?;
                 let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
-                self.handle_step(&command, arguments);
-                let temp_executable = ShortTempFile::new(&fs::read("/bin/true")?)?;
+                let mock_executable_contents = self.handle_step(&command, arguments)?;
+                let temp_executable = ShortTempFile::new(&mock_executable_contents)?;
                 tracee_memory::pokedata(
                     pid,
                     registers.rdi,
@@ -55,18 +55,31 @@ impl SyscallMock {
         Ok(())
     }
 
-    fn handle_step(&mut self, received_command: &str, received_arguments: Vec<String>) {
-        match self.expected.pop_front() {
+    fn handle_step(
+        &mut self,
+        received_command: &str,
+        received_arguments: Vec<String>,
+    ) -> R<Vec<u8>> {
+        let stdout = match self.expected.pop_front() {
             Some(next_expected_step) => {
                 match next_expected_step.compare(received_command, received_arguments) {
                     Ok(()) => {}
                     Err(error) => self.push_error(error),
                 }
+                next_expected_step.stdout
             }
-            None => self.push_error(protocol::Step::format_error(
-                "<protocol end>",
-                &protocol::format_command(&received_command, received_arguments),
-            )),
+            None => {
+                self.push_error(protocol::Step::format_error(
+                    "<protocol end>",
+                    &protocol::format_command(&received_command, received_arguments),
+                ));
+                "".to_string()
+            }
+        };
+        if stdout == "" {
+            Ok(fs::read("/bin/true")?)
+        } else {
+            Ok(format!("#!/bin/sh\necho {}\n", &stdout).bytes().collect())
         }
     }
 
@@ -119,7 +132,8 @@ mod run_against_protocol {
                 &script.path(),
                 vec![protocol::Step {
                     command: long_command.path().to_string_lossy().into_owned(),
-                    arguments: vec![]
+                    arguments: vec![],
+                    stdout: "".to_string()
                 }]
                 .into()
             )?,

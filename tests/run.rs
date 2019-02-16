@@ -204,3 +204,22 @@ mod mismatch_in_number_of_commands {
         Ok(())
     }
 }
+
+#[test]
+fn mock_stdout() -> R<()> {
+    test_run(
+        r##"
+            |#!/usr/bin/env bash
+            |
+            |output=$(/bin/true)
+            |/bin/true $output
+        "##,
+        r##"
+            |- command: /bin/true
+            |  stdout: test_output
+            |- /bin/true test_output
+        "##,
+        &trim_margin("All tests passed.")?,
+    )?;
+    Ok(())
+}

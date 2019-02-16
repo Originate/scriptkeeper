@@ -20,6 +20,7 @@ pub fn format_command(command: &str, mut arguments: Vec<String>) -> String {
 pub struct Step {
     pub command: String,
     pub arguments: Vec<String>,
+    pub stdout: String,
 }
 
 impl Step {
@@ -35,11 +36,21 @@ impl Step {
                     Some(command) => (command.to_string(), words.map(String::from).collect()),
                 }
             };
-            Ok(Step { command, arguments })
+            Ok(Step {
+                command,
+                arguments,
+                stdout: "".to_string(),
+            })
         }
         match yaml {
             Yaml::String(string) => from_string(string),
-            Yaml::Hash(object) => from_string(object.expect_field("command")?.expect_str()?),
+            Yaml::Hash(object) => {
+                let mut step = from_string(object.expect_field("command")?.expect_str()?)?;
+                if let Some(stdout) = object.get(&Yaml::String("stdout".to_string())) {
+                    step.stdout = stdout.expect_str()?.to_string();
+                }
+                Ok(step)
+            }
             _ => Err(format!("expected: string or array, got: {:?}", yaml))?,
         }
     }
@@ -79,6 +90,7 @@ mod parse_step {
             &Step {
                 command: "foo".to_string(),
                 arguments: vec![],
+                stdout: "".to_string(),
             },
         )?;
         Ok(())
@@ -91,6 +103,7 @@ mod parse_step {
             &Step {
                 command: "foo".to_string(),
                 arguments: vec!["bar".to_string()],
+                stdout: "".to_string(),
             },
         )?;
         Ok(())
@@ -103,6 +116,7 @@ mod parse_step {
             &Step {
                 command: "foo".to_string(),
                 arguments: vec![],
+                stdout: "".to_string(),
             },
         )?;
         Ok(())
@@ -115,6 +129,7 @@ mod parse_step {
             &Step {
                 command: "foo".to_string(),
                 arguments: vec!["bar".to_string()],
+                stdout: "".to_string(),
             },
         )?;
         Ok(())
@@ -126,6 +141,19 @@ mod parse_step {
             format!("{}", Step::parse(&Yaml::Null).unwrap_err()),
             "expected: string or array, got: Null"
         )
+    }
+
+    #[test]
+    fn allows_to_specify_stdout() -> R<()> {
+        test_parse_step(
+            r#"{command: "foo", stdout: "bar"}"#,
+            &Step {
+                command: "foo".to_string(),
+                arguments: vec![],
+                stdout: "bar".to_string(),
+            },
+        )?;
+        Ok(())
     }
 }
 
@@ -186,7 +214,8 @@ mod load {
             load(&tempfile.path())?,
             expected.map(|(command, args)| Step {
                 command: command.to_string(),
-                arguments: args.map(String::from)
+                arguments: args.map(String::from),
+                stdout: "".to_string()
             })
         );
         Ok(())
