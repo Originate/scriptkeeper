@@ -10,6 +10,12 @@ use std::fs;
 use std::path::Path;
 use yaml_rust::{Yaml, YamlLoader};
 
+pub fn format_command(command: &str, mut arguments: Vec<String>) -> String {
+    let mut words = vec![command.to_string()];
+    words.append(&mut arguments);
+    words.join(" ")
+}
+
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Step {
     pub command: String,
@@ -17,21 +23,18 @@ pub struct Step {
 }
 
 impl Step {
-    pub fn format(&self) -> String {
-        let mut words = vec![self.command.clone()];
-        words.append(&mut self.arguments.clone());
-        words.join(" ")
-    }
-
-    pub fn compare(&self, other: &Step) -> Result<(), String> {
-        if self != other {
-            Err(Step::format_error(&self.format(), &other.format()))?;
-        }
-        Ok(())
-    }
-
     pub fn format_error(expected: &str, received: &str) -> String {
         format!("error:\nexpected: {}\nreceived: {}\n", expected, received)
+    }
+
+    pub fn compare(&self, command: &str, arguments: Vec<String>) -> Result<(), String> {
+        if self.command != command || self.arguments != arguments {
+            Err(Step::format_error(
+                &format_command(&self.command, self.arguments.clone()),
+                &format_command(command, arguments),
+            ))?;
+        }
+        Ok(())
     }
 }
 
