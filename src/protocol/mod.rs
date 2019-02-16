@@ -23,6 +23,27 @@ pub struct Step {
 }
 
 impl Step {
+    fn parse(yaml: &Yaml) -> R<Step> {
+        fn from_string(string: &str) -> R<Step> {
+            let mut words = string.split_whitespace();
+            let (command, arguments) = {
+                match words.next() {
+                    None => Err(format!(
+                        "expected: space-separated command and arguments, got: {:?}",
+                        string
+                    ))?,
+                    Some(command) => (command.to_string(), words.map(String::from).collect()),
+                }
+            };
+            Ok(Step { command, arguments })
+        }
+        match yaml {
+            Yaml::String(string) => from_string(string),
+            Yaml::Hash(object) => from_string(object.expect_field("command")?.expect_str()?),
+            _ => Err(format!("expected: string or array, got: {:?}", yaml))?,
+        }
+    }
+
     pub fn format_error(expected: &str, received: &str) -> String {
         format!("error:\nexpected: {}\nreceived: {}\n", expected, received)
     }
@@ -38,47 +59,6 @@ impl Step {
     }
 }
 
-pub type Protocol = VecDeque<Step>;
-
-fn read_protocol_file(executable_path: &Path) -> R<String> {
-    let protocol_file = executable_path.with_extension("protocol.yaml");
-    if !protocol_file.exists() {
-        Err(format!(
-            "protocol file not found: {}",
-            path_to_string(&protocol_file)?
-        ))?;
-    }
-    Ok(match fs::read(&protocol_file) {
-        Err(error) => Err(format!(
-            "error reading {}: {}",
-            path_to_string(&protocol_file)?,
-            error
-        ))?,
-        Ok(file_contents) => String::from_utf8(file_contents)?,
-    })
-}
-
-fn parse_step(yaml: &Yaml) -> R<Step> {
-    fn from_string(string: &str) -> R<Step> {
-        let mut words = string.split_whitespace();
-        let (command, arguments) = {
-            match words.next() {
-                None => Err(format!(
-                    "expected: space-separated command and arguments, got: {:?}",
-                    string
-                ))?,
-                Some(command) => (command.to_string(), words.map(String::from).collect()),
-            }
-        };
-        Ok(Step { command, arguments })
-    }
-    match yaml {
-        Yaml::String(string) => from_string(string),
-        Yaml::Hash(object) => from_string(object.expect_field("command")?.expect_str()?),
-        _ => Err(format!("expected: string or array, got: {:?}", yaml))?,
-    }
-}
-
 #[cfg(test)]
 mod parse_step {
     use super::*;
@@ -88,7 +68,7 @@ mod parse_step {
         let yaml = YamlLoader::load_from_str(yaml)?;
         assert_eq!(yaml.len(), 1);
         let yaml = &yaml[0];
-        assert_eq!(&parse_step(yaml)?, expected);
+        assert_eq!(&Step::parse(yaml)?, expected);
         Ok(())
     }
 
@@ -143,16 +123,36 @@ mod parse_step {
     #[test]
     fn gives_nice_parse_errors() {
         assert_eq!(
-            format!("{}", parse_step(&Yaml::Null).unwrap_err()),
+            format!("{}", Step::parse(&Yaml::Null).unwrap_err()),
             "expected: string or array, got: Null"
         )
     }
 }
 
+pub type Protocol = VecDeque<Step>;
+
+fn read_protocol_file(executable_path: &Path) -> R<String> {
+    let protocol_file = executable_path.with_extension("protocol.yaml");
+    if !protocol_file.exists() {
+        Err(format!(
+            "protocol file not found: {}",
+            path_to_string(&protocol_file)?
+        ))?;
+    }
+    Ok(match fs::read(&protocol_file) {
+        Err(error) => Err(format!(
+            "error reading {}: {}",
+            path_to_string(&protocol_file)?,
+            error
+        ))?,
+        Ok(file_contents) => String::from_utf8(file_contents)?,
+    })
+}
+
 fn parse_protocol(yaml: Yaml) -> R<Protocol> {
     yaml.expect_array()?
         .iter()
-        .map(parse_step)
+        .map(Step::parse)
         .collect::<R<Protocol>>()
 }
 
