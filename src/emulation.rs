@@ -1,11 +1,13 @@
 use crate::protocol;
 use crate::protocol::Protocol;
+use crate::short_temp_files::ShortTempFile;
 use crate::syscall_mocking::{Syscall, SyscallStop, Tracer};
 use crate::tracee_memory;
+use crate::utils::path_to_string;
 use crate::R;
 use libc::user_regs_struct;
 use nix::unistd::Pid;
-use std::fs::copy;
+use std::fs;
 use std::path::Path;
 
 #[derive(Debug)]
@@ -13,6 +15,7 @@ pub struct SyscallMock {
     tracee_pid: Pid,
     expected: Protocol,
     errors: Option<String>,
+    temporary_executables: Vec<ShortTempFile>,
 }
 
 impl SyscallMock {
@@ -21,6 +24,7 @@ impl SyscallMock {
             tracee_pid,
             expected,
             errors: None,
+            temporary_executables: vec![],
         }
     }
 
@@ -39,12 +43,13 @@ impl SyscallMock {
                 ))?;
                 let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
                 self.handle_step(&command, arguments);
-                copy("/bin/true", "/tmp/a")?;
+                let temp_executable = ShortTempFile::new(&fs::read("/bin/true")?)?;
                 tracee_memory::pokedata(
                     pid,
                     registers.rdi,
-                    tracee_memory::string_to_data("/tmp/a")?,
+                    tracee_memory::string_to_data(path_to_string(&temp_executable.path)?)?,
                 )?;
+                self.temporary_executables.push(temp_executable);
             }
         }
         Ok(())
@@ -100,7 +105,7 @@ mod run_against_protocol {
     #[test]
     fn works_for_longer_file_names() -> R<()> {
         let long_command = TempFile::new()?;
-        copy("/bin/true", long_command.path())?;
+        fs::copy("/bin/true", long_command.path())?;
         let script = TempFile::write_temp_script(&format!(
             r##"
                 #!/usr/bin/env bash
