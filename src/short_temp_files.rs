@@ -1,6 +1,6 @@
 use crate::R;
 use std::fs;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
@@ -17,31 +17,45 @@ impl ShortTempFile {
     }
 
     fn new_internal(directory: &Path, contents: &[u8]) -> R<ShortTempFile> {
+        let (path, mut file) = ShortTempFile::create_new_file(directory)?;
+        file.write_all(contents)?;
+        file.flush()?;
+        Ok(ShortTempFile { path })
+    }
+
+    fn create_new_file(directory: &Path) -> R<(PathBuf, File)> {
         let mut result = None;
         for name in Names::new() {
             let path = directory.join(name);
+            match ShortTempFile::try_create_new_file(&path)? {
+                Some(file) => {
+                    result = Some((path, file));
+                    break;
+                }
+                None => {}
+            }
+        }
+        Ok(match result {
+            Some(result) => result,
+            None => Err("short_temp_files: ran out of temporary file names")?,
+        })
+    }
+
+    fn try_create_new_file(path: &Path) -> R<Option<File>> {
+        Ok(
             match OpenOptions::new()
                 .write(true)
                 .create_new(true)
                 .mode(0o777)
                 .open(&path)
             {
-                Ok(mut file) => {
-                    file.write_all(contents)?;
-                    file.flush()?;
-                    result = Some(ShortTempFile { path });
-                    break;
-                }
+                Ok(file) => Some(file),
                 Err(error) => match error.kind() {
-                    io::ErrorKind::AlreadyExists => {}
+                    io::ErrorKind::AlreadyExists => None,
                     _ => Err(error)?,
                 },
-            }
-        }
-        match result {
-            Some(result) => Ok(result),
-            None => Err("short_temp_files: ran out of temporary file names")?,
-        }
+            },
+        )
     }
 }
 
