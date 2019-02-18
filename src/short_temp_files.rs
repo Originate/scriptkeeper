@@ -27,12 +27,9 @@ impl ShortTempFile {
         let mut result = None;
         for name in Names::new() {
             let path = directory.join(name);
-            match ShortTempFile::try_create_new_file(&path)? {
-                Some(file) => {
-                    result = Some((path, file));
-                    break;
-                }
-                None => {}
+            if let Some(file) = ShortTempFile::try_create_new_file(&path)? {
+                result = Some((path, file));
+                break;
             }
         }
         Ok(match result {
