@@ -2,23 +2,40 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 
 mod emulation;
-pub mod executable_mock;
+mod executable_mock;
 mod protocol;
 mod short_temp_files;
 mod syscall_mocking;
 mod tracee_memory;
-pub mod utils;
+mod utils;
 
 use crate::emulation::run_against_protocol;
-use crate::executable_mock::ExecutableMock;
 use std::io::Write;
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub type R<A> = Result<A, Box<std::error::Error>>;
 
+#[derive(Debug)]
+pub struct Context {
+    check_protocols_executable: PathBuf,
+}
+
+impl Context {
+    pub fn new() -> R<Context> {
+        Ok(Context {
+            check_protocols_executable: std::env::current_exe()?,
+        })
+    }
+
+    pub fn new_test_context() -> Context {
+        Context {
+            check_protocols_executable: PathBuf::from("./target/debug/check-protocols"),
+        }
+    }
+}
+
 pub fn run_main(
-    executable_mock: ExecutableMock,
+    context: Context,
     mut args: impl Iterator<Item = String>,
     stdout_handle: &mut impl Write,
 ) -> R<()> {
@@ -27,12 +44,12 @@ pub fn run_main(
         .expect("argv: expected program name as argument 0");
     match args.next().ok_or("supply one argument")?.as_ref() {
         "--executable-mock" => {
-            ExecutableMock::run(vec![this_executable].into_iter().chain(args), stdout_handle)?
+            executable_mock::run(vec![this_executable].into_iter().chain(args), stdout_handle)?
         }
         argument => write!(
             stdout_handle,
             "{}",
-            run_check_protocols(executable_mock, &PathBuf::from(argument))?
+            run_check_protocols(context, &PathBuf::from(argument))?
         )?,
     }
     Ok(())
@@ -41,7 +58,6 @@ pub fn run_main(
 #[cfg(test)]
 mod run_main {
     use super::*;
-    use crate::executable_mock::ExecutableMock;
     use std::io::Cursor;
     use test_utils::TempFile;
 
@@ -55,15 +71,15 @@ mod run_main {
         ]
         .into_iter();
         let mut cursor: Cursor<Vec<u8>> = Cursor::new(vec![]);
-        run_main(ExecutableMock::get_test_mock(), args, &mut cursor)?;
+        run_main(Context::new_test_context(), args, &mut cursor)?;
         assert_eq!(String::from_utf8(cursor.into_inner())?, "second line\n");
         Ok(())
     }
 }
 
-pub fn run_check_protocols(executable_mock: ExecutableMock, script: &Path) -> R<String> {
+pub fn run_check_protocols(context: Context, script: &Path) -> R<String> {
     let expected = protocol::load(script)?;
-    let errors = run_against_protocol(executable_mock, script, expected)?;
+    let errors = run_against_protocol(context, script, expected)?;
     Ok(match errors {
         None => "All tests passed.\n".to_string(),
         Some(error) => error,
