@@ -25,7 +25,7 @@ impl ExecutableMock {
 
     pub fn render_mock_executable(&self, mut stdout: Vec<u8>) -> Vec<u8> {
         let mut result = b"#!".to_vec();
-        result.append(&mut self.path.clone().as_os_str().as_bytes().to_vec());
+        result.append(&mut self.path.as_os_str().as_bytes().to_vec());
         result.append(&mut b" --executable-mock\n".to_vec());
         result.append(&mut stdout);
         result

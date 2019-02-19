@@ -25,21 +25,15 @@ pub fn run_main(
     let this_executable = args
         .next()
         .expect("argv: expected program name as argument 0");
-    match args.next() {
-        Some(argument) => {
-            if argument == "--executable-mock" {
-                ExecutableMock::run(vec![this_executable].into_iter().chain(args), stdout_handle)?;
-            } else {
-                write!(
-                    stdout_handle,
-                    "{}",
-                    run_check_protocols(executable_mock, &PathBuf::from(argument))?
-                )?;
-            }
+    match args.next().ok_or("supply one argument")?.as_ref() {
+        "--executable-mock" => {
+            ExecutableMock::run(vec![this_executable].into_iter().chain(args), stdout_handle)?
         }
-        None => {
-            Err("supply one argument")?;
-        }
+        argument => write!(
+            stdout_handle,
+            "{}",
+            run_check_protocols(executable_mock, &PathBuf::from(argument))?
+        )?,
     }
     Ok(())
 }
