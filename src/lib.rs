@@ -34,22 +34,39 @@ impl Context {
     }
 }
 
+enum Args {
+    ExecutableMock { executable_mock_path: PathBuf },
+    CheckProtocols { script_path: PathBuf },
+}
+
+fn parse_args(mut args: impl Iterator<Item = String>) -> R<Args> {
+    args.next()
+        .ok_or("argv: expected program name as argument 0")?;
+    Ok(match args.next().ok_or("supply one argument")?.as_ref() {
+        "--executable-mock" => Args::ExecutableMock {
+            executable_mock_path: PathBuf::from(
+                args.next().expect("expected executable file as argument 1"),
+            ),
+        },
+        argument => Args::CheckProtocols {
+            script_path: PathBuf::from(argument),
+        },
+    })
+}
+
 pub fn run_main(
     context: Context,
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     stdout_handle: &mut impl Write,
 ) -> R<()> {
-    let this_executable = args
-        .next()
-        .expect("argv: expected program name as argument 0");
-    match args.next().ok_or("supply one argument")?.as_ref() {
-        "--executable-mock" => {
-            executable_mock::run(vec![this_executable].into_iter().chain(args), stdout_handle)?
-        }
-        argument => write!(
+    match parse_args(args)? {
+        Args::ExecutableMock {
+            executable_mock_path,
+        } => executable_mock::run(&executable_mock_path, stdout_handle)?,
+        Args::CheckProtocols { script_path } => write!(
             stdout_handle,
             "{}",
-            run_check_protocols(context, &PathBuf::from(argument))?
+            run_check_protocols(context, &script_path)?
         )?,
     }
     Ok(())

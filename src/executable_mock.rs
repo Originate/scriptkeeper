@@ -2,6 +2,7 @@ use crate::{Context, R};
 use std::fs;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
 
 pub fn render_mock_executable(context: &Context, mut stdout: Vec<u8>) -> Vec<u8> {
     let mut result = b"#!".to_vec();
@@ -17,11 +18,8 @@ pub fn render_mock_executable(context: &Context, mut stdout: Vec<u8>) -> Vec<u8>
     result
 }
 
-pub fn run(mut args: impl Iterator<Item = String>, stdout_handle: &mut impl Write) -> R<()> {
-    args.next()
-        .expect("argv: expected program name as argument 0");
-    let file = args.next().expect("expected executable file as argument 1");
-    let output = skip_shabang_line(fs::read(&file)?);
+pub fn run(executable_mock_path: &Path, stdout_handle: &mut impl Write) -> R<()> {
+    let output = skip_shabang_line(fs::read(executable_mock_path)?);
     stdout_handle.write_all(&output)?;
     Ok(())
 }
@@ -51,13 +49,8 @@ mod test {
         #[test]
         fn outputs_the_argument_file_while_skipping_the_first_line() -> R<()> {
             let file = TempFile::write_temp_script("first line\nsecond line\n")?;
-            let args = vec![
-                "executable-mock".to_string(),
-                file.path().to_string_lossy().into_owned(),
-            ]
-            .into_iter();
             let mut cursor: Cursor<Vec<u8>> = Cursor::new(vec![]);
-            run(args, &mut cursor)?;
+            run(&file.path(), &mut cursor)?;
             assert_eq!(String::from_utf8(cursor.into_inner())?, "second line\n");
             Ok(())
         }
