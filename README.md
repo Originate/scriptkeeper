@@ -35,3 +35,12 @@ Now running `check-protocols ./foo.sh` will tell you whether your script
 `./foo.sh` conforms to your protocol `./foo.sh.protocol.yaml`.
 
 There's more example test cases in the [tests](./tests) folder.
+
+## running inside `docker`
+
+You can run the tool inside docker, for example like this:
+
+``` bash
+docker build -t check-protocols .
+docker run --rm -it -v $(pwd)/test_script:/root/test_script -v $(pwd)/test_script.protocol.yaml:/root/test_script.protocol.yaml --cap-add=SYS_PTRACE check-protocols test_script
+```
