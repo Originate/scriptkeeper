@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct ShortTempFile {
-    pub path: PathBuf,
+    path: PathBuf,
 }
 
 impl ShortTempFile {
@@ -53,6 +53,10 @@ impl ShortTempFile {
                 },
             },
         )
+    }
+
+    pub fn path(&self) -> PathBuf {
+        self.path.clone()
     }
 }
 
