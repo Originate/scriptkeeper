@@ -4,7 +4,7 @@ use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
-pub fn render_mock_executable(context: &Context, mut stdout: Vec<u8>) -> Vec<u8> {
+pub fn create_mock_executable(context: &Context, mut stdout: Vec<u8>) -> Vec<u8> {
     let mut result = b"#!".to_vec();
     result.append(
         &mut context
@@ -59,7 +59,7 @@ mod test {
     #[test]
     fn renders_an_executable_that_outputs_the_given_stdout() -> R<()> {
         let mock_executable = TempFile::write_temp_script(&String::from_utf8(
-            render_mock_executable(&Context::new_test_context(), b"foo".to_vec()),
+            create_mock_executable(&Context::new_test_context(), b"foo".to_vec()),
         )?)?;
         let output = Command::new(mock_executable.path()).output()?;
         assert_eq!(output.stdout, b"foo");

@@ -8,7 +8,7 @@ use crate::utils::path_to_string;
 use crate::{Context, R};
 use libc::user_regs_struct;
 use nix::unistd::Pid;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct SyscallMock {
@@ -44,14 +44,12 @@ impl SyscallMock {
                     registers.rdi,
                 ))?;
                 let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
-                let mock_child_process_contents = self.handle_step(&command, arguments)?;
-                let temp_executable = ShortTempFile::new(&mock_child_process_contents)?;
+                let mock_executable_path = self.handle_step(&command, arguments)?;
                 tracee_memory::pokedata(
                     pid,
                     registers.rdi,
-                    tracee_memory::string_to_data(path_to_string(&temp_executable.path)?)?,
+                    tracee_memory::string_to_data(path_to_string(&mock_executable_path)?)?,
                 )?;
-                self.temporary_executables.push(temp_executable);
             }
         }
         Ok(())
@@ -61,7 +59,7 @@ impl SyscallMock {
         &mut self,
         received_command: &str,
         received_arguments: Vec<String>,
-    ) -> R<Vec<u8>> {
+    ) -> R<PathBuf> {
         let stdout = match self.expected.pop_front() {
             Some(next_expected_step) => {
                 match next_expected_step.compare(received_command, received_arguments) {
@@ -78,10 +76,12 @@ impl SyscallMock {
                 vec![]
             }
         };
-        Ok(executable_mock::render_mock_executable(
-            &self.context,
-            stdout,
-        ))
+        let mock_executable_contents =
+            executable_mock::create_mock_executable(&self.context, stdout);
+        let temp_executable = ShortTempFile::new(&mock_executable_contents)?;
+        let path = temp_executable.path();
+        self.temporary_executables.push(temp_executable);
+        Ok(path)
     }
 
     fn handle_end(&mut self) {
