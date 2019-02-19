@@ -1,5 +1,4 @@
-use check_protocols::executable_mock::ExecutableMock;
-use check_protocols::{run_check_protocols, R};
+use check_protocols::{run_check_protocols, Context, R};
 use std::fs;
 use test_utils::{trim_margin, TempFile};
 
@@ -9,7 +8,7 @@ fn test_run(script_code: &str, protocol: &str, expected_output: &str) -> R<()> {
         script.path().with_extension("protocol.yaml"),
         trim_margin(protocol)?,
     )?;
-    let output = run_check_protocols(ExecutableMock::get_test_mock(), &script.path())?;
+    let output = run_check_protocols(Context::new_test_context(), &script.path())?;
     assert_eq!(output, expected_output);
     Ok(())
 }
