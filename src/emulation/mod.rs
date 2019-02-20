@@ -1,4 +1,5 @@
-use crate::executable_mock;
+pub mod executable_mock;
+
 use crate::protocol;
 use crate::protocol::Protocol;
 use crate::syscall_mocking::{Syscall, SyscallStop, Tracer};

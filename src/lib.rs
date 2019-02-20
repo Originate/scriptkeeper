@@ -2,13 +2,12 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 
 mod emulation;
-mod executable_mock;
 mod protocol;
 mod syscall_mocking;
 mod tracee_memory;
 mod utils;
 
-use crate::emulation::run_against_protocol;
+use crate::emulation::{executable_mock, run_against_protocol};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
