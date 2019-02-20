@@ -1,6 +1,7 @@
 #![cfg_attr(feature = "dev", allow(dead_code, unused_variables, unused_imports))]
 #![cfg_attr(feature = "ci", deny(warnings))]
 
+mod cli;
 mod emulation;
 mod protocol;
 mod syscall_mocking;
@@ -32,36 +33,16 @@ impl Context {
     }
 }
 
-enum Args {
-    ExecutableMock { executable_mock_path: PathBuf },
-    CheckProtocols { script_path: PathBuf },
-}
-
-fn parse_args(mut args: impl Iterator<Item = String>) -> R<Args> {
-    args.next()
-        .ok_or("argv: expected program name as argument 0")?;
-    Ok(match args.next().ok_or("supply one argument")?.as_ref() {
-        "--executable-mock" => Args::ExecutableMock {
-            executable_mock_path: PathBuf::from(
-                args.next().expect("expected executable file as argument 1"),
-            ),
-        },
-        argument => Args::CheckProtocols {
-            script_path: PathBuf::from(argument),
-        },
-    })
-}
-
 pub fn run_main(
     context: Context,
     args: impl Iterator<Item = String>,
     stdout_handle: &mut impl Write,
 ) -> R<()> {
-    match parse_args(args)? {
-        Args::ExecutableMock {
+    match cli::parse_args(args)? {
+        cli::Args::ExecutableMock {
             executable_mock_path,
         } => executable_mock::run(&executable_mock_path, stdout_handle)?,
-        Args::CheckProtocols { script_path } => write!(
+        cli::Args::CheckProtocols { script_path } => write!(
             stdout_handle,
             "{}",
             run_check_protocols(context, &script_path)?
