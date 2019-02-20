@@ -23,3 +23,9 @@ jobs:
       - run:
           name: build
           command: cargo build --features=ci
+      - run:
+          name: test docker scripts
+          command: |
+            cp /bin/true /usr/bin/docker
+            cargo run -- build-docker-image.sh
+            cargo run -- check-protocols-in-docker.sh
