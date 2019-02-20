@@ -205,57 +205,79 @@ mod mismatch_in_number_of_commands {
     }
 }
 
-#[test]
-fn mock_stdout() -> R<()> {
-    test_run(
-        r##"
+mod stdout {
+    use super::*;
+
+    #[test]
+    fn mock_stdout() -> R<()> {
+        test_run(
+            r##"
             |#!/usr/bin/env bash
             |
             |output=$(/bin/true)
             |/bin/true $output
         "##,
-        r##"
+            r##"
             |- command: /bin/true
             |  stdout: test_output
             |- /bin/true test_output
         "##,
-        &trim_margin("All tests passed.")?,
-    )?;
-    Ok(())
-}
+            &trim_margin("All tests passed.")?,
+        )?;
+        Ok(())
+    }
 
-#[test]
-fn mock_stdout_with_special_characters() -> R<()> {
-    test_run(
-        r##"
+    #[test]
+    fn mock_stdout_with_special_characters() -> R<()> {
+        test_run(
+            r##"
             |#!/usr/bin/env bash
             |
             |output=$(/bin/true)
             |/bin/true $output
         "##,
-        r##"
+            r##"
             |- command: /bin/true
             |  stdout: 'foo"'
             |- '/bin/true foo"'
         "##,
-        &trim_margin("All tests passed.")?,
-    )?;
-    Ok(())
-}
+            &trim_margin("All tests passed.")?,
+        )?;
+        Ok(())
+    }
 
-#[test]
-fn mock_stdout_with_newlines() -> R<()> {
-    test_run(
-        r##"
+    #[test]
+    fn mock_stdout_with_newlines() -> R<()> {
+        test_run(
+            r##"
             |#!/usr/bin/env bash
             |
             |output=$(/bin/true)
             |/bin/true $output
         "##,
-        r##"
+            r##"
             |- command: /bin/true
             |  stdout: 'foo\nbar'
             |- '/bin/true foo\nbar'
+        "##,
+            &trim_margin("All tests passed.")?,
+        )?;
+        Ok(())
+    }
+}
+
+#[test]
+fn pass_arguments_into_tested_script() -> R<()> {
+    test_run(
+        r##"
+            |#!/usr/bin/env bash
+            |
+            |/bin/true $1
+        "##,
+        r##"
+            |arguments: foo
+            |protocol:
+            |  - '/bin/true foo'
         "##,
         &trim_margin("All tests passed.")?,
     )?;
