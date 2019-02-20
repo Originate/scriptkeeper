@@ -159,6 +159,17 @@ mod parse_step {
 
 pub type Protocol = VecDeque<Step>;
 
+fn parse_protocol(yaml: Yaml) -> R<Protocol> {
+    fn from_array(array: &[Yaml]) -> R<Protocol> {
+        array.iter().map(Step::parse).collect::<R<Protocol>>()
+    }
+    Ok(match yaml {
+        Yaml::Array(array) => from_array(&array)?,
+        Yaml::Hash(object) => from_array(object.expect_field("protocol")?.expect_array()?)?,
+        _ => Err(format!("expected: array or object, got: {:?}", yaml))?,
+    })
+}
+
 fn read_protocol_file(executable_path: &Path) -> R<String> {
     let protocol_file = executable_path.with_extension("protocol.yaml");
     if !protocol_file.exists() {
@@ -175,13 +186,6 @@ fn read_protocol_file(executable_path: &Path) -> R<String> {
         ))?,
         Ok(file_contents) => String::from_utf8(file_contents)?,
     })
-}
-
-fn parse_protocol(yaml: Yaml) -> R<Protocol> {
-    yaml.expect_array()?
-        .iter()
-        .map(Step::parse)
-        .collect::<R<Protocol>>()
 }
 
 pub fn load(executable_path: &Path) -> R<Protocol> {
@@ -206,7 +210,7 @@ mod load {
     use std::*;
     use test_utils::{trim_margin, TempFile};
 
-    fn test_read_protocol(protocol_string: &str, expected: Vec<(&str, Vec<&str>)>) -> R<()> {
+    fn test_load(protocol_string: &str, expected: Vec<(&str, Vec<&str>)>) -> R<()> {
         let tempfile = TempFile::new()?;
         let protocol_file = tempfile.path().with_extension("protocol.yaml");
         fs::write(&protocol_file, trim_margin(protocol_string)?)?;
@@ -223,7 +227,7 @@ mod load {
 
     #[test]
     fn reads_a_protocol_from_a_sibling_yaml_file() -> R<()> {
-        test_read_protocol(
+        test_load(
             r##"
               |- /bin/true
             "##,
@@ -232,8 +236,16 @@ mod load {
     }
 
     #[test]
+    fn returns_an_informative_error_when_the_protocol_file_is_missing() {
+        assert_eq!(
+            format!("{}", load(&PathBuf::from("./does-not-exist")).unwrap_err()),
+            "protocol file not found: ./does-not-exist.protocol.yaml"
+        );
+    }
+
+    #[test]
     fn works_for_multiple_commands() -> R<()> {
-        test_read_protocol(
+        test_load(
             r##"
               |- /bin/true
               |- /bin/false
@@ -244,7 +256,7 @@ mod load {
 
     #[test]
     fn allows_to_specify_arguments() -> R<()> {
-        test_read_protocol(
+        test_load(
             r##"
               |- /bin/true foo bar
             "##,
@@ -253,10 +265,13 @@ mod load {
     }
 
     #[test]
-    fn returns_an_informative_error_when_the_protocol_file_is_missing() {
-        assert_eq!(
-            format!("{}", load(&PathBuf::from("./does-not-exist")).unwrap_err()),
-            "protocol file not found: ./does-not-exist.protocol.yaml"
-        );
+    fn allows_to_specify_the_protocol_as_an_object() -> R<()> {
+        test_load(
+            r##"
+              |protocol:
+              |  - /bin/true
+            "##,
+            vec![("/bin/true", vec![])],
+        )
     }
 }
