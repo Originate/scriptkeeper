@@ -1,3 +1,5 @@
+pub mod short_temp_files;
+
 use crate::R;
 use std::path::Path;
 

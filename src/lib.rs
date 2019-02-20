@@ -4,7 +4,6 @@
 mod emulation;
 mod executable_mock;
 mod protocol;
-mod short_temp_files;
 mod syscall_mocking;
 mod tracee_memory;
 mod utils;
