@@ -1,4 +1,4 @@
-use check_protocols::{run_check_protocols, Context, R};
+use check_protocols::{run_check_protocols, Context, ExitCode, R};
 use std::fs;
 use test_utils::{trim_margin, TempFile};
 
@@ -10,8 +10,8 @@ fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -> R<
     )?;
     let output = run_check_protocols(Context::new_test_context(), &script.path())?;
     let expected_output = match expected {
-        Err(expected_output) => expected_output,
-        Ok(()) => "All tests passed.\n",
+        Err(expected_output) => (ExitCode(1), expected_output.to_string()),
+        Ok(()) => (ExitCode(0), "All tests passed.\n".to_string()),
     };
     assert_eq!(output, expected_output);
     Ok(())
