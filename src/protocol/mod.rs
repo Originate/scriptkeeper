@@ -160,6 +160,7 @@ mod parse_step {
 #[derive(Debug, PartialEq)]
 pub struct Protocol {
     pub steps: VecDeque<Step>,
+    pub arguments: Vec<String>,
 }
 
 impl Protocol {
@@ -167,6 +168,7 @@ impl Protocol {
     pub fn empty() -> Protocol {
         Protocol {
             steps: VecDeque::new(),
+            arguments: vec![],
         }
     }
 
@@ -177,11 +179,22 @@ impl Protocol {
                     .iter()
                     .map(Step::parse)
                     .collect::<R<VecDeque<Step>>>()?,
+                arguments: vec![],
             })
         }
         Ok(match yaml {
             Yaml::Array(array) => from_array(&array)?,
-            Yaml::Hash(object) => from_array(object.expect_field("protocol")?.expect_array()?)?,
+            Yaml::Hash(object) => {
+                let mut protocol = from_array(object.expect_field("protocol")?.expect_array()?)?;
+                if let Some(arguments) = object.get(&Yaml::String("arguments".to_string())) {
+                    protocol.arguments = arguments
+                        .expect_str()?
+                        .split_whitespace()
+                        .map(String::from)
+                        .collect();
+                }
+                protocol
+            }
             _ => Err(format!("expected: array or object, got: {:?}", yaml))?,
         })
     }
@@ -248,6 +261,7 @@ mod load {
                     stdout: vec![],
                 }]
                 .into(),
+                arguments: vec![]
             },
         );
         Ok(())
@@ -311,7 +325,24 @@ mod load {
                     stdout: vec![],
                 }]
                 .into(),
+                arguments: vec![]
             },
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn allows_to_specify_script_arguments() -> R<()> {
+        assert_eq!(
+            test_parse(
+                r##"
+                    |protocol:
+                    |  - /bin/true
+                    |arguments: "foo bar"
+                "##
+            )?
+            .arguments,
+            vec!["foo", "bar"]
         );
         Ok(())
     }

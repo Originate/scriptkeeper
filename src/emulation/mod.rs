@@ -142,7 +142,8 @@ mod run_against_protocol {
                         arguments: vec![],
                         stdout: vec![]
                     }]
-                    .into()
+                    .into(),
+                    arguments: vec![]
                 }
             )?,
             None
