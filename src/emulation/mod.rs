@@ -2,8 +2,7 @@ pub mod executable_mock;
 
 use crate::protocol;
 use crate::protocol::Protocol;
-use crate::syscall_mocking::{Syscall, SyscallStop, Tracer};
-use crate::tracee_memory;
+use crate::syscall_mocking::{tracee_memory, Syscall, SyscallStop, Tracer};
 use crate::utils::path_to_string;
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::{Context, R};

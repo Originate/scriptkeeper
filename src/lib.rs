@@ -4,7 +4,6 @@
 mod emulation;
 mod protocol;
 mod syscall_mocking;
-mod tracee_memory;
 mod utils;
 
 use crate::emulation::{executable_mock, run_against_protocol};

@@ -1,3 +1,5 @@
+pub mod tracee_memory;
+
 use crate::emulation::SyscallMock;
 use crate::R;
 use libc::{c_ulonglong, user_regs_struct};
