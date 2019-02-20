@@ -7,6 +7,7 @@ mod syscall_mocking;
 mod utils;
 
 use crate::emulation::{executable_mock, run_against_protocol};
+use protocol::Protocol;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -92,7 +93,7 @@ mod run_main {
 }
 
 pub fn run_check_protocols(context: Context, script: &Path) -> R<String> {
-    let expected = protocol::load(script)?;
+    let expected = Protocol::load(script)?;
     let errors = run_against_protocol(context, script, expected)?;
     Ok(match errors {
         None => "All tests passed.\n".to_string(),

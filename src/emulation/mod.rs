@@ -60,7 +60,7 @@ impl SyscallMock {
         received_command: &str,
         received_arguments: Vec<String>,
     ) -> R<PathBuf> {
-        let stdout = match self.expected.pop_front() {
+        let stdout = match self.expected.steps.pop_front() {
             Some(next_expected_step) => {
                 match next_expected_step.compare(received_command, received_arguments) {
                     Ok(()) => {}
@@ -85,7 +85,7 @@ impl SyscallMock {
     }
 
     fn handle_end(&mut self) {
-        if let Some(expected_step) = self.expected.pop_front() {
+        if let Some(expected_step) = self.expected.steps.pop_front() {
             self.push_error(protocol::Step::format_error(
                 &protocol::format_command(&expected_step.command, expected_step.arguments),
                 "<script terminated>",
@@ -117,7 +117,6 @@ mod run_against_protocol {
     extern crate map_in_place;
 
     use super::*;
-    use std::collections::vec_deque::VecDeque;
     use std::fs;
     use test_utils::TempFile;
 
@@ -137,12 +136,14 @@ mod run_against_protocol {
             run_against_protocol(
                 Context::new_test_context(),
                 &script.path(),
-                vec![protocol::Step {
-                    command: long_command.path().to_string_lossy().into_owned(),
-                    arguments: vec![],
-                    stdout: vec![]
-                }]
-                .into()
+                Protocol {
+                    steps: vec![protocol::Step {
+                        command: long_command.path().to_string_lossy().into_owned(),
+                        arguments: vec![],
+                        stdout: vec![]
+                    }]
+                    .into()
+                }
             )?,
             None
         );
@@ -157,7 +158,7 @@ mod run_against_protocol {
                 run_against_protocol(
                     Context::new_test_context(),
                     Path::new("./does_not_exist"),
-                    VecDeque::new()
+                    Protocol::empty()
                 )
                 .unwrap_err()
             ),
@@ -176,7 +177,11 @@ mod run_against_protocol {
             "##,
             testfile.path().to_string_lossy()
         ))?;
-        run_against_protocol(Context::new_test_context(), &script.path(), VecDeque::new())?;
+        run_against_protocol(
+            Context::new_test_context(),
+            &script.path(),
+            Protocol::empty(),
+        )?;
         assert!(!testfile.path().exists(), "touch was executed");
         Ok(())
     }

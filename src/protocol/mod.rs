@@ -157,17 +157,46 @@ mod parse_step {
     }
 }
 
-pub type Protocol = VecDeque<Step>;
+#[derive(Debug, PartialEq)]
+pub struct Protocol {
+    pub steps: VecDeque<Step>,
+}
 
-fn parse_protocol(yaml: Yaml) -> R<Protocol> {
-    fn from_array(array: &[Yaml]) -> R<Protocol> {
-        array.iter().map(Step::parse).collect::<R<Protocol>>()
+impl Protocol {
+    #[allow(dead_code)]
+    pub fn empty() -> Protocol {
+        Protocol {
+            steps: VecDeque::new(),
+        }
     }
-    Ok(match yaml {
-        Yaml::Array(array) => from_array(&array)?,
-        Yaml::Hash(object) => from_array(object.expect_field("protocol")?.expect_array()?)?,
-        _ => Err(format!("expected: array or object, got: {:?}", yaml))?,
-    })
+
+    fn parse(yaml: Yaml) -> R<Protocol> {
+        fn from_array(array: &[Yaml]) -> R<Protocol> {
+            Ok(Protocol {
+                steps: array
+                    .iter()
+                    .map(Step::parse)
+                    .collect::<R<VecDeque<Step>>>()?,
+            })
+        }
+        Ok(match yaml {
+            Yaml::Array(array) => from_array(&array)?,
+            Yaml::Hash(object) => from_array(object.expect_field("protocol")?.expect_array()?)?,
+            _ => Err(format!("expected: array or object, got: {:?}", yaml))?,
+        })
+    }
+
+    pub fn load(executable_path: &Path) -> R<Protocol> {
+        let file_contents = read_protocol_file(executable_path)?;
+        let yaml: Vec<Yaml> = YamlLoader::load_from_str(&file_contents)?;
+        let document: Yaml = {
+            if yaml.len() != 1 {
+                Err(format!("expected: single yaml document, got: {:?}", yaml))?;
+            }
+            yaml.into_iter().next().unwrap()
+        };
+        Protocol::parse(document)
+    }
 }
 
 fn read_protocol_file(executable_path: &Path) -> R<String> {
@@ -188,21 +217,8 @@ fn read_protocol_file(executable_path: &Path) -> R<String> {
     })
 }
 
-pub fn load(executable_path: &Path) -> R<Protocol> {
-    let file_contents = read_protocol_file(executable_path)?;
-    let yaml: Vec<Yaml> = YamlLoader::load_from_str(&file_contents)?;
-    let document: Yaml = {
-        if yaml.len() != 1 {
-            Err(format!("expected: single yaml document, got: {:?}", yaml))?;
-        }
-        yaml.into_iter().next().unwrap()
-    };
-    parse_protocol(document)
-}
-
 #[cfg(test)]
 mod load {
-
     use super::*;
     use crate::R;
     use map_in_place::MapVecInPlace;
@@ -215,12 +231,16 @@ mod load {
         let protocol_file = tempfile.path().with_extension("protocol.yaml");
         fs::write(&protocol_file, trim_margin(protocol_string)?)?;
         assert_eq!(
-            load(&tempfile.path())?,
-            expected.map(|(command, args)| Step {
-                command: command.to_string(),
-                arguments: args.map(String::from),
-                stdout: vec![]
-            })
+            Protocol::load(&tempfile.path())?,
+            Protocol {
+                steps: expected
+                    .map(|(command, args)| Step {
+                        command: command.to_string(),
+                        arguments: args.map(String::from),
+                        stdout: vec![]
+                    })
+                    .into()
+            }
         );
         Ok(())
     }
@@ -238,7 +258,10 @@ mod load {
     #[test]
     fn returns_an_informative_error_when_the_protocol_file_is_missing() {
         assert_eq!(
-            format!("{}", load(&PathBuf::from("./does-not-exist")).unwrap_err()),
+            format!(
+                "{}",
+                Protocol::load(&PathBuf::from("./does-not-exist")).unwrap_err()
+            ),
             "protocol file not found: ./does-not-exist.protocol.yaml"
         );
     }
