@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -41,5 +42,19 @@ impl TempFile {
 
     pub fn path(&self) -> PathBuf {
         self.tempdir.path().join("file")
+    }
+}
+
+pub trait Mappable<A, B> {
+    type Output;
+
+    fn map(self, f: fn(A) -> B) -> Self::Output;
+}
+
+impl<A, B> Mappable<A, B> for VecDeque<A> {
+    type Output = VecDeque<B>;
+
+    fn map(self, f: fn(A) -> B) -> Self::Output {
+        self.into_iter().map(f).collect()
     }
 }

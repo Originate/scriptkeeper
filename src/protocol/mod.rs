@@ -224,35 +224,33 @@ mod load {
     use map_in_place::MapVecInPlace;
     use std::path::PathBuf;
     use std::*;
-    use test_utils::{trim_margin, TempFile};
+    use test_utils::{trim_margin, Mappable, TempFile};
 
-    fn test_load(protocol_string: &str, expected: Vec<(&str, Vec<&str>)>) -> R<()> {
+    fn test_parse(protocol_string: &str) -> R<Protocol> {
         let tempfile = TempFile::new()?;
         let protocol_file = tempfile.path().with_extension("protocol.yaml");
         fs::write(&protocol_file, trim_margin(protocol_string)?)?;
-        assert_eq!(
-            Protocol::load(&tempfile.path())?,
-            Protocol {
-                steps: expected
-                    .map(|(command, args)| Step {
-                        command: command.to_string(),
-                        arguments: args.map(String::from),
-                        stdout: vec![]
-                    })
-                    .into()
-            }
-        );
-        Ok(())
+        Protocol::load(&tempfile.path())
     }
 
     #[test]
     fn reads_a_protocol_from_a_sibling_yaml_file() -> R<()> {
-        test_load(
-            r##"
-              |- /bin/true
-            "##,
-            vec![("/bin/true", vec![])],
-        )
+        assert_eq!(
+            test_parse(
+                r##"
+                    |- /bin/true
+                "##,
+            )?,
+            Protocol {
+                steps: vec![Step {
+                    command: "/bin/true".to_string(),
+                    arguments: vec![],
+                    stdout: vec![],
+                }]
+                .into(),
+            },
+        );
+        Ok(())
     }
 
     #[test]
@@ -268,33 +266,53 @@ mod load {
 
     #[test]
     fn works_for_multiple_commands() -> R<()> {
-        test_load(
-            r##"
-              |- /bin/true
-              |- /bin/false
-            "##,
-            vec![("/bin/true", vec![]), ("/bin/false", vec![])],
-        )
+        assert_eq!(
+            test_parse(
+                r##"
+                    |- /bin/true
+                    |- /bin/false
+                "##
+            )?
+            .steps
+            .map(|step| step.command),
+            vec!["/bin/true", "/bin/false"],
+        );
+        Ok(())
     }
 
     #[test]
     fn allows_to_specify_arguments() -> R<()> {
-        test_load(
-            r##"
-              |- /bin/true foo bar
-            "##,
-            vec![("/bin/true", vec!["foo", "bar"])],
-        )
+        assert_eq!(
+            test_parse(
+                r##"
+                    |- /bin/true foo bar
+                "##
+            )?
+            .steps
+            .map(|step| step.arguments),
+            vec![vec!["foo", "bar"].map(String::from)],
+        );
+        Ok(())
     }
 
     #[test]
     fn allows_to_specify_the_protocol_as_an_object() -> R<()> {
-        test_load(
-            r##"
-              |protocol:
-              |  - /bin/true
-            "##,
-            vec![("/bin/true", vec![])],
-        )
+        assert_eq!(
+            test_parse(
+                r##"
+                    |protocol:
+                    |  - /bin/true
+                "##
+            )?,
+            Protocol {
+                steps: vec![Step {
+                    command: "/bin/true".to_string(),
+                    arguments: vec![],
+                    stdout: vec![],
+                }]
+                .into(),
+            },
+        );
+        Ok(())
     }
 }
