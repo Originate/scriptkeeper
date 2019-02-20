@@ -55,7 +55,11 @@ impl Tracer {
         }
     }
 
-    pub fn run_against_mock<F>(executable: &Path, mk_syscall_mock: F) -> R<SyscallMock>
+    pub fn run_against_mock<F>(
+        executable: &Path,
+        args: Vec<String>,
+        mk_syscall_mock: F,
+    ) -> R<SyscallMock>
     where
         F: FnOnce(Pid) -> SyscallMock,
     {
@@ -64,7 +68,11 @@ impl Tracer {
                 ptrace::traceme()?;
                 signal::kill(getpid(), Some(Signal::SIGSTOP))?;
                 let path = CString::new(executable.as_os_str().as_bytes())?;
-                execv(&path, &[path.clone()])?;
+                let mut execv_args = vec![path.clone()];
+                for arg in args {
+                    execv_args.push(CString::new(arg)?);
+                }
+                execv(&path, &execv_args)?;
                 Ok(())
             },
             |tracee_pid: Pid| -> R<SyscallMock> {

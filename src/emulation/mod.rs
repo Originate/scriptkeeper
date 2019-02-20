@@ -105,17 +105,16 @@ pub fn run_against_protocol(
     executable: &Path,
     expected: Protocol,
 ) -> R<Option<String>> {
-    let mut syscall_mock = Tracer::run_against_mock(executable, |tracee_pid| {
-        SyscallMock::new(context, tracee_pid, expected)
-    })?;
+    let mut syscall_mock =
+        Tracer::run_against_mock(executable, expected.arguments.clone(), |tracee_pid| {
+            SyscallMock::new(context, tracee_pid, expected)
+        })?;
     syscall_mock.handle_end();
     Ok(syscall_mock.errors)
 }
 
 #[cfg(test)]
 mod run_against_protocol {
-    extern crate map_in_place;
-
     use super::*;
     use std::fs;
     use test_utils::TempFile;

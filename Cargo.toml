@@ -22,7 +22,6 @@ linked-hash-map = "*"
 trim-margin = "*"
 
 [dev-dependencies]
-map_in_place = "*"
 test-utils = { path = "test-utils" }
 
 [features]

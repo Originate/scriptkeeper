@@ -51,6 +51,14 @@ pub trait Mappable<A, B> {
     fn map(self, f: fn(A) -> B) -> Self::Output;
 }
 
+impl<A, B> Mappable<A, B> for Vec<A> {
+    type Output = Vec<B>;
+
+    fn map(self, f: fn(A) -> B) -> Self::Output {
+        self.into_iter().map(f).collect()
+    }
+}
+
 impl<A, B> Mappable<A, B> for VecDeque<A> {
     type Output = VecDeque<B>;
 

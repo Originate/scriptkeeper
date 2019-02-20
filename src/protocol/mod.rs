@@ -46,7 +46,7 @@ impl Step {
             Yaml::String(string) => from_string(string),
             Yaml::Hash(object) => {
                 let mut step = from_string(object.expect_field("command")?.expect_str()?)?;
-                if let Some(stdout) = object.get(&Yaml::String("stdout".to_string())) {
+                if let Ok(stdout) = object.expect_field("stdout") {
                     step.stdout = stdout.expect_str()?.bytes().collect();
                 }
                 Ok(step)
@@ -186,7 +186,7 @@ impl Protocol {
             Yaml::Array(array) => from_array(&array)?,
             Yaml::Hash(object) => {
                 let mut protocol = from_array(object.expect_field("protocol")?.expect_array()?)?;
-                if let Some(arguments) = object.get(&Yaml::String("arguments".to_string())) {
+                if let Ok(arguments) = object.expect_field("arguments") {
                     protocol.arguments = arguments
                         .expect_str()?
                         .split_whitespace()
@@ -234,7 +234,6 @@ fn read_protocol_file(executable_path: &Path) -> R<String> {
 mod load {
     use super::*;
     use crate::R;
-    use map_in_place::MapVecInPlace;
     use std::path::PathBuf;
     use std::*;
     use test_utils::{trim_margin, Mappable, TempFile};
