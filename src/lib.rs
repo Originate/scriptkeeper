@@ -14,6 +14,35 @@ use std::path::{Path, PathBuf};
 
 pub type R<A> = Result<A, Box<std::error::Error>>;
 
+#[derive(Debug, PartialEq)]
+pub struct ExitCode(pub i32);
+
+impl ExitCode {
+    pub fn exit(self) {
+        std::process::exit(self.0);
+    }
+}
+
+pub fn wrap_main<F: FnOnce(ExitCode)>(exit: F, main: fn() -> R<ExitCode>) -> R<()> {
+    exit(main()?);
+    Ok(())
+}
+
+#[cfg(test)]
+mod wrap_main {
+    use super::*;
+
+    #[test]
+    fn calls_exit_when_given_a_non_zero_exit_code() -> R<()> {
+        let mut exitcodes = vec![];
+        let mock_exit = |exitcode| exitcodes.push(exitcode);
+        let main = || Ok(ExitCode(1));
+        wrap_main(mock_exit, main)?;
+        assert_eq!(exitcodes, vec![ExitCode(1)]);
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct Context {
     check_protocols_executable: PathBuf,
@@ -37,18 +66,20 @@ pub fn run_main(
     context: Context,
     args: impl Iterator<Item = String>,
     stdout_handle: &mut impl Write,
-) -> R<()> {
-    match cli::parse_args(args)? {
+) -> R<ExitCode> {
+    Ok(match cli::parse_args(args)? {
         cli::Args::ExecutableMock {
             executable_mock_path,
-        } => executable_mock::run(&executable_mock_path, stdout_handle)?,
-        cli::Args::CheckProtocols { script_path } => write!(
-            stdout_handle,
-            "{}",
-            run_check_protocols(context, &script_path)?
-        )?,
-    }
-    Ok(())
+        } => {
+            executable_mock::run(&executable_mock_path, stdout_handle)?;
+            ExitCode(0)
+        }
+        cli::Args::CheckProtocols { script_path } => {
+            let (exitcode, output) = run_check_protocols(context, &script_path)?;
+            write!(stdout_handle, "{}", output)?;
+            exitcode
+        }
+    })
 }
 
 #[cfg(test)]
@@ -73,11 +104,11 @@ mod run_main {
     }
 }
 
-pub fn run_check_protocols(context: Context, script: &Path) -> R<String> {
+pub fn run_check_protocols(context: Context, script: &Path) -> R<(ExitCode, String)> {
     let expected = Protocol::load(script)?;
     let errors = run_against_protocol(context, script, expected)?;
     Ok(match errors {
-        None => "All tests passed.\n".to_string(),
-        Some(error) => error,
+        None => (ExitCode(0), "All tests passed.\n".to_string()),
+        Some(error) => (ExitCode(1), error),
     })
 }

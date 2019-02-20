@@ -1,4 +1,4 @@
-use check_protocols::{run_check_protocols, Context, R};
+use check_protocols::{run_check_protocols, Context, ExitCode, R};
 use path::PathBuf;
 use std::*;
 
@@ -12,6 +12,7 @@ fn test_run_from_directory(directory: &str) -> R<()> {
         fs::read(&expected_file)
             .map_err(|error| format!("error reading {:?}: {}", &expected_file, error))?,
     )?;
-    assert_eq!(output, expected);
+    assert_eq!(output.0, ExitCode(0));
+    assert_eq!(output.1, expected);
     Ok(())
 }
