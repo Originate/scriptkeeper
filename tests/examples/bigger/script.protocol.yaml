@@ -1,0 +1,6 @@
+arguments: test-file
+protocol:
+  - command: /bin/chmod +r test-file.txt
+  - command: /bin/cat test-file.txt
+    stdout: "should be deleted"
+  - /bin/rm test-file.txt

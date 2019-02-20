@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# You can specify arguments that are passed into the tested script.
+chmod +r $1.txt
+
+# You can specify the mock output of commands.
+output=$(cat $1.txt)
+
+if [ "$output" == "should be deleted" ]; then
+  rm $1.txt
+fi
