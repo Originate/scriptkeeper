@@ -15,6 +15,10 @@ clippy:
 doc:
   cargo doc
 
+scripts:
+  cargo run -- build-docker-image.sh
+  cargo run -- check-protocols-in-docker.sh
+
 dev:
   cargo test --all --color=always --features=dev -- --test-threads=1 --quiet
   ag fixme

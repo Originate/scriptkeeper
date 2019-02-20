@@ -41,6 +41,6 @@ There's more example test cases in the [tests](./tests) folder.
 You can run the tool inside docker, for example like this:
 
 ``` bash
-docker build -t check-protocols .
-docker run --rm -it -v $(pwd)/test_script:/root/test_script -v $(pwd)/test_script.protocols.yaml:/root/test_script.protocols.yaml --cap-add=SYS_PTRACE check-protocols test_script
+./build-docker-image.sh
+./check-protocols-in-docker.sh <PATH_TO_YOUR_SCRIPT>
 ```

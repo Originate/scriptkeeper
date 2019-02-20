@@ -1,0 +1,17 @@
+# doesn't do anything for relative paths
+arguments: ./relative_path
+protocol: []
+---
+arguments: /test/script
+protocol:
+  - command: /usr/bin/basename /test/script
+    stdout: script
+  - command: /usr/bin/basename /test/script
+    stdout: script
+  - command: /usr/bin/basename /test/script
+    stdout: script
+  - /usr/bin/docker run --rm -it
+    --cap-add=SYS_PTRACE
+    -v /test/script:/root/script
+    -v /test/script.protocols.yaml:/root/script.protocols.yaml
+    check-protocols script
