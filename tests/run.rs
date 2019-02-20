@@ -2,13 +2,17 @@ use check_protocols::{run_check_protocols, Context, R};
 use std::fs;
 use test_utils::{trim_margin, TempFile};
 
-fn test_run(script_code: &str, protocol: &str, expected_output: &str) -> R<()> {
+fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -> R<()> {
     let script = TempFile::write_temp_script(&trim_margin(script_code)?)?;
     fs::write(
         script.path().with_extension("protocol.yaml"),
         trim_margin(protocol)?,
     )?;
     let output = run_check_protocols(Context::new_test_context(), &script.path())?;
+    let expected_output = match expected {
+        Err(expected_output) => expected_output,
+        Ok(()) => "All tests passed.\n",
+    };
     assert_eq!(output, expected_output);
     Ok(())
 }
@@ -24,7 +28,7 @@ fn simple() -> R<()> {
         r##"
             |- /bin/true
         "##,
-        "All tests passed.\n",
+        Ok(()),
     )?;
     Ok(())
 }
@@ -42,7 +46,7 @@ fn multiple() -> R<()> {
             |- /bin/true
             |- /bin/ls
         "##,
-        "All tests passed.\n",
+        Ok(()),
     )?;
     Ok(())
 }
@@ -58,7 +62,7 @@ fn arguments() -> R<()> {
         r##"
             |- /bin/true foo
         "##,
-        "All tests passed.\n",
+        Ok(()),
     )?;
     Ok(())
 }
@@ -74,13 +78,13 @@ fn failing() -> R<()> {
         r##"
             |- /bin/true
         "##,
-        &trim_margin(
+        Err(&trim_margin(
             "
                 |error:
                 |expected: /bin/true
                 |received: /bin/false
             ",
-        )?,
+        )?),
     )?;
     Ok(())
 }
@@ -96,13 +100,13 @@ fn failing_arguments() -> R<()> {
         r##"
             |- /bin/true foo
         "##,
-        &trim_margin(
+        Err(&trim_margin(
             "
                 |error:
                 |expected: /bin/true foo
                 |received: /bin/true bar
             ",
-        )?,
+        )?),
     )?;
     Ok(())
 }
@@ -120,13 +124,13 @@ fn failing_later() -> R<()> {
             |- /bin/ls
             |- /bin/true
         "##,
-        &trim_margin(
+        Err(&trim_margin(
             "
                 |error:
                 |expected: /bin/true
                 |received: /bin/false
             ",
-        )?,
+        )?),
     )?;
     Ok(())
 }
@@ -144,13 +148,13 @@ fn reports_the_first_error() -> R<()> {
             |- /bin/true first
             |- /bin/true second
         "##,
-        &trim_margin(
+        Err(&trim_margin(
             "
                 |error:
                 |expected: /bin/true first
                 |received: /bin/false first
             ",
-        )?,
+        )?),
     )?;
     Ok(())
 }
@@ -170,13 +174,13 @@ mod mismatch_in_number_of_commands {
                 |- /bin/ls
                 |- /bin/true
             "##,
-            &trim_margin(
+            Err(&trim_margin(
                 "
                     |error:
                     |expected: /bin/true
                     |received: <script terminated>
                 ",
-            )?,
+            )?),
         )?;
         Ok(())
     }
@@ -193,13 +197,13 @@ mod mismatch_in_number_of_commands {
             r##"
                 |- /bin/ls
             "##,
-            &trim_margin(
+            Err(&trim_margin(
                 "
                     |error:
                     |expected: <protocol end>
                     |received: /bin/true
                 ",
-            )?,
+            )?),
         )?;
         Ok(())
     }
@@ -212,17 +216,17 @@ mod stdout {
     fn mock_stdout() -> R<()> {
         test_run(
             r##"
-            |#!/usr/bin/env bash
-            |
-            |output=$(/bin/true)
-            |/bin/true $output
-        "##,
+                |#!/usr/bin/env bash
+                |
+                |output=$(/bin/true)
+                |/bin/true $output
+            "##,
             r##"
-            |- command: /bin/true
-            |  stdout: test_output
-            |- /bin/true test_output
-        "##,
-            &trim_margin("All tests passed.")?,
+                |- command: /bin/true
+                |  stdout: test_output
+                |- /bin/true test_output
+            "##,
+            Ok(()),
         )?;
         Ok(())
     }
@@ -231,17 +235,17 @@ mod stdout {
     fn mock_stdout_with_special_characters() -> R<()> {
         test_run(
             r##"
-            |#!/usr/bin/env bash
-            |
-            |output=$(/bin/true)
-            |/bin/true $output
-        "##,
+                |#!/usr/bin/env bash
+                |
+                |output=$(/bin/true)
+                |/bin/true $output
+            "##,
             r##"
-            |- command: /bin/true
-            |  stdout: 'foo"'
-            |- '/bin/true foo"'
-        "##,
-            &trim_margin("All tests passed.")?,
+                |- command: /bin/true
+                |  stdout: 'foo"'
+                |- '/bin/true foo"'
+            "##,
+            Ok(()),
         )?;
         Ok(())
     }
@@ -250,17 +254,17 @@ mod stdout {
     fn mock_stdout_with_newlines() -> R<()> {
         test_run(
             r##"
-            |#!/usr/bin/env bash
-            |
-            |output=$(/bin/true)
-            |/bin/true $output
-        "##,
+                |#!/usr/bin/env bash
+                |
+                |output=$(/bin/true)
+                |/bin/true $output
+            "##,
             r##"
-            |- command: /bin/true
-            |  stdout: 'foo\nbar'
-            |- '/bin/true foo\nbar'
-        "##,
-            &trim_margin("All tests passed.")?,
+                |- command: /bin/true
+                |  stdout: 'foo\nbar'
+                |- '/bin/true foo\nbar'
+            "##,
+            Ok(()),
         )?;
         Ok(())
     }
@@ -279,7 +283,7 @@ fn pass_arguments_into_tested_script() -> R<()> {
             |protocol:
             |  - '/bin/true foo'
         "##,
-        &trim_margin("All tests passed.")?,
+        Ok(()),
     )?;
     Ok(())
 }
