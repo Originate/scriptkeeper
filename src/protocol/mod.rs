@@ -337,7 +337,7 @@ fn read_protocols_file(executable_path: &Path) -> R<String> {
     if !protocols_file.exists() {
         Err(format!(
             "protocol file not found: {}",
-            path_to_string(&protocols_file)?
+            protocols_file.to_string_lossy()
         ))?;
     }
     Ok(match fs::read(&protocols_file) {

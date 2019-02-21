@@ -120,6 +120,12 @@ mod run_main {
 }
 
 pub fn run_check_protocols(context: Context, script: &Path) -> R<(ExitCode, String)> {
+    if !script.exists() {
+        Err(format!(
+            "executable file not found: {}",
+            script.to_string_lossy()
+        ))?
+    }
     let expected_protocols = Protocol::load(script)?;
     let results = run_against_protocols(context, script, expected_protocols)?;
     Ok((results.exitcode(), results.format_test_results()))
