@@ -24,7 +24,7 @@ run_bigger:
 
 test_dockerfile:
   docker build -t check-protocols .
-  docker run --rm -it \
+  docker run --rm \
     --cap-add=SYS_PTRACE \
     -v $(pwd)/tests/examples/bigger/script:/root/script \
     -v $(pwd)/tests/examples/bigger/script.protocol.yaml:/root/script.protocol.yaml \
