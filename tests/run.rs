@@ -23,7 +23,6 @@ fn simple() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |
             |/bin/true
         "##,
         r##"
@@ -39,7 +38,6 @@ fn multiple() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |
             |/bin/true
             |/bin/ls > /dev/null
         "##,
@@ -57,7 +55,6 @@ fn arguments() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |
             |/bin/true foo
         "##,
         r##"
@@ -73,7 +70,6 @@ fn failing() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |
             |/bin/false
         "##,
         r##"
@@ -95,7 +91,6 @@ fn failing_arguments() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |
             |/bin/true bar
         "##,
         r##"
@@ -117,7 +112,6 @@ fn failing_later() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |
             |/bin/ls
             |/bin/false
         "##,
@@ -141,7 +135,6 @@ fn reports_the_first_error() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |
             |/bin/false first
             |/bin/false second
         "##,
@@ -168,7 +161,6 @@ mod mismatch_in_number_of_commands {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |
                 |/bin/ls
             "##,
             r##"
@@ -191,7 +183,6 @@ mod mismatch_in_number_of_commands {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |
                 |/bin/ls
                 |/bin/true
             "##,
@@ -218,7 +209,6 @@ mod stdout {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |
                 |output=$(/bin/true)
                 |/bin/true $output
             "##,
@@ -237,7 +227,6 @@ mod stdout {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |
                 |output=$(/bin/true)
                 |/bin/true $output
             "##,
@@ -256,7 +245,6 @@ mod stdout {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |
                 |output=$(/bin/true)
                 |/bin/true $output
             "##,
@@ -276,7 +264,6 @@ fn pass_arguments_into_tested_script() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |
             |/bin/true $1
         "##,
         r##"
@@ -297,7 +284,6 @@ mod multiple_protocols {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |
                 |/bin/true $1
             "##,
             r##"
@@ -319,7 +305,6 @@ mod multiple_protocols {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |
                 |/bin/false
             "##,
             r##"
@@ -346,7 +331,6 @@ mod multiple_protocols {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |
                 |/bin/false
             "##,
             r##"
