@@ -200,7 +200,7 @@ impl Protocol {
     }
 
     pub fn load(executable_path: &Path) -> R<Vec<Protocol>> {
-        let file_contents = read_protocol_file(executable_path)?;
+        let file_contents = read_protocols_file(executable_path)?;
         let yaml: Vec<Yaml> = YamlLoader::load_from_str(&file_contents)?;
         yaml.into_iter().map(Protocol::parse).collect()
     }
@@ -216,8 +216,8 @@ mod load {
 
     fn test_parse(protocol_string: &str) -> R<Protocol> {
         let tempfile = TempFile::new()?;
-        let protocol_file = tempfile.path().with_extension("protocol.yaml");
-        fs::write(&protocol_file, trim_margin(protocol_string)?)?;
+        let protocols_file = tempfile.path().with_extension("protocols.yaml");
+        fs::write(&protocols_file, trim_margin(protocol_string)?)?;
         let result = Protocol::load(&tempfile.path())?;
         assert_eq!(result.len(), 1);
         Ok(result.into_iter().next().unwrap())
@@ -251,7 +251,7 @@ mod load {
                 "{}",
                 Protocol::load(&PathBuf::from("./does-not-exist")).unwrap_err()
             ),
-            "protocol file not found: ./does-not-exist.protocol.yaml"
+            "protocol file not found: ./does-not-exist.protocols.yaml"
         );
     }
 
@@ -332,18 +332,18 @@ fn add_extension(path: &Path, extension: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
-fn read_protocol_file(executable_path: &Path) -> R<String> {
-    let protocol_file = add_extension(executable_path, "protocol.yaml");
-    if !protocol_file.exists() {
+fn read_protocols_file(executable_path: &Path) -> R<String> {
+    let protocols_file = add_extension(executable_path, "protocols.yaml");
+    if !protocols_file.exists() {
         Err(format!(
             "protocol file not found: {}",
-            path_to_string(&protocol_file)?
+            path_to_string(&protocols_file)?
         ))?;
     }
-    Ok(match fs::read(&protocol_file) {
+    Ok(match fs::read(&protocols_file) {
         Err(error) => Err(format!(
             "error reading {}: {}",
-            path_to_string(&protocol_file)?,
+            path_to_string(&protocols_file)?,
             error
         ))?,
         Ok(file_contents) => String::from_utf8(file_contents)?,
@@ -351,7 +351,7 @@ fn read_protocol_file(executable_path: &Path) -> R<String> {
 }
 
 #[cfg(test)]
-mod read_protocol_file {
+mod read_protocols_file {
     use super::*;
     use std::fs;
     use test_utils::TempFile;
@@ -359,9 +359,9 @@ mod read_protocol_file {
     #[test]
     fn reads_sibling_protocol_files() -> R<()> {
         let tempfile = TempFile::new()?;
-        let sibling_file = format!("{}.protocol.yaml", path_to_string(&tempfile.path())?);
+        let sibling_file = format!("{}.protocols.yaml", path_to_string(&tempfile.path())?);
         fs::write(sibling_file, "foo")?;
-        assert_eq!(read_protocol_file(&tempfile.path())?, "foo");
+        assert_eq!(read_protocols_file(&tempfile.path())?, "foo");
         Ok(())
     }
 
@@ -369,9 +369,9 @@ mod read_protocol_file {
     fn works_for_files_with_extensions() -> R<()> {
         let tempfile = TempFile::new()?;
         let file = tempfile.path().with_extension("ext");
-        let sibling_file = format!("{}.protocol.yaml", path_to_string(&file)?);
+        let sibling_file = format!("{}.protocols.yaml", path_to_string(&file)?);
         fs::write(sibling_file, "foo")?;
-        assert_eq!(read_protocol_file(&file)?, "foo");
+        assert_eq!(read_protocols_file(&file)?, "foo");
         Ok(())
     }
 }
