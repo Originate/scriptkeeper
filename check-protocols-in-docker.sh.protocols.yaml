@@ -12,6 +12,6 @@ protocol:
     stdout: script
   - /usr/bin/docker run --rm -it
     --cap-add=SYS_PTRACE
-    -v /test/script:/root/script
-    -v /test/script.protocols.yaml:/root/script.protocols.yaml
+    --mount type=bind,source=/test/script,target=/root/script
+    --mount type=bind,source=/test/script.protocols.yaml,target=/root/script.protocols.yaml
     check-protocols script
