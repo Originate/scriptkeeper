@@ -81,8 +81,8 @@ fn failing() -> R<()> {
         Err(&trim_margin(
             "
                 |error:
-                |expected: /bin/true
-                |received: /bin/false
+                |  expected: /bin/true
+                |  received: /bin/false
             ",
         )?),
     )?;
@@ -103,8 +103,8 @@ fn failing_arguments() -> R<()> {
         Err(&trim_margin(
             "
                 |error:
-                |expected: /bin/true foo
-                |received: /bin/true bar
+                |  expected: /bin/true foo
+                |  received: /bin/true bar
             ",
         )?),
     )?;
@@ -127,8 +127,8 @@ fn failing_later() -> R<()> {
         Err(&trim_margin(
             "
                 |error:
-                |expected: /bin/true
-                |received: /bin/false
+                |  expected: /bin/true
+                |  received: /bin/false
             ",
         )?),
     )?;
@@ -151,8 +151,8 @@ fn reports_the_first_error() -> R<()> {
         Err(&trim_margin(
             "
                 |error:
-                |expected: /bin/true first
-                |received: /bin/false first
+                |  expected: /bin/true first
+                |  received: /bin/false first
             ",
         )?),
     )?;
@@ -177,8 +177,8 @@ mod mismatch_in_number_of_commands {
             Err(&trim_margin(
                 "
                     |error:
-                    |expected: /bin/true
-                    |received: <script terminated>
+                    |  expected: /bin/true
+                    |  received: <script terminated>
                 ",
             )?),
         )?;
@@ -200,8 +200,8 @@ mod mismatch_in_number_of_commands {
             Err(&trim_margin(
                 "
                     |error:
-                    |expected: <protocol end>
-                    |received: /bin/true
+                    |  expected: <protocol end>
+                    |  received: /bin/true
                 ",
             )?),
         )?;
@@ -286,4 +286,83 @@ fn pass_arguments_into_tested_script() -> R<()> {
         Ok(()),
     )?;
     Ok(())
+}
+
+mod multiple_protocols {
+    use super::*;
+
+    #[test]
+    fn all_pass() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |
+                |/bin/true $1
+            "##,
+            r##"
+                |arguments: foo
+                |protocol:
+                |  - '/bin/true foo'
+                |---
+                |arguments: bar
+                |protocol:
+                |  - '/bin/true bar'
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn all_fail() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |
+                |/bin/false
+            "##,
+            r##"
+                |- /bin/true
+                |---
+                |- /bin/true
+            "##,
+            Err(&trim_margin(
+                "
+                    |error in protocol 1:
+                    |  expected: /bin/true
+                    |  received: /bin/false
+                    |error in protocol 2:
+                    |  expected: /bin/true
+                    |  received: /bin/false
+                ",
+            )?),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn some_fail() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |
+                |/bin/false
+            "##,
+            r##"
+                |- /bin/false
+                |---
+                |- /bin/true
+            "##,
+            Err(&trim_margin(
+                "
+                    |protocol 1:
+                    |  Tests passed.
+                    |error in protocol 2:
+                    |  expected: /bin/true
+                    |  received: /bin/false
+                ",
+            )?),
+        )?;
+        Ok(())
+    }
 }

@@ -56,7 +56,7 @@ impl Step {
     }
 
     pub fn format_error(expected: &str, received: &str) -> String {
-        format!("error:\nexpected: {}\nreceived: {}\n", expected, received)
+        format!("  expected: {}\n  received: {}\n", expected, received)
     }
 
     pub fn compare(&self, command: &str, arguments: Vec<String>) -> Result<(), String> {
@@ -199,16 +199,10 @@ impl Protocol {
         })
     }
 
-    pub fn load(executable_path: &Path) -> R<Protocol> {
+    pub fn load(executable_path: &Path) -> R<Vec<Protocol>> {
         let file_contents = read_protocol_file(executable_path)?;
         let yaml: Vec<Yaml> = YamlLoader::load_from_str(&file_contents)?;
-        let document: Yaml = {
-            if yaml.len() != 1 {
-                Err(format!("expected: single yaml document, got: {:?}", yaml))?;
-            }
-            yaml.into_iter().next().unwrap()
-        };
-        Protocol::parse(document)
+        yaml.into_iter().map(Protocol::parse).collect()
     }
 }
 
@@ -224,7 +218,9 @@ mod load {
         let tempfile = TempFile::new()?;
         let protocol_file = tempfile.path().with_extension("protocol.yaml");
         fs::write(&protocol_file, trim_margin(protocol_string)?)?;
-        Protocol::load(&tempfile.path())
+        let result = Protocol::load(&tempfile.path())?;
+        assert_eq!(result.len(), 1);
+        Ok(result.into_iter().next().unwrap())
     }
 
     #[test]
