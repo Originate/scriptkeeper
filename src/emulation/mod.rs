@@ -140,15 +140,11 @@ mod run_against_protocol {
             run_against_protocol(
                 Context::new_test_context(),
                 &script.path(),
-                Protocol {
-                    steps: vec![protocol::Step {
-                        command: long_command.path().to_string_lossy().into_owned(),
-                        arguments: vec![],
-                        stdout: vec![]
-                    }]
-                    .into(),
-                    arguments: vec![]
-                }
+                Protocol::new(vec![protocol::Step {
+                    command: long_command.path().to_string_lossy().into_owned(),
+                    arguments: vec![],
+                    stdout: vec![]
+                }])
             )?,
             TestResult::Pass
         );
