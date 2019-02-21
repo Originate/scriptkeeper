@@ -23,9 +23,14 @@ impl ExitCode {
     }
 }
 
-pub fn wrap_main<F: FnOnce(ExitCode)>(exit: F, main: fn() -> R<ExitCode>) -> R<()> {
-    exit(main()?);
-    Ok(())
+pub fn wrap_main<F: FnOnce(ExitCode)>(exit: F, main: fn() -> R<ExitCode>) {
+    match main() {
+        Ok(exitcode) => exit(exitcode),
+        Err(err) => {
+            eprintln!("error: {}", err.description());
+            exit(ExitCode(1));
+        }
+    };
 }
 
 #[cfg(test)]
@@ -37,7 +42,17 @@ mod wrap_main {
         let mut exitcodes = vec![];
         let mock_exit = |exitcode| exitcodes.push(exitcode);
         let main = || Ok(ExitCode(1));
-        wrap_main(mock_exit, main)?;
+        wrap_main(mock_exit, main);
+        assert_eq!(exitcodes, vec![ExitCode(1)]);
+        Ok(())
+    }
+
+    #[test]
+    fn calls_exit_with_a_non_zero_exit_code_when_the_given_main_function_fails() -> R<()> {
+        let mut exitcodes = vec![];
+        let mock_exit = |exitcode| exitcodes.push(exitcode);
+        let main = || Err("foo")?;
+        wrap_main(mock_exit, main);
         assert_eq!(exitcodes, vec![ExitCode(1)]);
         Ok(())
     }
