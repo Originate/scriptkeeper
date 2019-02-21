@@ -1,4 +1,5 @@
 pub mod executable_mock;
+pub mod test_result;
 
 use crate::protocol;
 use crate::protocol::Protocol;
@@ -9,13 +10,14 @@ use crate::{Context, R};
 use libc::user_regs_struct;
 use nix::unistd::Pid;
 use std::path::{Path, PathBuf};
+use test_result::{TestResult, TestResults};
 
 #[derive(Debug)]
 pub struct SyscallMock {
     context: Context,
     tracee_pid: Pid,
     expected: Protocol,
-    errors: Option<String>,
+    errors: TestResult,
     temporary_executables: Vec<ShortTempFile>,
 }
 
@@ -25,7 +27,7 @@ impl SyscallMock {
             context,
             tracee_pid,
             expected,
-            errors: None,
+            errors: TestResult::Pass,
             temporary_executables: vec![],
         }
     }
@@ -94,8 +96,11 @@ impl SyscallMock {
     }
 
     fn push_error(&mut self, error: String) {
-        if self.errors.is_none() {
-            self.errors = Some(error);
+        match self.errors {
+            TestResult::Pass => {
+                self.errors = TestResult::Failure(error);
+            }
+            TestResult::Failure(_) => {}
         }
     }
 }
@@ -104,7 +109,7 @@ pub fn run_against_protocol(
     context: Context,
     executable: &Path,
     expected: Protocol,
-) -> R<Option<String>> {
+) -> R<TestResult> {
     let mut syscall_mock =
         Tracer::run_against_mock(executable, expected.arguments.clone(), |tracee_pid| {
             SyscallMock::new(context, tracee_pid, expected)
@@ -145,7 +150,7 @@ mod run_against_protocol {
                     arguments: vec![]
                 }
             )?,
-            None
+            TestResult::Pass
         );
         Ok(())
     }
@@ -177,7 +182,7 @@ mod run_against_protocol {
             "##,
             testfile.path().to_string_lossy()
         ))?;
-        run_against_protocol(
+        let _ = run_against_protocol(
             Context::new_test_context(),
             &script.path(),
             Protocol::empty(),
@@ -185,4 +190,17 @@ mod run_against_protocol {
         assert!(!testfile.path().exists(), "touch was executed");
         Ok(())
     }
+}
+
+pub fn run_against_protocols(
+    context: Context,
+    executable: &Path,
+    expected: Vec<Protocol>,
+) -> R<TestResults> {
+    Ok(TestResults(
+        expected
+            .into_iter()
+            .map(|expected| run_against_protocol(context.clone(), executable, expected))
+            .collect::<R<Vec<TestResult>>>()?,
+    ))
 }
