@@ -9,7 +9,7 @@ use nix::sys::signal;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{wait, waitpid, WaitStatus};
 use nix::unistd::Pid;
-use nix::unistd::{execv, fork, getpid, ForkResult};
+use nix::unistd::{execve, fork, getpid, ForkResult};
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::fs::{read_to_string, write};
@@ -58,6 +58,7 @@ impl Tracer {
     pub fn run_against_mock<F>(
         executable: &Path,
         args: Vec<String>,
+        env: HashMap<String, String>,
         mk_syscall_mock: F,
     ) -> R<SyscallMock>
     where
@@ -68,11 +69,15 @@ impl Tracer {
                 ptrace::traceme().map_err(|error| format!("PTRACE_TRACEME failed: {}", error))?;
                 signal::kill(getpid(), Some(Signal::SIGSTOP))?;
                 let path = CString::new(executable.as_os_str().as_bytes())?;
-                let mut execv_args = vec![path.clone()];
+                let mut c_args = vec![path.clone()];
                 for arg in args {
-                    execv_args.push(CString::new(arg)?);
+                    c_args.push(CString::new(arg)?);
                 }
-                execv(&path, &execv_args)?;
+                let mut c_env = vec![];
+                for (key, value) in env {
+                    c_env.push(CString::new(format!("{}={}", key, value))?);
+                }
+                execve(&path, &c_args, &c_env)?;
                 Ok(())
             },
             |tracee_pid: Pid| -> R<SyscallMock> {
@@ -268,6 +273,7 @@ pub fn fork_with_child_errors<A>(
 #[cfg(test)]
 mod test_fork_with_child_errors {
     use super::*;
+    use nix::unistd::execv;
 
     #[test]
     fn runs_the_child_action() -> R<()> {

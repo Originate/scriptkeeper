@@ -110,10 +110,12 @@ pub fn run_against_protocol(
     executable: &Path,
     expected: Protocol,
 ) -> R<TestResult> {
-    let mut syscall_mock =
-        Tracer::run_against_mock(executable, expected.arguments.clone(), |tracee_pid| {
-            SyscallMock::new(context, tracee_pid, expected)
-        })?;
+    let mut syscall_mock = Tracer::run_against_mock(
+        executable,
+        expected.arguments.clone(),
+        expected.env.clone(),
+        |tracee_pid| SyscallMock::new(context, tracee_pid, expected),
+    )?;
     syscall_mock.handle_end();
     Ok(syscall_mock.result)
 }
