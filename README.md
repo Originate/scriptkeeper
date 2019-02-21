@@ -44,15 +44,20 @@ protocol: (`?` marks optional fields.)
 
 ``` yaml
 arguments?: string
-  # List of arguments given to the tested script,
-  # seperated by spaces. Example: "-rf /", default: "".
+  # List of arguments given to the tested script, seperated by spaces.
+  # Example: "-rf /", default: ""
+env:
+  # Environment being passed into the tested script.
+  # Example: PREFIX: /usr/local/, default: {}
+  { [string]: string }
 protocol:
   # List of commands that your script is expected to execute.
   - command: string
       # the executable, followed by its arguments, separated by spaces.
       # Example: /bin/chmod +x foo.sh
     stdout?: string
-      # mocked output of this command. Default: ""
+      # Mocked output of this command.
+      # Default: ""
 ```
 
 #### Shorthands

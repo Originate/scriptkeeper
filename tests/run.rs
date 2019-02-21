@@ -3,6 +3,18 @@ use std::fs;
 use std::path::PathBuf;
 use test_utils::{trim_margin, TempFile};
 
+#[test]
+fn nice_error_when_script_does_not_exist() {
+    let result = run_check_protocols(
+        Context::new_test_context(),
+        &PathBuf::from("./does-not-exist"),
+    );
+    assert_eq!(
+        format!("{}", result.unwrap_err()),
+        "executable file not found: ./does-not-exist"
+    );
+}
+
 fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -> R<()> {
     let script = TempFile::write_temp_script(&trim_margin(script_code)?)?;
     fs::write(
@@ -269,7 +281,7 @@ fn pass_arguments_into_tested_script() -> R<()> {
         r##"
             |arguments: foo
             |protocol:
-            |  - '/bin/true foo'
+            |  - /bin/true foo
         "##,
         Ok(()),
     )?;
@@ -289,11 +301,11 @@ mod multiple_protocols {
             r##"
                 |arguments: foo
                 |protocol:
-                |  - '/bin/true foo'
+                |  - /bin/true foo
                 |---
                 |arguments: bar
                 |protocol:
-                |  - '/bin/true bar'
+                |  - /bin/true bar
             "##,
             Ok(()),
         )?;
@@ -352,14 +364,41 @@ mod multiple_protocols {
     }
 }
 
-#[test]
-fn nice_error_when_script_does_not_exist() {
-    let result = run_check_protocols(
-        Context::new_test_context(),
-        &PathBuf::from("./does-not-exist"),
-    );
-    assert_eq!(
-        format!("{}", result.unwrap_err()),
-        "executable file not found: ./does-not-exist"
-    );
+mod env {
+    use super::*;
+
+    #[test]
+    fn pass_env_into_tested_script() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |/bin/true $FOO
+            "##,
+            r##"
+                |env:
+                |  FOO: test-env-var
+                |protocol:
+                |  - /bin/true test-env-var
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn does_not_inherit_the_parent_env() -> R<()> {
+        std::env::set_var("FOO", "BAR");
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |/bin/true $FOO
+            "##,
+            r##"
+                |protocol:
+                |  - /bin/true
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
 }

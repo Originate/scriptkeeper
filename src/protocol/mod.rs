@@ -161,7 +161,7 @@ mod parse_step {
 pub struct Protocol {
     pub steps: VecDeque<Step>,
     pub arguments: Vec<String>,
-    env: HashMap<String, String>,
+    pub env: HashMap<String, String>,
 }
 
 impl Protocol {
