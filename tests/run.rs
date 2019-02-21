@@ -5,7 +5,7 @@ use test_utils::{trim_margin, TempFile};
 fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -> R<()> {
     let script = TempFile::write_temp_script(&trim_margin(script_code)?)?;
     fs::write(
-        script.path().with_extension("protocol.yaml"),
+        script.path().with_extension("protocols.yaml"),
         trim_margin(protocol)?,
     )?;
     let output = run_check_protocols(Context::new_test_context(), &script.path())?;
