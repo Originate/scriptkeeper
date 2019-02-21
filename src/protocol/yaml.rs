@@ -6,6 +6,8 @@ pub trait YamlExt {
     fn expect_str(&self) -> R<&str>;
 
     fn expect_array(&self) -> R<&Vec<Yaml>>;
+
+    fn expect_object(&self) -> R<&LinkedHashMap<Yaml, Yaml>>;
 }
 
 impl YamlExt for Yaml {
@@ -19,6 +21,12 @@ impl YamlExt for Yaml {
         Ok(self
             .as_vec()
             .ok_or_else(|| format!("expected: array, got: {:?}", self))?)
+    }
+
+    fn expect_object(&self) -> R<&LinkedHashMap<Yaml, Yaml>> {
+        Ok(self
+            .as_hash()
+            .ok_or_else(|| format!("expected: object, got: {:?}", self))?)
     }
 }
 

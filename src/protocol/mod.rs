@@ -5,10 +5,10 @@ mod yaml;
 use crate::protocol::yaml::*;
 use crate::utils::path_to_string;
 use crate::R;
-use std::collections::vec_deque::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust::{yaml::Hash, Yaml, YamlLoader};
 
 pub fn format_command(command: &str, mut arguments: Vec<String>) -> String {
     let mut words = vec![command.to_string()];
@@ -161,40 +161,63 @@ mod parse_step {
 pub struct Protocol {
     pub steps: VecDeque<Step>,
     pub arguments: Vec<String>,
+    env: HashMap<String, String>,
 }
 
 impl Protocol {
     #[allow(dead_code)]
     pub fn empty() -> Protocol {
+        Protocol::new(vec![])
+    }
+
+    pub fn new(steps: Vec<Step>) -> Protocol {
         Protocol {
-            steps: VecDeque::new(),
+            steps: steps.into(),
             arguments: vec![],
+            env: HashMap::new(),
         }
     }
 
-    fn parse(yaml: Yaml) -> R<Protocol> {
-        fn from_array(array: &[Yaml]) -> R<Protocol> {
-            Ok(Protocol {
-                steps: array
-                    .iter()
-                    .map(Step::parse)
-                    .collect::<R<VecDeque<Step>>>()?,
-                arguments: vec![],
-            })
+    fn from_array(array: &[Yaml]) -> R<Protocol> {
+        Ok(Protocol::new(
+            array.iter().map(Step::parse).collect::<R<Vec<Step>>>()?,
+        ))
+    }
+
+    fn add_arguments(&mut self, object: &Hash) -> R<()> {
+        if let Ok(arguments) = object.expect_field("arguments") {
+            self.arguments = arguments
+                .expect_str()?
+                .split_whitespace()
+                .map(String::from)
+                .collect();
         }
-        Ok(match yaml {
-            Yaml::Array(array) => from_array(&array)?,
-            Yaml::Hash(object) => {
-                let mut protocol = from_array(object.expect_field("protocol")?.expect_array()?)?;
-                if let Ok(arguments) = object.expect_field("arguments") {
-                    protocol.arguments = arguments
-                        .expect_str()?
-                        .split_whitespace()
-                        .map(String::from)
-                        .collect();
-                }
-                protocol
+        Ok(())
+    }
+
+    fn add_env(&mut self, object: &Hash) -> R<()> {
+        if let Ok(env) = object.expect_field("env") {
+            for (key, value) in env.expect_object()?.into_iter() {
+                self.env.insert(
+                    key.expect_str()?.to_string(),
+                    value.expect_str()?.to_string(),
+                );
             }
+        }
+        Ok(())
+    }
+
+    fn from_object(object: &Hash) -> R<Protocol> {
+        let mut protocol = Protocol::from_array(object.expect_field("protocol")?.expect_array()?)?;
+        protocol.add_arguments(&object)?;
+        protocol.add_env(&object)?;
+        Ok(protocol)
+    }
+
+    fn parse(yaml: Yaml) -> R<Protocol> {
+        Ok(match yaml {
+            Yaml::Array(array) => Protocol::from_array(&array)?,
+            Yaml::Hash(object) => Protocol::from_object(&object)?,
             _ => Err(format!("expected: array or object, got: {:?}", yaml))?,
         })
     }
@@ -231,15 +254,11 @@ mod load {
                     |- /bin/true
                 "##,
             )?,
-            Protocol {
-                steps: vec![Step {
-                    command: "/bin/true".to_string(),
-                    arguments: vec![],
-                    stdout: vec![],
-                }]
-                .into(),
-                arguments: vec![]
-            },
+            Protocol::new(vec![Step {
+                command: "/bin/true".to_string(),
+                arguments: vec![],
+                stdout: vec![],
+            }]),
         );
         Ok(())
     }
@@ -295,15 +314,11 @@ mod load {
                     |  - /bin/true
                 "##
             )?,
-            Protocol {
-                steps: vec![Step {
-                    command: "/bin/true".to_string(),
-                    arguments: vec![],
-                    stdout: vec![],
-                }]
-                .into(),
-                arguments: vec![]
-            },
+            Protocol::new(vec![Step {
+                command: "/bin/true".to_string(),
+                arguments: vec![],
+                stdout: vec![],
+            }]),
         );
         Ok(())
     }
@@ -320,6 +335,25 @@ mod load {
             )?
             .arguments,
             vec!["foo", "bar"]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn allows_to_specify_the_script_environment() -> R<()> {
+        assert_eq!(
+            test_parse(
+                r##"
+                    |protocol:
+                    |  - /bin/true
+                    |env:
+                    |  foo: bar
+                "##
+            )?
+            .env
+            .into_iter()
+            .collect::<Vec<_>>(),
+            vec![("foo".to_string(), "bar".to_string())]
         );
         Ok(())
     }
