@@ -1,5 +1,6 @@
 use check_protocols::{run_check_protocols, Context, ExitCode, R};
 use std::fs;
+use std::path::PathBuf;
 use test_utils::{trim_margin, TempFile};
 
 fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -> R<()> {
@@ -365,4 +366,16 @@ mod multiple_protocols {
         )?;
         Ok(())
     }
+}
+
+#[test]
+fn nice_error_when_script_does_not_exist() {
+    let result = run_check_protocols(
+        Context::new_test_context(),
+        &PathBuf::from("./does-not-exist"),
+    );
+    assert_eq!(
+        format!("{}", result.unwrap_err()),
+        "executable file not found: ./does-not-exist"
+    );
 }
