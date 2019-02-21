@@ -65,7 +65,7 @@ impl Tracer {
     {
         fork_with_child_errors(
             || {
-                ptrace::traceme()?;
+                ptrace::traceme().map_err(|error| format!("PTRACE_TRACEME failed: {}", error))?;
                 signal::kill(getpid(), Some(Signal::SIGSTOP))?;
                 let path = CString::new(executable.as_os_str().as_bytes())?;
                 let mut execv_args = vec![path.clone()];
