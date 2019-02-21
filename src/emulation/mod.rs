@@ -17,7 +17,7 @@ pub struct SyscallMock {
     context: Context,
     tracee_pid: Pid,
     expected: Protocol,
-    errors: TestResult,
+    result: TestResult,
     temporary_executables: Vec<ShortTempFile>,
 }
 
@@ -27,7 +27,7 @@ impl SyscallMock {
             context,
             tracee_pid,
             expected,
-            errors: TestResult::Pass,
+            result: TestResult::Pass,
             temporary_executables: vec![],
         }
     }
@@ -66,12 +66,12 @@ impl SyscallMock {
             Some(next_expected_step) => {
                 match next_expected_step.compare(received_command, received_arguments) {
                     Ok(()) => {}
-                    Err(error) => self.push_error(error),
+                    Err(error) => self.register_error(error),
                 }
                 next_expected_step.stdout
             }
             None => {
-                self.push_error(protocol::Step::format_error(
+                self.register_error(protocol::Step::format_error(
                     "<protocol end>",
                     &protocol::format_command(&received_command, received_arguments),
                 ));
@@ -88,17 +88,17 @@ impl SyscallMock {
 
     fn handle_end(&mut self) {
         if let Some(expected_step) = self.expected.steps.pop_front() {
-            self.push_error(protocol::Step::format_error(
+            self.register_error(protocol::Step::format_error(
                 &protocol::format_command(&expected_step.command, expected_step.arguments),
                 "<script terminated>",
             ));
         }
     }
 
-    fn push_error(&mut self, error: String) {
-        match self.errors {
+    fn register_error(&mut self, error: String) {
+        match self.result {
             TestResult::Pass => {
-                self.errors = TestResult::Failure(error);
+                self.result = TestResult::Failure(error);
             }
             TestResult::Failure(_) => {}
         }
@@ -115,7 +115,7 @@ pub fn run_against_protocol(
             SyscallMock::new(context, tracee_pid, expected)
         })?;
     syscall_mock.handle_end();
-    Ok(syscall_mock.errors)
+    Ok(syscall_mock.result)
 }
 
 #[cfg(test)]
