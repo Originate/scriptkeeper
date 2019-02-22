@@ -1,5 +1,7 @@
 FROM rust:1.32.0
 
+RUN cargo install cargo-watch
+
 WORKDIR /root/check-protocols
 ADD Cargo.* ./
 RUN mkdir src && touch src/lib.rs && cargo install --root /usr/local --path . ; true
