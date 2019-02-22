@@ -194,6 +194,21 @@ mod arguments {
         )?;
         Ok(())
     }
+
+    #[test]
+    fn arguments_with_spaces() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |/bin/true "foo bar"
+            "##,
+            r##"
+                |- /bin/true "foo bar"
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
 }
 
 #[test]
@@ -299,7 +314,7 @@ mod stdout {
             r##"
                 |- command: /bin/true
                 |  stdout: 'foo"'
-                |- '/bin/true foo"'
+                |- '/bin/true foo\"'
             "##,
             Ok(()),
         )?;
@@ -312,11 +327,11 @@ mod stdout {
             r##"
                 |#!/usr/bin/env bash
                 |output=$(/bin/true)
-                |/bin/true $output
+                |/bin/true "$output"
             "##,
             r##"
                 |- command: /bin/true
-                |  stdout: 'foo\nbar'
+                |  stdout: "foo\nbar"
                 |- '/bin/true foo\nbar'
             "##,
             Ok(()),

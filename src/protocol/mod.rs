@@ -26,7 +26,7 @@ pub struct Step {
 impl Step {
     fn parse(yaml: &Yaml) -> R<Step> {
         fn from_string(string: &str) -> R<Step> {
-            let mut words = string.split_whitespace();
+            let mut words = split_words(string.to_string())?.into_iter();
             let (command, arguments) = {
                 match words.next() {
                     None => Err(format!(
