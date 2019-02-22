@@ -113,21 +113,6 @@ fn multiple() -> R<()> {
 }
 
 #[test]
-fn arguments() -> R<()> {
-    test_run(
-        r##"
-            |#!/usr/bin/env bash
-            |/bin/true foo
-        "##,
-        r##"
-            |- /bin/true foo
-        "##,
-        Ok(()),
-    )?;
-    Ok(())
-}
-
-#[test]
 fn failing() -> R<()> {
     test_run(
         r##"
@@ -142,27 +127,6 @@ fn failing() -> R<()> {
                 |error:
                 |  expected: /bin/true
                 |  received: /bin/false
-            ",
-        )?),
-    )?;
-    Ok(())
-}
-
-#[test]
-fn failing_arguments() -> R<()> {
-    test_run(
-        r##"
-            |#!/usr/bin/env bash
-            |/bin/true bar
-        "##,
-        r##"
-            |- /bin/true foo
-        "##,
-        Err(&trim_margin(
-            "
-                |error:
-                |  expected: /bin/true foo
-                |  received: /bin/true bar
             ",
         )?),
     )?;
@@ -190,6 +154,46 @@ fn failing_later() -> R<()> {
         )?),
     )?;
     Ok(())
+}
+
+mod arguments {
+    use super::*;
+
+    #[test]
+    fn arguments() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |/bin/true foo
+            "##,
+            r##"
+                |- /bin/true foo
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn failing_arguments() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |/bin/true bar
+            "##,
+            r##"
+                |- /bin/true foo
+            "##,
+            Err(&trim_margin(
+                "
+                    |error:
+                    |  expected: /bin/true foo
+                    |  received: /bin/true bar
+                ",
+            )?),
+        )?;
+        Ok(())
+    }
 }
 
 #[test]
