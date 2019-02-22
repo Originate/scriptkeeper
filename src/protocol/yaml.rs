@@ -144,6 +144,7 @@ pub fn split_words(string: String) -> R<Vec<String>> {
 #[cfg(test)]
 mod split_words {
     use super::*;
+    use test_utils::assert_error;
 
     #[test]
     fn splits_words() -> R<()> {
@@ -184,12 +185,12 @@ mod split_words {
 
     #[test]
     fn quotes_next_to_letters() -> R<()> {
-        assert_eq!(
-            format!("{}", split_words(r#"foo"bar""#.to_string()).unwrap_err()),
+        assert_error!(
+            split_words(r#"foo"bar""#.to_string()),
             r#"opening quotes must be preceeded by a space ("foo\"bar\"")"#
         );
-        assert_eq!(
-            format!("{}", split_words(r#""foo"bar"#.to_string()).unwrap_err()),
+        assert_error!(
+            split_words(r#""foo"bar"#.to_string()),
             r#"closing quotes must be followed by a space ("\"foo\"bar")"#
         );
         Ok(())
@@ -197,8 +198,8 @@ mod split_words {
 
     #[test]
     fn nonmatching_quotes() -> R<()> {
-        assert_eq!(
-            format!("{}", split_words(r#"foo "bar"#.to_string()).unwrap_err()),
+        assert_error!(
+            split_words(r#"foo "bar"#.to_string()),
             r#"unmatched quotes ("foo \"bar")"#
         );
         Ok(())

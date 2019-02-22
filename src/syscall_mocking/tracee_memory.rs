@@ -135,6 +135,7 @@ mod test {
         use nix::sys::wait::{waitpid, WaitStatus};
         use nix::unistd::{execv, getpid};
         use std::ffi::CString;
+        use test_utils::assert_error;
 
         mod string_to_data {
             use super::*;
@@ -150,12 +151,12 @@ mod test {
 
             #[test]
             fn errors_on_too_long_strings() -> R<()> {
-                assert_eq!(
-                    format!("{}", string_to_data("1234567890").unwrap_err()),
+                assert_error!(
+                    string_to_data("1234567890"),
                     "string_to_data: string too long"
                 );
-                assert_eq!(
-                    format!("{}", string_to_data("12345678").unwrap_err()),
+                assert_error!(
+                    string_to_data("12345678"),
                     "string_to_data: string too long"
                 );
                 assert_eq!(
@@ -203,11 +204,7 @@ mod test {
                     Ok(())
                 },
             );
-            assert_eq!(
-                format!("{}", fork_result.unwrap_err()),
-                "ENOENT: No such file or directory",
-                "unexpected error"
-            );
+            assert_error!(fork_result, "ENOENT: No such file or directory");
             Ok(())
         }
     }

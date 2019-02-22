@@ -73,6 +73,7 @@ impl Step {
 #[cfg(test)]
 mod parse_step {
     use super::*;
+    use test_utils::assert_error;
     use yaml_rust::Yaml;
 
     fn test_parse_step(yaml: &str, expected: &Step) -> R<()> {
@@ -137,8 +138,8 @@ mod parse_step {
 
     #[test]
     fn gives_nice_parse_errors() {
-        assert_eq!(
-            format!("{}", Step::parse(&Yaml::Null).unwrap_err()),
+        assert_error!(
+            Step::parse(&Yaml::Null),
             "expected: string or array, got: Null"
         )
     }
@@ -253,7 +254,7 @@ mod load {
     use crate::R;
     use std::path::PathBuf;
     use std::*;
-    use test_utils::{trim_margin, Mappable, TempFile};
+    use test_utils::{assert_error, trim_margin, Mappable, TempFile};
 
     fn test_parse(protocol_string: &str) -> R<Protocol> {
         let tempfile = TempFile::new()?;
@@ -283,11 +284,8 @@ mod load {
 
     #[test]
     fn returns_an_informative_error_when_the_protocol_file_is_missing() {
-        assert_eq!(
-            format!(
-                "{}",
-                Protocol::load(&PathBuf::from("./does-not-exist")).unwrap_err()
-            ),
+        assert_error!(
+            Protocol::load(&PathBuf::from("./does-not-exist")),
             "protocol file not found: ./does-not-exist.protocols.yaml"
         );
     }
