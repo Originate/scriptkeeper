@@ -86,11 +86,17 @@ impl SyscallMock {
         Ok(path)
     }
 
-    fn handle_end(&mut self) {
+    pub fn handle_end(&mut self, exitcode: i32) {
         if let Some(expected_step) = self.expected.steps.pop_front() {
             self.register_error(protocol::Step::format_error(
                 &protocol::format_command(&expected_step.command, expected_step.arguments),
                 "<script terminated>",
+            ));
+        }
+        if exitcode != 0 {
+            self.register_error(format!(
+                "  expected: <exitcode 0>\n  received: <exitcode {}>\n",
+                exitcode
             ));
         }
     }
@@ -110,13 +116,12 @@ pub fn run_against_protocol(
     executable: &Path,
     expected: Protocol,
 ) -> R<TestResult> {
-    let mut syscall_mock = Tracer::run_against_mock(
+    let syscall_mock = Tracer::run_against_mock(
         executable,
         expected.arguments.clone(),
         expected.env.clone(),
         |tracee_pid| SyscallMock::new(context, tracee_pid, expected),
     )?;
-    syscall_mock.handle_end();
     Ok(syscall_mock.result)
 }
 

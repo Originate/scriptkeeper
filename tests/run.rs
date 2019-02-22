@@ -402,3 +402,24 @@ mod env {
         Ok(())
     }
 }
+
+#[test]
+fn failure_when_the_tested_script_exits_with_a_non_zero_exitcode() -> R<()> {
+    test_run(
+        r##"
+            |#!/usr/bin/env bash
+            |exit 42
+        "##,
+        r##"
+            |protocol: []
+        "##,
+        Err(&trim_margin(
+            "
+                |error:
+                |  expected: <exitcode 0>
+                |  received: <exitcode 42>
+            ",
+        )?),
+    )?;
+    Ok(())
+}

@@ -100,8 +100,9 @@ impl Tracer {
             let status = wait()?;
             self.handle_wait_status(status)?;
             match status {
-                WaitStatus::Exited(pid, ..) => {
+                WaitStatus::Exited(pid, exitcode) => {
                     if self.tracee_pid == pid {
+                        self.syscall_mock.handle_end(exitcode);
                         break;
                     }
                 }
