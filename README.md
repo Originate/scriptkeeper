@@ -102,11 +102,30 @@ protocol:
   - git pull
 ```
 
-## Running inside `docker`
+## Running inside `docker` (for OSX)
 
 You can run the tool inside docker, for example like this:
 
 ``` bash
 ./build-docker-image.sh
 ./check-protocols-in-docker.sh <PATH_TO_YOUR_SCRIPT>
+```
+
+## Contributing
+
+Contributions, feature requests, bug reports, etc. are all welcome. Please consider the following guidelines
+when submitting:
+
+* For any pull request that you intend to merge, we ask that all tests pass for every commit that will end up on master
+* We will address the top rated (by :thumbsup:) issues first, please cast your votes!
+
+### For OSX
+
+This tool does not currently compile or run on OSX. In order to develop on a Mac you will need to
+run inside of docker. Luckily, we have set up a one-liner for you. This will run the tests continuously,
+within docker, when files change:
+
+``` bash
+./build-docker-image.sh
+./test-watch-in-docker.sh
 ```
