@@ -130,7 +130,7 @@ pub fn run_against_protocol(
 mod run_against_protocol {
     use super::*;
     use std::fs;
-    use test_utils::TempFile;
+    use test_utils::{assert_error, TempFile};
 
     #[test]
     fn works_for_longer_file_names() -> R<()> {
@@ -161,15 +161,11 @@ mod run_against_protocol {
 
     #[test]
     fn complains_when_the_file_does_not_exist() {
-        assert_eq!(
-            format!(
-                "{}",
-                run_against_protocol(
-                    Context::new_test_context(),
-                    Path::new("./does_not_exist"),
-                    Protocol::empty()
-                )
-                .unwrap_err()
+        assert_error!(
+            run_against_protocol(
+                Context::new_test_context(),
+                Path::new("./does_not_exist"),
+                Protocol::empty()
             ),
             "ENOENT: No such file or directory"
         );

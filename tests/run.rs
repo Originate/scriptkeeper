@@ -2,7 +2,7 @@ use check_protocols::utils::path_to_string;
 use check_protocols::{run_check_protocols, Context, ExitCode, R};
 use std::fs;
 use std::path::PathBuf;
-use test_utils::{trim_margin, TempFile};
+use test_utils::{assert_error, trim_margin, TempFile};
 
 #[test]
 fn nice_error_when_script_does_not_exist() {
@@ -10,10 +10,7 @@ fn nice_error_when_script_does_not_exist() {
         Context::new_test_context(),
         &PathBuf::from("./does-not-exist"),
     );
-    assert_eq!(
-        format!("{}", result.unwrap_err()),
-        "executable file not found: ./does-not-exist"
-    );
+    assert_error!(result, "executable file not found: ./does-not-exist");
 }
 
 fn test_run_check_protocols(script: &TempFile, protocol: &str) -> R<(ExitCode, String)> {
@@ -62,8 +59,8 @@ mod yaml_parse_errors {
                 |protocol: 42
             "##,
         );
-        assert_eq!(
-            format!("{}", result.unwrap_err()),
+        assert_error!(
+            result,
             format!(
                 "unexpected type in {}.protocols.yaml: \
                  expected: array, got: Integer(42)",
@@ -82,8 +79,8 @@ mod yaml_parse_errors {
                 |protocol: - boo
             "##,
         );
-        assert_eq!(
-            format!("{}", result.unwrap_err()),
+        assert_error!(
+            result,
             format!(
                 "invalid YAML in {}.protocols.yaml: \
                  block sequence entries are not allowed \

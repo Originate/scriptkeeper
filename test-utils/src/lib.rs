@@ -66,3 +66,10 @@ impl<A, B> Mappable<A, B> for VecDeque<A> {
         self.into_iter().map(f).collect()
     }
 }
+
+#[macro_export]
+macro_rules! assert_error {
+    ($result:expr, $expected:expr) => {
+        assert_eq!(format!("{}", $result.unwrap_err()), $expected);
+    };
+}

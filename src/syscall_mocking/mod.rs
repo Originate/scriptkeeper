@@ -136,6 +136,7 @@ mod test_tracer {
         use super::*;
         use crate::protocol::Protocol;
         use crate::Context;
+        use test_utils::assert_error;
 
         fn tracer() -> Tracer {
             let pid = Pid::from_raw(1);
@@ -205,13 +206,8 @@ mod test_tracer {
         fn complains_when_exiting_with_a_different_syscall() -> R<()> {
             let mut tracer = tracer();
             tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(1))?;
-            assert_eq!(
-                format!(
-                    "{}",
-                    tracer
-                        .update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(2))
-                        .unwrap_err()
-                ),
+            assert_error!(
+                tracer.update_syscall_state(Pid::from_raw(2), &Syscall::Unknown(2)),
                 "update_syscall_state: exiting with the wrong syscall"
             );
             Ok(())
@@ -260,6 +256,7 @@ pub fn fork_with_child_errors<A>(
 mod test_fork_with_child_errors {
     use super::*;
     use nix::unistd::execv;
+    use test_utils::assert_error;
 
     #[test]
     fn runs_the_child_action() -> R<()> {
@@ -302,7 +299,7 @@ mod test_fork_with_child_errors {
                 Ok(())
             },
         );
-        assert_eq!(format!("{}", result.unwrap_err()), "test error");
+        assert_error!(result, "test error");
     }
 
     #[test]
@@ -321,7 +318,7 @@ mod test_fork_with_child_errors {
                 Ok(())
             },
         );
-        assert_eq!(format!("{}", result.unwrap_err()), "test panic");
+        assert_error!(result, "test panic");
     }
 
     #[test]
@@ -342,7 +339,7 @@ mod test_fork_with_child_errors {
                 Ok(())
             },
         );
-        assert_eq!(format!("{}", result.unwrap_err()), "test error");
+        assert_error!(result, "test error");
     }
 
     #[test]
@@ -359,10 +356,7 @@ mod test_fork_with_child_errors {
                 Ok(())
             },
         );
-        assert_eq!(
-            format!("{}", result.unwrap_err()),
-            "child_action: please either exec or fail"
-        );
+        assert_error!(result, "child_action: please either exec or fail");
     }
 
     #[test]
@@ -383,6 +377,6 @@ mod test_fork_with_child_errors {
                 Ok(())
             },
         );
-        assert_eq!(format!("{}", result.unwrap_err()), "test child error");
+        assert_error!(result, "test child error");
     }
 }
