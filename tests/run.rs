@@ -206,6 +206,27 @@ mod arguments {
         )?;
         Ok(())
     }
+
+    #[test]
+    fn error_messages_maintain_quotes() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |/bin/true foo bar
+            "##,
+            r##"
+                |- /bin/true "foo bar"
+            "##,
+            Err(&trim_margin(
+                r##"
+                    |error:
+                    |  expected: /bin/true "foo bar"
+                    |  received: /bin/true foo bar
+                "##,
+            )?),
+        )?;
+        Ok(())
+    }
 }
 
 #[test]
