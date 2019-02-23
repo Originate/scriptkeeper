@@ -1,44 +1,29 @@
 extern crate yaml_rust;
 
+pub mod command;
 mod yaml;
 
 use crate::protocol::yaml::*;
 use crate::utils::path_to_string;
 use crate::R;
+pub use command::Command;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 use yaml_rust::{yaml::Hash, Yaml, YamlLoader};
 
-pub fn format_command(command: &str, mut arguments: Vec<String>) -> String {
-    let mut words = vec![command.to_string()];
-    words.append(&mut arguments);
-    words.join(" ")
-}
-
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Step {
-    pub command: String,
-    pub arguments: Vec<String>,
+    pub command: Command,
     pub stdout: Vec<u8>,
 }
 
 impl Step {
     fn parse(yaml: &Yaml) -> R<Step> {
         fn from_string(string: &str) -> R<Step> {
-            let mut words = split_words(string.to_string())?.into_iter();
-            let (command, arguments) = {
-                match words.next() {
-                    None => Err(format!(
-                        "expected: space-separated command and arguments, got: {:?}",
-                        string
-                    ))?,
-                    Some(command) => (command.to_string(), words.map(String::from).collect()),
-                }
-            };
+            let command = Command::new(string)?;
             Ok(Step {
                 command,
-                arguments,
                 stdout: vec![],
             })
         }
@@ -53,20 +38,6 @@ impl Step {
             }
             _ => Err(format!("expected: string or array, got: {:?}", yaml))?,
         }
-    }
-
-    pub fn format_error(expected: &str, received: &str) -> String {
-        format!("  expected: {}\n  received: {}\n", expected, received)
-    }
-
-    pub fn compare(&self, command: &str, arguments: Vec<String>) -> Result<(), String> {
-        if self.command != command || self.arguments != arguments {
-            Err(Step::format_error(
-                &format_command(&self.command, self.arguments.clone()),
-                &format_command(command, arguments),
-            ))?;
-        }
-        Ok(())
     }
 }
 
@@ -89,8 +60,10 @@ mod parse_step {
         test_parse_step(
             r#""foo""#,
             &Step {
-                command: "foo".to_string(),
-                arguments: vec![],
+                command: Command {
+                    executable: "foo".to_string(),
+                    arguments: vec![],
+                },
                 stdout: vec![],
             },
         )?;
@@ -102,8 +75,10 @@ mod parse_step {
         test_parse_step(
             r#""foo bar""#,
             &Step {
-                command: "foo".to_string(),
-                arguments: vec!["bar".to_string()],
+                command: Command {
+                    executable: "foo".to_string(),
+                    arguments: vec!["bar".to_string()],
+                },
                 stdout: vec![],
             },
         )?;
@@ -115,8 +90,10 @@ mod parse_step {
         test_parse_step(
             r#"{command: "foo"}"#,
             &Step {
-                command: "foo".to_string(),
-                arguments: vec![],
+                command: Command {
+                    executable: "foo".to_string(),
+                    arguments: vec![],
+                },
                 stdout: vec![],
             },
         )?;
@@ -128,8 +105,10 @@ mod parse_step {
         test_parse_step(
             r#"{command: "foo bar"}"#,
             &Step {
-                command: "foo".to_string(),
-                arguments: vec!["bar".to_string()],
+                command: Command {
+                    executable: "foo".to_string(),
+                    arguments: vec!["bar".to_string()],
+                },
                 stdout: vec![],
             },
         )?;
@@ -149,8 +128,10 @@ mod parse_step {
         test_parse_step(
             r#"{command: "foo", stdout: "bar"}"#,
             &Step {
-                command: "foo".to_string(),
-                arguments: vec![],
+                command: Command {
+                    executable: "foo".to_string(),
+                    arguments: vec![],
+                },
                 stdout: b"bar".to_vec(),
             },
         )?;
@@ -274,8 +255,10 @@ mod load {
                 "##,
             )?,
             Protocol::new(vec![Step {
-                command: "/bin/true".to_string(),
-                arguments: vec![],
+                command: Command {
+                    executable: "/bin/true".to_string(),
+                    arguments: vec![],
+                },
                 stdout: vec![],
             }]),
         );
@@ -300,7 +283,7 @@ mod load {
                 "##
             )?
             .steps
-            .map(|step| step.command),
+            .map(|step| step.command.executable),
             vec!["/bin/true", "/bin/false"],
         );
         Ok(())
@@ -315,7 +298,7 @@ mod load {
                 "##
             )?
             .steps
-            .map(|step| step.arguments),
+            .map(|step| step.command.arguments),
             vec![vec!["foo", "bar"].map(String::from)],
         );
         Ok(())
@@ -331,8 +314,10 @@ mod load {
                 "##
             )?,
             Protocol::new(vec![Step {
-                command: "/bin/true".to_string(),
-                arguments: vec![],
+                command: Command {
+                    executable: "/bin/true".to_string(),
+                    arguments: vec![],
+                },
                 stdout: vec![],
             }]),
         );

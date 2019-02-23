@@ -42,12 +42,15 @@ impl SyscallMock {
     ) -> R<()> {
         if let (Syscall::Execve, SyscallStop::Enter) = (&syscall, syscall_stop) {
             if self.tracee_pid != pid {
-                let command = tracee_memory::data_to_string(tracee_memory::peekdata_iter(
+                let executable = tracee_memory::data_to_string(tracee_memory::peekdata_iter(
                     pid,
                     registers.rdi,
                 ))?;
                 let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
-                let mock_executable_path = self.handle_step(&command, arguments)?;
+                let mock_executable_path = self.handle_step(protocol::Command {
+                    executable,
+                    arguments,
+                })?;
                 tracee_memory::pokedata(
                     pid,
                     registers.rdi,
@@ -58,24 +61,17 @@ impl SyscallMock {
         Ok(())
     }
 
-    fn handle_step(
-        &mut self,
-        received_command: &str,
-        received_arguments: Vec<String>,
-    ) -> R<PathBuf> {
+    fn handle_step(&mut self, received: protocol::Command) -> R<PathBuf> {
         let stdout = match self.expected.steps.pop_front() {
             Some(next_expected_step) => {
-                match next_expected_step.compare(received_command, received_arguments) {
+                match next_expected_step.command.compare(&received) {
                     Ok(()) => {}
-                    Err(error) => self.register_error(error),
+                    Err((a, b)) => self.register_error(&a, &b),
                 }
                 next_expected_step.stdout
             }
             None => {
-                self.register_error(protocol::Step::format_error(
-                    "<protocol end>",
-                    &protocol::format_command(&received_command, received_arguments),
-                ));
+                self.register_error("<protocol end>", &received.format());
                 vec![]
             }
         };
@@ -89,23 +85,20 @@ impl SyscallMock {
 
     pub fn handle_end(&mut self, exitcode: i32) {
         if let Some(expected_step) = self.expected.steps.pop_front() {
-            self.register_error(protocol::Step::format_error(
-                &protocol::format_command(&expected_step.command, expected_step.arguments),
-                "<script terminated>",
-            ));
+            self.register_error(&expected_step.command.format(), "<script terminated>");
         }
         if exitcode != 0 {
-            self.register_error(format!(
-                "  expected: <exitcode 0>\n  received: <exitcode {}>\n",
-                exitcode
-            ));
+            self.register_error("<exitcode 0>", &format!("<exitcode {}>", exitcode));
         }
     }
 
-    fn register_error(&mut self, error: String) {
+    fn register_error(&mut self, expected: &str, received: &str) {
         match self.result {
             TestResult::Pass => {
-                self.result = TestResult::Failure(error);
+                self.result = TestResult::Failure(format!(
+                    "  expected: {}\n  received: {}\n",
+                    expected, received
+                ));
             }
             TestResult::Failure(_) => {}
         }
@@ -129,6 +122,7 @@ pub fn run_against_protocol(
 #[cfg(test)]
 mod run_against_protocol {
     use super::*;
+    use crate::protocol::command::Command;
     use std::fs;
     use test_utils::{assert_error, TempFile};
 
@@ -149,8 +143,10 @@ mod run_against_protocol {
                 Context::new_test_context(),
                 &script.path(),
                 Protocol::new(vec![protocol::Step {
-                    command: long_command.path().to_string_lossy().into_owned(),
-                    arguments: vec![],
+                    command: Command {
+                        executable: long_command.path().to_string_lossy().into_owned(),
+                        arguments: vec![],
+                    },
                     stdout: vec![]
                 }])
             )?,
