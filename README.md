@@ -1,5 +1,7 @@
 # `check-protocols`
 
+ [![Waffle.io - Columns and their card count](https://badge.waffle.io/Originate/check-protocols.svg?columns=all)](https://waffle.io/Originate/check-protocols)
+
 ## Status
 
 **This tool is very experimental. It may give incorrect results and delete your
