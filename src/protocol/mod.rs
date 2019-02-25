@@ -222,10 +222,21 @@ impl Protocol {
         })
     }
 
-    pub fn load(executable_path: &Path) -> R<Vec<Protocol>> {
-        let file_contents = read_protocols_file(executable_path)?;
+    fn parse_protocols(file_contents: &str) -> R<Vec<Protocol>> {
         let yaml: Vec<Yaml> = YamlLoader::load_from_str(&file_contents)?;
         yaml.into_iter().map(Protocol::parse).collect()
+    }
+
+    pub fn load(executable_path: &Path) -> R<Vec<Protocol>> {
+        let file_contents = read_protocols_file(executable_path)?;
+        let result = Protocol::parse_protocols(&file_contents).map_err(|error| {
+            format!(
+                "error parsing {}: {}",
+                add_extension(executable_path, "protocols.yaml").to_string_lossy(),
+                error
+            )
+        })?;
+        Ok(result)
     }
 }
 
