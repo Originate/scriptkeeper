@@ -1,3 +1,4 @@
+use check_protocols::utils::path_to_string;
 use check_protocols::{run_check_protocols, Context, ExitCode, R};
 use std::fs;
 use std::path::PathBuf;
@@ -15,13 +16,17 @@ fn nice_error_when_script_does_not_exist() {
     );
 }
 
-fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -> R<()> {
-    let script = TempFile::write_temp_script(&trim_margin(script_code)?)?;
+fn test_run_check_protocols(script: &TempFile, protocol: &str) -> R<(ExitCode, String)> {
     fs::write(
         script.path().with_extension("protocols.yaml"),
         trim_margin(protocol)?,
     )?;
-    let output = run_check_protocols(Context::new_test_context(), &script.path())?;
+    run_check_protocols(Context::new_test_context(), &script.path())
+}
+
+fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -> R<()> {
+    let script = TempFile::write_temp_script(&trim_margin(script_code)?)?;
+    let output = test_run_check_protocols(&script, protocol)?;
     let expected_output = match expected {
         Err(expected_output) => (ExitCode(1), expected_output.to_string()),
         Ok(()) => (ExitCode(0), "All tests passed.\n".to_string()),
@@ -43,6 +48,50 @@ fn simple() -> R<()> {
         Ok(()),
     )?;
     Ok(())
+}
+
+mod yaml_parse_errors {
+    use super::*;
+
+    #[test]
+    fn wrong_types() -> R<()> {
+        let script = TempFile::write_temp_script("")?;
+        let result = test_run_check_protocols(
+            &script,
+            r##"
+                |protocol: 42
+            "##,
+        );
+        assert_eq!(
+            format!("{}", result.unwrap_err()),
+            format!(
+                "error parsing {}.protocols.yaml: expected: array, got: Integer(42)",
+                path_to_string(&script.path())?
+            )
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_yaml() -> R<()> {
+        let script = TempFile::write_temp_script("")?;
+        let result = test_run_check_protocols(
+            &script,
+            r##"
+                |protocol: - boo
+            "##,
+        );
+        assert_eq!(
+            format!("{}", result.unwrap_err()),
+            format!(
+                "error parsing {}.protocols.yaml: \
+                 block sequence entries are not allowed \
+                 in this context at line 1 column 11",
+                path_to_string(&script.path())?
+            )
+        );
+        Ok(())
+    }
 }
 
 #[test]

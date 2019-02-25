@@ -23,6 +23,7 @@ fn run(command: &str, args: Vec<&str>) -> R<()> {
     }
 }
 
+#[derive(Debug)]
 pub struct TempFile {
     tempdir: TempDir,
 }

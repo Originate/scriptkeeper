@@ -5,7 +5,7 @@ mod cli;
 mod emulation;
 mod protocol;
 mod syscall_mocking;
-mod utils;
+pub mod utils;
 
 use crate::emulation::{executable_mock, run_against_protocols};
 use protocol::Protocol;
