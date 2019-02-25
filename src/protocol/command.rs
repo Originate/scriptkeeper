@@ -166,14 +166,6 @@ impl Command {
         }
         .parse_command()?)
     }
-
-    pub fn compare(&self, other: &Command) -> Result<(), (String, String)> {
-        if self != other {
-            Err((self.format(), other.format()))
-        } else {
-            Ok(())
-        }
-    }
 }
 
 #[cfg(test)]

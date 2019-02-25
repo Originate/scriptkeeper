@@ -64,9 +64,8 @@ impl SyscallMock {
     fn handle_step(&mut self, received: protocol::Command) -> R<PathBuf> {
         let stdout = match self.expected.steps.pop_front() {
             Some(next_expected_step) => {
-                match next_expected_step.command.compare(&received) {
-                    Ok(()) => {}
-                    Err((a, b)) => self.register_error(&a, &b),
+                if next_expected_step.command != received {
+                    self.register_error(&next_expected_step.command.format(), &received.format());
                 }
                 next_expected_step.stdout
             }
