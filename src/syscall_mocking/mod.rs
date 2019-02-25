@@ -1,8 +1,8 @@
+pub mod syscall;
 pub mod tracee_memory;
 
 use crate::emulation::SyscallMock;
 use crate::R;
-use libc::{c_ulonglong, user_regs_struct};
 use nix::sys::ptrace;
 use nix::sys::ptrace::Options;
 use nix::sys::signal;
@@ -16,23 +16,8 @@ use std::fs::{read_to_string, write};
 use std::os::unix::ffi::OsStrExt;
 use std::panic;
 use std::path::Path;
+use syscall::Syscall;
 use tempdir::TempDir;
-
-#[derive(PartialEq, Debug, Clone, Eq, Hash)]
-pub enum Syscall {
-    Execve,
-    Unknown(c_ulonglong),
-}
-
-impl From<user_regs_struct> for Syscall {
-    fn from(registers: user_regs_struct) -> Self {
-        if registers.orig_rax == libc::SYS_execve as c_ulonglong {
-            Syscall::Execve
-        } else {
-            Syscall::Unknown(registers.orig_rax)
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SyscallStop {
