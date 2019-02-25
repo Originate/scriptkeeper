@@ -41,17 +41,16 @@ impl Command {
         words.join(" ")
     }
 
-    fn split_words(string: &str) -> R<Vec<String>> {
+    pub fn new(string: &str) -> R<Command> {
         use std::collections::VecDeque;
 
         #[derive(Debug)]
-        struct Iter {
+        struct Parser {
             original: String,
             input: VecDeque<char>,
-            acc: String,
         };
 
-        impl Iter {
+        impl Parser {
             fn parse_error<A>(&self, message: &str) -> R<A> {
                 Err(format!("{} ({:?})", message, self.original))?
             }
@@ -69,92 +68,103 @@ impl Command {
                 }
             }
 
-            fn handle_escaped_char(&mut self) -> R<()> {
-                match self.input.pop_front() {
-                    None => self.parse_error("a backslash must be followed by a character")?,
-                    Some('"') => self.acc.push('"'),
-                    Some('n') => self.acc.push('\n'),
-                    Some(' ') => self.acc.push(' '),
-                    Some('\\') => self.acc.push('\\'),
-                    Some(char) => {
-                        self.parse_error(&format!("unknown escaped character {}", char))?
-                    }
+            fn skip_char(&mut self, expected: char, message: &str) -> R<()> {
+                let next = self.input.pop_front();
+                if next != Some(expected) {
+                    self.parse_error(message)?;
                 }
                 Ok(())
             }
 
-            fn parse_word_inside_quotes(&mut self) -> R<()> {
-                if !self.acc.is_empty() {
-                    self.parse_error("opening quotes must be preceeded by a space")?;
-                }
-                loop {
-                    match self.input.pop_front() {
-                        None => self.parse_error("unmatched quotes")?,
-                        Some('\\') => self.handle_escaped_char()?,
-                        Some('"') => break,
-                        Some(char) => self.acc.push(char),
-                    }
-                }
-                match self.input.pop_front() {
-                    Some(' ') => self.input.push_front(' '),
-                    Some(_) => self.parse_error("closing quotes must be followed by a space")?,
-                    None => {}
+            fn peek_chars(&mut self, expected: Vec<Option<char>>, message: &str) -> R<()> {
+                let peeked = self.input.get(0);
+                if !expected.contains(&peeked.cloned()) {
+                    self.parse_error(message)?;
                 }
                 Ok(())
+            }
+
+            fn parse_char(&mut self, excluded: &[char]) -> R<Option<char>> {
+                Ok(match self.input.pop_front() {
+                    None => None,
+                    Some('\\') => Some(match self.input.pop_front() {
+                        None => self.parse_error("a backslash must be followed by a character")?,
+                        Some('"') => '"',
+                        Some('n') => '\n',
+                        Some(' ') => ' ',
+                        Some('\\') => '\\',
+                        Some(char) => {
+                            self.parse_error(&format!("unknown escaped character {}", char))?
+                        }
+                    }),
+                    Some(char) => {
+                        if excluded.contains(&char) {
+                            self.input.push_front(char);
+                            None
+                        } else {
+                            Some(char)
+                        }
+                    }
+                })
+            }
+
+            fn collect_chars_until(&mut self, excluded: &[char]) -> R<String> {
+                let mut result = "".to_string();
+                while let Some(char) = self.parse_char(excluded)? {
+                    result.push(char);
+                }
+                Ok(result)
             }
 
             fn parse_word(&mut self) -> R<Option<String>> {
                 self.skip_spaces();
-                Ok(if self.input.is_empty() {
-                    None
-                } else {
-                    self.acc = "".to_string();
-                    loop {
-                        match self.input.pop_front() {
-                            None => break,
-                            Some(' ') => break,
-                            Some('"') => self.parse_word_inside_quotes()?,
-                            Some('\\') => self.handle_escaped_char()?,
-                            Some(char) => self.acc.push(char),
-                        }
+                Ok(match self.input.get(0) {
+                    None => None,
+                    Some('"') => {
+                        self.skip_char('"', "shouldn't happen")?;
+                        let word = self.collect_chars_until(&['"'])?;
+                        self.skip_char('"', "unmatched quotes")?;
+                        self.peek_chars(
+                            vec![Some(' '), None],
+                            "closing quotes must be followed by a space",
+                        )?;
+                        Some(word)
                     }
-                    Some(self.acc.clone())
+                    Some(_) => {
+                        let result = self.collect_chars_until(&[' ', '"'])?;
+                        self.peek_chars(
+                            vec![Some(' '), None],
+                            "opening quotes must be preceeded by a space",
+                        )?;
+                        Some(result)
+                    }
                 })
             }
 
-            fn parse_words(&mut self) -> R<Vec<String>> {
-                let mut result = vec![];
+            fn parse_command(&mut self) -> R<Command> {
+                let executable = match self.parse_word()? {
+                    None => self.parse_error("expected: space-separated command and arguments")?,
+                    Some(executable) => executable,
+                };
+                let mut arguments = vec![];
                 loop {
                     match self.parse_word()? {
                         None => break,
-                        Some(word) => result.push(word),
+                        Some(word) => arguments.push(word),
                     }
                 }
-                Ok(result)
+                Ok(Command {
+                    executable,
+                    arguments,
+                })
             }
         }
 
-        Ok(Iter {
+        Ok(Parser {
             original: string.to_string(),
             input: string.chars().collect(),
-            acc: "".to_string(),
         }
-        .parse_words()?)
-    }
-
-    pub fn new(string: &str) -> R<Command> {
-        let mut words = Command::split_words(string)?.into_iter();
-        let executable = match words.next() {
-            None => Err(format!(
-                "expected: space-separated command and arguments, got: {:?}",
-                string
-            ))?,
-            Some(executable) => executable,
-        };
-        Ok(Command {
-            executable,
-            arguments: words.map(String::from).collect(),
-        })
+        .parse_command()?)
     }
 
     pub fn compare(&self, other: &Command) -> Result<(), (String, String)> {
@@ -231,11 +241,16 @@ mod command {
         }
 
         #[test]
-        fn quotes_next_to_letters() -> R<()> {
+        fn quotes_next_to_letters_1() -> R<()> {
             assert_error!(
                 Command::new(r#"foo"bar""#),
                 r#"opening quotes must be preceeded by a space ("foo\"bar\"")"#
             );
+            Ok(())
+        }
+
+        #[test]
+        fn quotes_next_to_letters_2() -> R<()> {
             assert_error!(
                 Command::new(r#""foo"bar"#),
                 r#"closing quotes must be followed by a space ("\"foo\"bar")"#
