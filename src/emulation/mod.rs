@@ -17,17 +17,17 @@ use test_result::{TestResult, TestResults};
 pub struct SyscallMock {
     context: Context,
     tracee_pid: Pid,
-    expected: Protocol,
+    protocol: Protocol,
     result: TestResult,
     temporary_executables: Vec<ShortTempFile>,
 }
 
 impl SyscallMock {
-    pub fn new(context: Context, tracee_pid: Pid, expected: Protocol) -> SyscallMock {
+    pub fn new(context: Context, tracee_pid: Pid, protocol: Protocol) -> SyscallMock {
         SyscallMock {
             context,
             tracee_pid,
-            expected,
+            protocol,
             result: TestResult::Pass,
             temporary_executables: vec![],
         }
@@ -62,25 +62,26 @@ impl SyscallMock {
     }
 
     fn handle_step(&mut self, received: protocol::Command) -> R<PathBuf> {
-        let stdout = match self.expected.steps.pop_front() {
-            Some(next_expected_step) => {
-                if next_expected_step.command != received {
-                    self.register_error(&next_expected_step.command.format(), &received.format());
+        let mock_config = match self.protocol.steps.pop_front() {
+            Some(next_protocol_step) => {
+                if next_protocol_step.command != received {
+                    self.register_error(&next_protocol_step.command.format(), &received.format());
                 }
-                next_expected_step.stdout
+                executable_mock::Config {
+                    stdout: next_protocol_step.stdout,
+                    exitcode: next_protocol_step.exitcode,
+                }
             }
             None => {
                 self.register_error("<protocol end>", &received.format());
-                vec![]
+                executable_mock::Config {
+                    stdout: vec![],
+                    exitcode: 0,
+                }
             }
         };
-        let mock_executable_contents = executable_mock::create_mock_executable(
-            &self.context,
-            executable_mock::Config {
-                stdout,
-                exitcode: 0,
-            },
-        )?;
+        let mock_executable_contents =
+            executable_mock::create_mock_executable(&self.context, mock_config)?;
         let temp_executable = ShortTempFile::new(&mock_executable_contents)?;
         let path = temp_executable.path();
         self.temporary_executables.push(temp_executable);
@@ -88,7 +89,7 @@ impl SyscallMock {
     }
 
     pub fn handle_end(&mut self, exitcode: i32) {
-        if let Some(expected_step) = self.expected.steps.pop_front() {
+        if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_error(&expected_step.command.format(), "<script terminated>");
         }
         if exitcode != 0 {
