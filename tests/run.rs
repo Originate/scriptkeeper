@@ -510,3 +510,19 @@ fn failure_when_the_tested_script_exits_with_a_non_zero_exitcode() -> R<()> {
     )?;
     Ok(())
 }
+
+#[test]
+fn detects_running_commands_from_ruby_scripts() -> R<()> {
+    test_run(
+        r##"
+            |#!/usr/bin/env ruby
+            |`ls`
+        "##,
+        r##"
+            |protocol:
+            |  - /bin/ls
+        "##,
+        Ok(()),
+    )?;
+    Ok(())
+}

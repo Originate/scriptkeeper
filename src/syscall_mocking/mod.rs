@@ -69,7 +69,9 @@ impl Tracer {
                 waitpid(tracee_pid, None)?;
                 ptrace::setoptions(
                     tracee_pid,
-                    Options::PTRACE_O_TRACESYSGOOD | Options::PTRACE_O_TRACEFORK,
+                    Options::PTRACE_O_TRACESYSGOOD
+                        | Options::PTRACE_O_TRACEFORK
+                        | Options::PTRACE_O_TRACEVFORK,
                 )?;
                 ptrace::syscall(tracee_pid)?;
 
