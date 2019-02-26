@@ -222,20 +222,27 @@ impl Protocol {
         })
     }
 
-    fn parse_protocols(file_contents: &str) -> R<Vec<Protocol>> {
-        let yaml: Vec<Yaml> = YamlLoader::load_from_str(&file_contents)?;
-        yaml.into_iter().map(Protocol::parse).collect()
-    }
-
     pub fn load(executable_path: &Path) -> R<Vec<Protocol>> {
-        let file_contents = read_protocols_file(executable_path)?;
-        let result = Protocol::parse_protocols(&file_contents).map_err(|error| {
+        let protocols_file = find_protocol_file(executable_path);
+        let file_contents = read_protocols_file(&protocols_file)?;
+        let yaml: Vec<Yaml> = YamlLoader::load_from_str(&file_contents).map_err(|error| {
             format!(
-                "error parsing {}: {}",
-                add_extension(executable_path, "protocols.yaml").to_string_lossy(),
+                "invalid YAML in {}: {}",
+                protocols_file.to_string_lossy(),
                 error
             )
         })?;
+        let result = yaml
+            .into_iter()
+            .map(Protocol::parse)
+            .collect::<R<Vec<Protocol>>>()
+            .map_err(|error| {
+                format!(
+                    "unexpected type in {}: {}",
+                    protocols_file.to_string_lossy(),
+                    error
+                )
+            })?;;
         Ok(result)
     }
 }
@@ -370,15 +377,14 @@ mod load {
     }
 }
 
-fn add_extension(path: &Path, extension: &str) -> PathBuf {
-    let mut path = path.to_path_buf().into_os_string();
-    path.push(".");
-    path.push(extension);
-    PathBuf::from(path)
+fn find_protocol_file(executable: &Path) -> PathBuf {
+    let mut result = executable.to_path_buf().into_os_string();
+    result.push(".");
+    result.push("protocols.yaml");
+    PathBuf::from(result)
 }
 
-fn read_protocols_file(executable_path: &Path) -> R<String> {
-    let protocols_file = add_extension(executable_path, "protocols.yaml");
+fn read_protocols_file(protocols_file: &Path) -> R<String> {
     if !protocols_file.exists() {
         Err(format!(
             "protocol file not found: {}",
@@ -396,27 +402,22 @@ fn read_protocols_file(executable_path: &Path) -> R<String> {
 }
 
 #[cfg(test)]
-mod read_protocols_file {
+mod find_protocol_file {
     use super::*;
-    use std::fs;
-    use test_utils::TempFile;
 
     #[test]
-    fn reads_sibling_protocol_files() -> R<()> {
-        let tempfile = TempFile::new()?;
-        let sibling_file = format!("{}.protocols.yaml", path_to_string(&tempfile.path())?);
-        fs::write(sibling_file, "foo")?;
-        assert_eq!(read_protocols_file(&tempfile.path())?, "foo");
-        Ok(())
+    fn adds_the_protocols_file_extension() {
+        assert_eq!(
+            find_protocol_file(&PathBuf::from("foo")),
+            PathBuf::from("foo.protocols.yaml")
+        );
     }
 
     #[test]
-    fn works_for_files_with_extensions() -> R<()> {
-        let tempfile = TempFile::new()?;
-        let file = tempfile.path().with_extension("ext");
-        let sibling_file = format!("{}.protocols.yaml", path_to_string(&file)?);
-        fs::write(sibling_file, "foo")?;
-        assert_eq!(read_protocols_file(&file)?, "foo");
-        Ok(())
+    fn works_for_files_with_extensions() {
+        assert_eq!(
+            find_protocol_file(&PathBuf::from("foo.ext")),
+            PathBuf::from("foo.ext.protocols.yaml")
+        );
     }
 }

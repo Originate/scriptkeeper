@@ -65,7 +65,8 @@ mod yaml_parse_errors {
         assert_eq!(
             format!("{}", result.unwrap_err()),
             format!(
-                "error parsing {}.protocols.yaml: expected: array, got: Integer(42)",
+                "unexpected type in {}.protocols.yaml: \
+                 expected: array, got: Integer(42)",
                 path_to_string(&script.path())?
             )
         );
@@ -84,7 +85,7 @@ mod yaml_parse_errors {
         assert_eq!(
             format!("{}", result.unwrap_err()),
             format!(
-                "error parsing {}.protocols.yaml: \
+                "invalid YAML in {}.protocols.yaml: \
                  block sequence entries are not allowed \
                  in this context at line 1 column 11",
                 path_to_string(&script.path())?
