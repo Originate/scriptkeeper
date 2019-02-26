@@ -107,7 +107,7 @@ mod run_main {
 
     #[test]
     fn when_passed_executable_mock_flag_behaves_like_executable_mock() -> R<()> {
-        let file = TempFile::write_temp_script("first line\nsecond line\n")?;
+        let file = TempFile::write_temp_script(b"first line\nsecond line\n")?;
         let args = vec![
             "executable-mock".to_string(),
             "--executable-mock".to_string(),

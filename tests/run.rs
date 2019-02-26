@@ -24,7 +24,7 @@ fn test_run_check_protocols(script: &TempFile, protocol: &str) -> R<(ExitCode, S
 }
 
 fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -> R<()> {
-    let script = TempFile::write_temp_script(&trim_margin(script_code)?)?;
+    let script = TempFile::write_temp_script(trim_margin(script_code)?.as_bytes())?;
     let output = test_run_check_protocols(&script, protocol)?;
     let expected_output = match expected {
         Err(expected_output) => (ExitCode(1), expected_output.to_string()),
@@ -54,7 +54,7 @@ mod yaml_parse_errors {
 
     #[test]
     fn wrong_types() -> R<()> {
-        let script = TempFile::write_temp_script("")?;
+        let script = TempFile::write_temp_script(b"")?;
         let result = test_run_check_protocols(
             &script,
             r##"
@@ -74,7 +74,7 @@ mod yaml_parse_errors {
 
     #[test]
     fn invalid_yaml() -> R<()> {
-        let script = TempFile::write_temp_script("")?;
+        let script = TempFile::write_temp_script(b"")?;
         let result = test_run_check_protocols(
             &script,
             r##"
