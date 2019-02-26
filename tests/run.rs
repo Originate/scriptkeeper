@@ -526,3 +526,81 @@ fn detects_running_commands_from_ruby_scripts() -> R<()> {
     )?;
     Ok(())
 }
+
+mod mocked_exitcodes {
+    use super::*;
+
+    #[test]
+    fn set_a_non_zero_exitcode() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |if !(grep foo) ; then
+                |  ls
+                |fi
+            "##,
+            r##"
+                |- command: /bin/grep foo
+                |  exitcode: 1
+                |- /bin/ls
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn set_a_zero_exitcode() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |if grep foo ; then
+                |  ls
+                |fi
+            "##,
+            r##"
+                |- command: /bin/grep foo
+                |  exitcode: 0
+                |- /bin/ls
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn uses_a_zero_exitcode_by_default() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |if grep foo ; then
+                |  ls
+                |fi
+            "##,
+            r##"
+                |- /bin/grep foo
+                |- /bin/ls
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn allow_to_specify_the_exact_exitcode() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |grep foo
+                |ls $?
+            "##,
+            r##"
+                |- command: /bin/grep foo
+                |  exitcode: 42
+                |- /bin/ls 42
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+}
