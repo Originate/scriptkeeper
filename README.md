@@ -60,6 +60,9 @@ protocol:
     stdout?: string
       # Mocked output of this command.
       # Default: ""
+    exitcode?: number
+      # Mocked exitcode of the command.
+      # Default: 0
 ```
 
 #### Shorthands
