@@ -48,7 +48,7 @@ mod test {
 
         #[test]
         fn outputs_the_argument_file_while_skipping_the_first_line() -> R<()> {
-            let file = TempFile::write_temp_script("first line\nsecond line\n")?;
+            let file = TempFile::write_temp_script(b"first line\nsecond line\n")?;
             let mut cursor: Cursor<Vec<u8>> = Cursor::new(vec![]);
             run(&file.path(), &mut cursor)?;
             assert_eq!(String::from_utf8(cursor.into_inner())?, "second line\n");
@@ -58,9 +58,10 @@ mod test {
 
     #[test]
     fn renders_an_executable_that_outputs_the_given_stdout() -> R<()> {
-        let mock_executable = TempFile::write_temp_script(&String::from_utf8(
-            create_mock_executable(&Context::new_test_context(), b"foo".to_vec()),
-        )?)?;
+        let mock_executable = TempFile::write_temp_script(&create_mock_executable(
+            &Context::new_test_context(),
+            b"foo".to_vec(),
+        ))?;
         let output = Command::new(mock_executable.path()).output()?;
         assert_eq!(output.stdout, b"foo");
         Ok(())

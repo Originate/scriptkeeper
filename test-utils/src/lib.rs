@@ -35,9 +35,9 @@ impl TempFile {
         Ok(TempFile { tempdir })
     }
 
-    pub fn write_temp_script(script: &str) -> R<TempFile> {
+    pub fn write_temp_script(script: &[u8]) -> R<TempFile> {
         let tempfile = TempFile::new()?;
-        fs::write(&tempfile.path(), script.trim_start())?;
+        fs::write(&tempfile.path(), script)?;
         run("chmod", vec!["+x", tempfile.path().to_str().unwrap()])?;
         Ok(tempfile)
     }

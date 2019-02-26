@@ -123,20 +123,22 @@ mod run_against_protocol {
     use super::*;
     use crate::protocol::command::Command;
     use std::fs;
-    use test_utils::{assert_error, TempFile};
+    use test_utils::{assert_error, trim_margin, TempFile};
 
     #[test]
     fn works_for_longer_file_names() -> R<()> {
         let long_command = TempFile::new()?;
         fs::copy("/bin/true", long_command.path())?;
-        let script = TempFile::write_temp_script(&format!(
-            r##"
-                #!/usr/bin/env bash
-
-                {}
-            "##,
-            long_command.path().to_string_lossy()
-        ))?;
+        let script = TempFile::write_temp_script(
+            trim_margin(&format!(
+                r##"
+                    |#!/usr/bin/env bash
+                    |{}
+                "##,
+                long_command.path().to_string_lossy()
+            ))?
+            .as_bytes(),
+        )?;
         assert_eq!(
             run_against_protocol(
                 Context::new_test_context(),
@@ -169,14 +171,16 @@ mod run_against_protocol {
     #[test]
     fn does_not_execute_the_commands() -> R<()> {
         let testfile = TempFile::new()?;
-        let script = TempFile::write_temp_script(&format!(
-            r##"
-                #!/usr/bin/env bash
-
-                touch {}
-            "##,
-            testfile.path().to_string_lossy()
-        ))?;
+        let script = TempFile::write_temp_script(
+            trim_margin(&format!(
+                r##"
+                    |#!/usr/bin/env bash
+                    |touch {}
+                "##,
+                testfile.path().to_string_lossy()
+            ))?
+            .as_bytes(),
+        )?;
         let _ = run_against_protocol(
             Context::new_test_context(),
             &script.path(),
