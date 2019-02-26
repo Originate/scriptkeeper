@@ -481,8 +481,7 @@ mod env {
                 |/bin/true $FOO
             "##,
             r##"
-                |protocol:
-                |  - /bin/true
+                |- /bin/true
             "##,
             Ok(()),
         )?;
@@ -498,7 +497,7 @@ fn failure_when_the_tested_script_exits_with_a_non_zero_exitcode() -> R<()> {
             |exit 42
         "##,
         r##"
-            |protocol: []
+            |[]
         "##,
         Err(&trim_margin(
             "
@@ -519,8 +518,7 @@ fn detects_running_commands_from_ruby_scripts() -> R<()> {
             |`ls`
         "##,
         r##"
-            |protocol:
-            |  - /bin/ls
+            |- /bin/ls
         "##,
         Ok(()),
     )?;
