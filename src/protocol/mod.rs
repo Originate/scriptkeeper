@@ -167,6 +167,7 @@ pub struct Protocol {
     pub steps: VecDeque<Step>,
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
+    cwd: Option<Vec<u8>>,
 }
 
 impl Protocol {
@@ -180,6 +181,7 @@ impl Protocol {
             steps: steps.into(),
             arguments: vec![],
             env: HashMap::new(),
+            cwd: None,
         }
     }
 
@@ -212,10 +214,18 @@ impl Protocol {
         Ok(())
     }
 
+    fn add_cwd(&mut self, object: &Hash) -> R<()> {
+        if let Ok(cwd) = object.expect_field("cwd") {
+            self.cwd = Some(cwd.expect_str()?.as_bytes().to_vec());
+        }
+        Ok(())
+    }
+
     fn from_object(object: &Hash) -> R<Protocol> {
         let mut protocol = Protocol::from_array(object.expect_field("protocol")?.expect_array()?)?;
         protocol.add_arguments(&object)?;
         protocol.add_env(&object)?;
+        protocol.add_cwd(&object)?;
         Ok(protocol)
     }
 
@@ -382,6 +392,40 @@ mod load {
             vec![("foo".to_string(), "bar".to_string())]
         );
         Ok(())
+    }
+
+    mod working_directory {
+        use super::*;
+
+        #[test]
+        fn allows_to_specify_the_working_directory() -> R<()> {
+            assert_eq!(
+                test_parse(
+                    r##"
+                        |protocol:
+                        |  - /bin/true
+                        |cwd: /foo
+                    "##
+                )?
+                .cwd,
+                Some(b"/foo".to_vec())
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn none_is_the_default() -> R<()> {
+            assert_eq!(
+                test_parse(
+                    r##"
+                        |- /bin/true
+                    "##
+                )?
+                .cwd,
+                None
+            );
+            Ok(())
+        }
     }
 }
 
