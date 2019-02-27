@@ -74,8 +74,13 @@ impl SyscallMock {
                 vec![]
             }
         };
-        let mock_executable_contents =
-            executable_mock::create_mock_executable(&self.context, stdout)?;
+        let mock_executable_contents = executable_mock::create_mock_executable(
+            &self.context,
+            executable_mock::Config {
+                stdout,
+                exitcode: 0,
+            },
+        )?;
         let temp_executable = ShortTempFile::new(&mock_executable_contents)?;
         let path = temp_executable.path();
         self.temporary_executables.push(temp_executable);

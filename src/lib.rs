@@ -90,10 +90,7 @@ pub fn run_main(
     Ok(match cli::parse_args(args)? {
         cli::Args::ExecutableMock {
             executable_mock_path,
-        } => {
-            executable_mock::run(&executable_mock_path, stdout_handle)?;
-            ExitCode(0)
-        }
+        } => executable_mock::run(&executable_mock_path, stdout_handle)?,
         cli::Args::CheckProtocols { script_path } => {
             let (exitcode, output) = run_check_protocols(context, &script_path)?;
             write!(stdout_handle, "{}", output)?;
@@ -112,7 +109,13 @@ mod run_main {
     #[test]
     fn when_passed_executable_mock_flag_behaves_like_executable_mock() -> R<()> {
         let context = Context::new_test_context();
-        let executable_contents = create_mock_executable(&context, b"foo".to_vec())?;
+        let executable_contents = create_mock_executable(
+            &context,
+            executable_mock::Config {
+                stdout: b"foo".to_vec(),
+                exitcode: 0,
+            },
+        )?;
         let file = TempFile::write_temp_script(&executable_contents)?;
         let args = vec![
             "executable-mock".to_string(),
