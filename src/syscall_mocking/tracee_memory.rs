@@ -110,12 +110,12 @@ mod peeking {
     }
 }
 
-pub fn pokedata(pid: Pid, address: c_ulonglong, words: c_ulonglong) -> R<()> {
+fn pokedata(pid: Pid, address: c_ulonglong, words: c_ulonglong) -> R<()> {
     ptrace::write(pid, address as *mut c_void, words as *mut c_void)?;
     Ok(())
 }
 
-pub fn string_to_data(string: &str) -> R<c_ulonglong> {
+fn string_to_data(string: &str) -> R<c_ulonglong> {
     if string.len() >= 8 {
         Err("string_to_data: string too long")?
     } else {
@@ -125,6 +125,10 @@ pub fn string_to_data(string: &str) -> R<c_ulonglong> {
         }
         Ok(cast_to_word(result))
     }
+}
+
+pub fn poke_string(pid: Pid, address: c_ulonglong, string: &str) -> R<()> {
+    pokedata(pid, address, string_to_data(string)?)
 }
 
 #[cfg(test)]

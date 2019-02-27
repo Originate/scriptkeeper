@@ -48,10 +48,10 @@ impl SyscallMock {
                     executable,
                     arguments,
                 })?;
-                tracee_memory::pokedata(
+                tracee_memory::poke_string(
                     pid,
                     registers.rdi,
-                    tracee_memory::string_to_data(path_to_string(&mock_executable_path)?)?,
+                    path_to_string(&mock_executable_path)?,
                 )?;
             }
         }
