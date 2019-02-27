@@ -48,7 +48,7 @@ impl SyscallMock {
                     executable,
                     arguments,
                 })?;
-                tracee_memory::poke_string(
+                tracee_memory::poke_single_word_string(
                     pid,
                     registers.rdi,
                     &mock_executable_path.as_os_str().as_bytes(),
