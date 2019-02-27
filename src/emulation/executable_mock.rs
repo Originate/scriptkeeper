@@ -1,10 +1,16 @@
 use crate::{Context, R};
+use bincode::{deserialize, serialize};
 use std::fs;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
-pub fn create_mock_executable(context: &Context, mut stdout: Vec<u8>) -> Vec<u8> {
+#[derive(Debug, Serialize, Deserialize)]
+struct MockConfig {
+    stdout: Vec<u8>,
+}
+
+pub fn create_mock_executable(context: &Context, stdout: Vec<u8>) -> R<Vec<u8>> {
     let mut result = b"#!".to_vec();
     result.append(
         &mut context
@@ -14,13 +20,13 @@ pub fn create_mock_executable(context: &Context, mut stdout: Vec<u8>) -> Vec<u8>
             .to_vec(),
     );
     result.append(&mut b" --executable-mock\n".to_vec());
-    result.append(&mut stdout);
-    result
+    result.append(&mut serialize(&MockConfig { stdout })?);
+    Ok(result)
 }
 
 pub fn run(executable_mock_path: &Path, stdout_handle: &mut impl Write) -> R<()> {
-    let output = skip_shabang_line(fs::read(executable_mock_path)?);
-    stdout_handle.write_all(&output)?;
+    let output: MockConfig = deserialize(&skip_shabang_line(fs::read(executable_mock_path)?))?;
+    stdout_handle.write_all(&output.stdout)?;
     Ok(())
 }
 
@@ -41,27 +47,12 @@ mod test {
     use std::process::Command;
     use test_utils::TempFile;
 
-    mod run {
-        use super::*;
-        use std::io::Cursor;
-        use test_utils::TempFile;
-
-        #[test]
-        fn outputs_the_argument_file_while_skipping_the_first_line() -> R<()> {
-            let file = TempFile::write_temp_script(b"first line\nsecond line\n")?;
-            let mut cursor: Cursor<Vec<u8>> = Cursor::new(vec![]);
-            run(&file.path(), &mut cursor)?;
-            assert_eq!(String::from_utf8(cursor.into_inner())?, "second line\n");
-            Ok(())
-        }
-    }
-
     #[test]
     fn renders_an_executable_that_outputs_the_given_stdout() -> R<()> {
         let mock_executable = TempFile::write_temp_script(&create_mock_executable(
             &Context::new_test_context(),
             b"foo".to_vec(),
-        ))?;
+        )?)?;
         let output = Command::new(mock_executable.path()).output()?;
         assert_eq!(output.stdout, b"foo");
         Ok(())
