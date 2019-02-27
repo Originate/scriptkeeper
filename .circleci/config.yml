@@ -21,7 +21,7 @@ jobs:
           name: clippy
           command: |
             rustup component add clippy
-            cargo clippy -- --deny clippy::all
+            cargo clippy --tests
       - run:
           name: tests
           command: cargo test --features=ci -- --test-threads=1

@@ -1,3 +1,5 @@
+#![deny(clippy::all)]
+
 use check_protocols::utils::path_to_string;
 use check_protocols::{run_check_protocols, Context, ExitCode, R};
 use std::fs;
