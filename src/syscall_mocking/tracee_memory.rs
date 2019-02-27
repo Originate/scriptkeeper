@@ -42,7 +42,7 @@ fn peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = R<c_ulo
     Iter { pid, address }
 }
 
-fn data_to_string(data: impl Iterator<Item = R<c_ulonglong>>) -> R<String> {
+fn data_to_string(data: impl Iterator<Item = R<c_ulonglong>>) -> R<Vec<u8>> {
     let mut result = vec![];
     'outer: for word in data {
         for char in cast_to_byte_array(word?).iter() {
@@ -52,14 +52,14 @@ fn data_to_string(data: impl Iterator<Item = R<c_ulonglong>>) -> R<String> {
             result.push(*char);
         }
     }
-    Ok(String::from_utf8(result)?)
+    Ok(result)
 }
 
-pub fn peek_string(pid: Pid, address: c_ulonglong) -> R<String> {
+pub fn peek_string(pid: Pid, address: c_ulonglong) -> R<Vec<u8>> {
     data_to_string(peekdata_iter(pid, address))
 }
 
-pub fn peek_string_array(pid: Pid, address: c_ulonglong) -> R<Vec<String>> {
+pub fn peek_string_array(pid: Pid, address: c_ulonglong) -> R<Vec<Vec<u8>>> {
     let mut result = vec![];
     for word in peekdata_iter(pid, address).skip(1) {
         let word = word?;
@@ -82,7 +82,7 @@ mod peeking {
             .into_iter()
             .map(cast_to_word)
             .map(Ok);
-        assert_eq!(data_to_string(data).unwrap(), "foo");
+        assert_eq!(data_to_string(data).unwrap(), b"foo");
     }
 
     #[test]
@@ -94,7 +94,7 @@ mod peeking {
         .into_iter()
         .map(cast_to_word)
         .map(Ok);
-        assert_eq!(data_to_string(data).unwrap(), "abcdefghi");
+        assert_eq!(data_to_string(data).unwrap(), b"abcdefghi");
     }
 
     #[test]
@@ -106,7 +106,7 @@ mod peeking {
         .into_iter()
         .map(cast_to_word)
         .map(Ok);
-        assert_eq!(data_to_string(data).unwrap(), "abcdefgh");
+        assert_eq!(data_to_string(data).unwrap(), b"abcdefgh");
     }
 }
 
@@ -115,19 +115,19 @@ fn pokedata(pid: Pid, address: c_ulonglong, words: c_ulonglong) -> R<()> {
     Ok(())
 }
 
-fn string_to_data(string: &str) -> R<c_ulonglong> {
+fn string_to_data(string: &[u8]) -> R<c_ulonglong> {
     if string.len() >= 8 {
         Err("string_to_data: string too long")?
     } else {
         let mut result = [0, 0, 0, 0, 0, 0, 0, 0];
-        for (i, char) in string.as_bytes().iter().enumerate() {
+        for (i, char) in string.iter().enumerate() {
             result[i] = *char;
         }
         Ok(cast_to_word(result))
     }
 }
 
-pub fn poke_string(pid: Pid, address: c_ulonglong, string: &str) -> R<()> {
+pub fn poke_string(pid: Pid, address: c_ulonglong, string: &[u8]) -> R<()> {
     pokedata(pid, address, string_to_data(string)?)
 }
 
@@ -149,7 +149,7 @@ mod poking {
         #[test]
         fn converts_strings_to_bytes() -> R<()> {
             assert_eq!(
-                string_to_data("foo")?,
+                string_to_data(b"foo")?,
                 cast_to_word([102, 111, 111, 0, 0, 0, 0, 0])
             );
             Ok(())
@@ -158,15 +158,15 @@ mod poking {
         #[test]
         fn errors_on_too_long_strings() -> R<()> {
             assert_error!(
-                string_to_data("1234567890"),
+                string_to_data(b"1234567890"),
                 "string_to_data: string too long"
             );
             assert_error!(
-                string_to_data("12345678"),
+                string_to_data(b"12345678"),
                 "string_to_data: string too long"
             );
             assert_eq!(
-                string_to_data("1234567")?,
+                string_to_data(b"1234567")?,
                 cast_to_word([49, 50, 51, 52, 53, 54, 55, 0])
             );
             Ok(())
@@ -197,9 +197,9 @@ mod poking {
                         WaitStatus::PtraceSyscall(..) => {
                             let registers = ptrace::getregs(child)?;
                             if registers.orig_rax == libc::SYS_execve as c_ulonglong {
-                                pokedata(child, registers.rdi, string_to_data("/foo")?)?;
+                                pokedata(child, registers.rdi, string_to_data(b"/foo")?)?;
                                 let result = data_to_string(peekdata_iter(child, registers.rdi))?;
-                                assert_eq!(result, "/foo");
+                                assert_eq!(result, b"/foo");
                             }
                         }
                         _ => {}

@@ -5,11 +5,11 @@ use crate::protocol;
 use crate::protocol::Protocol;
 use crate::syscall_mocking::syscall::Syscall;
 use crate::syscall_mocking::{tracee_memory, SyscallStop, Tracer};
-use crate::utils::path_to_string;
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::{Context, R};
 use libc::user_regs_struct;
 use nix::unistd::Pid;
+use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use test_result::{TestResult, TestResults};
 
@@ -42,8 +42,12 @@ impl SyscallMock {
     ) -> R<()> {
         if let (Syscall::Execve, SyscallStop::Enter) = (&syscall, syscall_stop) {
             if self.tracee_pid != pid {
-                let executable = tracee_memory::peek_string(pid, registers.rdi)?;
-                let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
+                let executable =
+                    String::from_utf8(tracee_memory::peek_string(pid, registers.rdi)?)?;
+                let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?
+                    .into_iter()
+                    .map(String::from_utf8)
+                    .collect::<Result<Vec<String>, _>>()?;
                 let mock_executable_path = self.handle_step(protocol::Command {
                     executable,
                     arguments,
@@ -51,7 +55,7 @@ impl SyscallMock {
                 tracee_memory::poke_string(
                     pid,
                     registers.rdi,
-                    path_to_string(&mock_executable_path)?,
+                    &mock_executable_path.as_os_str().as_bytes(),
                 )?;
             }
         }
