@@ -153,7 +153,8 @@ mod run_against_protocol {
                         executable: long_command.path().to_string_lossy().into_owned(),
                         arguments: vec![],
                     },
-                    stdout: vec![]
+                    stdout: vec![],
+                    exitcode: 0
                 }])
             )?,
             TestResult::Pass
