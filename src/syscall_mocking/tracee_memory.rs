@@ -23,7 +23,7 @@ fn peekdata(pid: Pid, address: c_ulonglong) -> R<c_ulonglong> {
     Ok(ptrace::read(pid, address as *mut c_void)? as c_ulonglong)
 }
 
-pub fn peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = R<c_ulonglong>> {
+fn peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = R<c_ulonglong>> {
     struct Iter {
         pid: Pid,
         address: c_ulonglong,
@@ -42,7 +42,7 @@ pub fn peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = R<c
     Iter { pid, address }
 }
 
-pub fn data_to_string(data: impl Iterator<Item = R<c_ulonglong>>) -> R<String> {
+fn data_to_string(data: impl Iterator<Item = R<c_ulonglong>>) -> R<String> {
     let mut result = vec![];
     'outer: for word in data {
         for char in cast_to_byte_array(word?).iter() {
@@ -53,6 +53,10 @@ pub fn data_to_string(data: impl Iterator<Item = R<c_ulonglong>>) -> R<String> {
         }
     }
     Ok(String::from_utf8(result)?)
+}
+
+pub fn peek_string(pid: Pid, address: c_ulonglong) -> R<String> {
+    data_to_string(peekdata_iter(pid, address))
 }
 
 pub fn peek_string_array(pid: Pid, address: c_ulonglong) -> R<Vec<String>> {

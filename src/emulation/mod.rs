@@ -42,10 +42,7 @@ impl SyscallMock {
     ) -> R<()> {
         if let (Syscall::Execve, SyscallStop::Enter) = (&syscall, syscall_stop) {
             if self.tracee_pid != pid {
-                let executable = tracee_memory::data_to_string(tracee_memory::peekdata_iter(
-                    pid,
-                    registers.rdi,
-                ))?;
+                let executable = tracee_memory::peek_string(pid, registers.rdi)?;
                 let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
                 let mock_executable_path = self.handle_step(protocol::Command {
                     executable,
