@@ -3,6 +3,9 @@
 #![deny(clippy::all)]
 #![cfg_attr(test, allow(clippy::module_inception))]
 
+#[macro_use]
+extern crate serde_derive;
+
 mod cli;
 mod emulation;
 mod protocol;
@@ -109,7 +112,7 @@ mod run_main {
     #[test]
     fn when_passed_executable_mock_flag_behaves_like_executable_mock() -> R<()> {
         let context = Context::new_test_context();
-        let executable_contents = create_mock_executable(&context, b"foo".to_vec());
+        let executable_contents = create_mock_executable(&context, b"foo".to_vec())?;
         let file = TempFile::write_temp_script(&executable_contents)?;
         let args = vec![
             "executable-mock".to_string(),

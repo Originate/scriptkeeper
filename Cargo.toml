@@ -17,6 +17,9 @@ libc = "*"
 tempdir = "*"
 yaml-rust = "*"
 linked-hash-map = "*"
+bincode = "*"
+serde_derive = "*"
+serde = "*"
 
 [build-dependencies]
 trim-margin = "*"
