@@ -16,24 +16,39 @@ use yaml_rust::{yaml::Hash, Yaml, YamlLoader};
 pub struct Step {
     pub command: Command,
     pub stdout: Vec<u8>,
+    pub exitcode: i32,
 }
 
 impl Step {
-    fn parse(yaml: &Yaml) -> R<Step> {
-        fn from_string(string: &str) -> R<Step> {
-            let command = Command::new(string)?;
-            Ok(Step {
-                command,
-                stdout: vec![],
-            })
+    fn from_string(string: &str) -> R<Step> {
+        Ok(Step {
+            command: Command::new(string)?,
+            stdout: vec![],
+            exitcode: 0,
+        })
+    }
+
+    fn add_exitcode(&mut self, object: &Hash) -> R<()> {
+        if let Ok(exitcode) = object.expect_field("exitcode") {
+            self.exitcode = exitcode.expect_integer()?;
         }
+        Ok(())
+    }
+
+    fn add_stdout(&mut self, object: &Hash) -> R<()> {
+        if let Ok(stdout) = object.expect_field("stdout") {
+            self.stdout = stdout.expect_str()?.bytes().collect();
+        }
+        Ok(())
+    }
+
+    fn parse(yaml: &Yaml) -> R<Step> {
         match yaml {
-            Yaml::String(string) => from_string(string),
+            Yaml::String(string) => Step::from_string(string),
             Yaml::Hash(object) => {
-                let mut step = from_string(object.expect_field("command")?.expect_str()?)?;
-                if let Ok(stdout) = object.expect_field("stdout") {
-                    step.stdout = stdout.expect_str()?.bytes().collect();
-                }
+                let mut step = Step::from_string(object.expect_field("command")?.expect_str()?)?;
+                step.add_stdout(object)?;
+                step.add_exitcode(object)?;
                 Ok(step)
             }
             _ => Err(format!("expected: string or array, got: {:?}", yaml))?,
@@ -47,71 +62,66 @@ mod parse_step {
     use test_utils::assert_error;
     use yaml_rust::Yaml;
 
-    fn test_parse_step(yaml: &str, expected: &Step) -> R<()> {
+    fn test_parse_step(yaml: &str) -> R<Step> {
         let yaml = YamlLoader::load_from_str(yaml)?;
         assert_eq!(yaml.len(), 1);
         let yaml = &yaml[0];
-        assert_eq!(&Step::parse(yaml)?, expected);
-        Ok(())
+        Step::parse(yaml)
     }
 
     #[test]
     fn parses_strings_to_steps() -> R<()> {
-        test_parse_step(
-            r#""foo""#,
-            &Step {
+        assert_eq!(
+            test_parse_step(r#""foo""#)?,
+            Step {
                 command: Command {
                     executable: "foo".to_string(),
                     arguments: vec![],
                 },
                 stdout: vec![],
+                exitcode: 0,
             },
-        )?;
+        );
         Ok(())
     }
 
     #[test]
     fn parses_arguments() -> R<()> {
-        test_parse_step(
-            r#""foo bar""#,
-            &Step {
-                command: Command {
-                    executable: "foo".to_string(),
-                    arguments: vec!["bar".to_string()],
-                },
-                stdout: vec![],
+        assert_eq!(
+            test_parse_step(r#""foo bar""#)?.command,
+            Command {
+                executable: "foo".to_string(),
+                arguments: vec!["bar".to_string()],
             },
-        )?;
+        );
         Ok(())
     }
 
     #[test]
     fn parses_objects_to_steps() -> R<()> {
-        test_parse_step(
-            r#"{command: "foo"}"#,
-            &Step {
+        assert_eq!(
+            test_parse_step(r#"{command: "foo"}"#)?,
+            Step {
                 command: Command {
                     executable: "foo".to_string(),
                     arguments: vec![],
                 },
                 stdout: vec![],
+                exitcode: 0,
             },
-        )?;
+        );
         Ok(())
     }
 
     #[test]
     fn allows_to_put_arguments_in_the_command_field() -> R<()> {
-        test_parse_step(
-            r#"{command: "foo bar"}"#,
-            &Step {
-                command: Command {
-                    executable: "foo".to_string(),
-                    arguments: vec!["bar".to_string()],
-                },
-                stdout: vec![],
+        assert_eq!(
+            test_parse_step(r#"{command: "foo bar"}"#)?.command,
+            Command {
+                executable: "foo".to_string(),
+                arguments: vec!["bar".to_string()],
             },
-        )?;
+        );
         Ok(())
     }
 
@@ -125,17 +135,30 @@ mod parse_step {
 
     #[test]
     fn allows_to_specify_stdout() -> R<()> {
-        test_parse_step(
-            r#"{command: "foo", stdout: "bar"}"#,
-            &Step {
-                command: Command {
-                    executable: "foo".to_string(),
-                    arguments: vec![],
-                },
-                stdout: b"bar".to_vec(),
-            },
-        )?;
+        assert_eq!(
+            test_parse_step(r#"{command: "foo", stdout: "bar"}"#)?.stdout,
+            b"bar".to_vec(),
+        );
         Ok(())
+    }
+
+    mod exitcode {
+        use super::*;
+
+        #[test]
+        fn allows_to_specify_the_mocked_exit_code() -> R<()> {
+            assert_eq!(
+                test_parse_step(r#"{command: "foo", exitcode: 42}"#)?.exitcode,
+                42
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn uses_zero_as_the_default() -> R<()> {
+            assert_eq!(test_parse_step(r#"{command: "foo"}"#)?.exitcode, 0);
+            Ok(())
+        }
     }
 }
 
@@ -260,6 +283,7 @@ mod load {
                     arguments: vec![],
                 },
                 stdout: vec![],
+                exitcode: 0,
             }]),
         );
         Ok(())
@@ -319,6 +343,7 @@ mod load {
                     arguments: vec![],
                 },
                 stdout: vec![],
+                exitcode: 0,
             }]),
         );
         Ok(())
