@@ -10,7 +10,7 @@ fmt:
   cargo fmt -- --check
 
 clippy:
-  cargo clippy --color=always -- --deny clippy::all
+  cargo clippy --tests --color=always
 
 doc:
   cargo doc

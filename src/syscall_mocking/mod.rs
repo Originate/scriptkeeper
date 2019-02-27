@@ -267,14 +267,13 @@ mod test_fork_with_child_errors {
         fork_with_child_errors(
             || {
                 write(&temp_file_path, "bar")?;
-                execv(&CString::new("/bin/true")?, &vec![])?;
+                execv(&CString::new("/bin/true")?, &[])?;
                 Ok(())
             },
             |child: Pid| {
                 loop {
-                    match waitpid(child, None)? {
-                        WaitStatus::Exited(..) => break,
-                        _ => {}
+                    if let WaitStatus::Exited(..) = waitpid(child, None)? {
+                        break;
                     }
                 }
                 Ok(())
@@ -293,9 +292,8 @@ mod test_fork_with_child_errors {
             },
             |child: Pid| {
                 loop {
-                    match waitpid(child, None)? {
-                        WaitStatus::Exited(..) => break,
-                        _ => {}
+                    if let WaitStatus::Exited(..) = waitpid(child, None)? {
+                        break;
                     }
                 }
                 Ok(())
@@ -312,9 +310,8 @@ mod test_fork_with_child_errors {
             },
             |child: Pid| {
                 loop {
-                    match waitpid(child, None)? {
-                        WaitStatus::Exited(..) => break,
-                        _ => {}
+                    if let WaitStatus::Exited(..) = waitpid(child, None)? {
+                        break;
                     }
                 }
                 Ok(())
@@ -327,14 +324,13 @@ mod test_fork_with_child_errors {
     fn raises_parent_errors_in_the_parent() {
         let result: R<()> = fork_with_child_errors(
             || {
-                execv(&CString::new("/bin/true")?, &vec![])?;
+                execv(&CString::new("/bin/true")?, &[])?;
                 Ok(())
             },
             |child: Pid| {
                 loop {
-                    match waitpid(child, None)? {
-                        WaitStatus::Exited(..) => break,
-                        _ => {}
+                    if let WaitStatus::Exited(..) = waitpid(child, None)? {
+                        break;
                     }
                 }
                 Err("test error")?;
@@ -350,9 +346,8 @@ mod test_fork_with_child_errors {
             || Ok(()),
             |child: Pid| {
                 loop {
-                    match waitpid(child, None)? {
-                        WaitStatus::Exited(..) => break,
-                        _ => {}
+                    if let WaitStatus::Exited(..) = waitpid(child, None)? {
+                        break;
                     }
                 }
                 Ok(())
@@ -370,9 +365,8 @@ mod test_fork_with_child_errors {
             },
             |child: Pid| {
                 loop {
-                    match waitpid(child, None)? {
-                        WaitStatus::Exited(..) => break,
-                        _ => {}
+                    if let WaitStatus::Exited(..) = waitpid(child, None)? {
+                        break;
                     }
                 }
                 Err("test parent error")?;

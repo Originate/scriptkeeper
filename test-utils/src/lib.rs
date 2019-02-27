@@ -1,3 +1,5 @@
+#![deny(clippy::all)]
+
 use std::collections::VecDeque;
 use std::fs;
 use std::path::PathBuf;
