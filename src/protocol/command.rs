@@ -2,8 +2,8 @@ use crate::R;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Command {
-    pub executable: String,
-    pub arguments: Vec<String>,
+    pub executable: Vec<u8>,
+    pub arguments: Vec<Vec<u8>>,
 }
 
 impl Command {
@@ -28,13 +28,13 @@ impl Command {
     }
 
     pub fn format(&self) -> String {
-        let mut words = vec![self.executable.to_string()];
+        let mut words = vec![String::from_utf8_lossy(&self.executable).to_string()];
         words.append(
             &mut self
                 .arguments
                 .clone()
                 .into_iter()
-                .map(Command::escape)
+                .map(|argument| Command::escape(String::from_utf8_lossy(&argument).to_string()))
                 .map(Command::add_quotes_if_needed)
                 .collect(),
         );
@@ -144,13 +144,13 @@ impl Command {
             fn parse_command(&mut self) -> R<Command> {
                 let executable = match self.parse_word()? {
                     None => self.parse_error("expected: space-separated command and arguments")?,
-                    Some(executable) => executable,
+                    Some(executable) => executable.into_bytes(),
                 };
                 let mut arguments = vec![];
                 loop {
                     match self.parse_word()? {
                         None => break,
-                        Some(word) => arguments.push(word),
+                        Some(word) => arguments.push(word.into_bytes()),
                     }
                 }
                 Ok(Command {
@@ -182,8 +182,8 @@ mod command {
             assert_eq!(
                 Command::new("foo bar")?,
                 Command {
-                    executable: "foo".to_string(),
-                    arguments: vec!["bar".to_string()]
+                    executable: b"foo".to_vec(),
+                    arguments: vec![b"bar".to_vec()]
                 }
             );
             Ok(())
@@ -194,8 +194,8 @@ mod command {
             assert_eq!(
                 Command::new(r#"foo "bar baz""#)?,
                 Command {
-                    executable: "foo".to_string(),
-                    arguments: vec!["bar baz".to_string()]
+                    executable: b"foo".to_vec(),
+                    arguments: vec![b"bar baz".to_vec()]
                 }
             );
             Ok(())
@@ -206,15 +206,15 @@ mod command {
             assert_eq!(
                 Command::new(r#"foo\" bar baz"#)?,
                 Command {
-                    executable: "foo\"".to_string(),
-                    arguments: vec!["bar", "baz"].map(String::from)
+                    executable: b"foo\"".to_vec(),
+                    arguments: vec![b"bar", b"baz"].map(|arg| arg.to_vec())
                 }
             );
             assert_eq!(
                 Command::new(r#"foo\" "bar baz""#)?,
                 Command {
-                    executable: "foo\"".to_string(),
-                    arguments: vec!["bar baz".to_string()]
+                    executable: b"foo\"".to_vec(),
+                    arguments: vec![b"bar baz".to_vec()]
                 }
             );
             Ok(())
@@ -225,8 +225,8 @@ mod command {
             assert_eq!(
                 Command::new(r#"foo "bar\" baz""#)?,
                 Command {
-                    executable: "foo".to_string(),
-                    arguments: vec!["bar\" baz".to_string()]
+                    executable: b"foo".to_vec(),
+                    arguments: vec![b"bar\" baz".to_vec()]
                 }
             );
             Ok(())
@@ -264,8 +264,8 @@ mod command {
             assert_eq!(
                 Command::new("foo  bar")?,
                 Command {
-                    executable: "foo".to_string(),
-                    arguments: vec!["bar".to_string()]
+                    executable: b"foo".to_vec(),
+                    arguments: vec![b"bar".to_vec()]
                 }
             );
             Ok(())
@@ -276,8 +276,8 @@ mod command {
             assert_eq!(
                 Command::new(" foo bar")?,
                 Command {
-                    executable: "foo".to_string(),
-                    arguments: vec!["bar".to_string()]
+                    executable: b"foo".to_vec(),
+                    arguments: vec![b"bar".to_vec()]
                 }
             );
             Ok(())
@@ -288,8 +288,8 @@ mod command {
             assert_eq!(
                 Command::new("foo bar ")?,
                 Command {
-                    executable: "foo".to_string(),
-                    arguments: vec!["bar".to_string()]
+                    executable: b"foo".to_vec(),
+                    arguments: vec![b"bar".to_vec()]
                 }
             );
             Ok(())
@@ -303,8 +303,8 @@ mod command {
                 assert_eq!(
                     Command::new(r#"foo "bar\nbaz""#)?,
                     Command {
-                        executable: "foo".to_string(),
-                        arguments: vec!["bar\nbaz".to_string()]
+                        executable: b"foo".to_vec(),
+                        arguments: vec![b"bar\nbaz".to_vec()]
                     }
                 );
                 Ok(())
@@ -315,8 +315,8 @@ mod command {
                 assert_eq!(
                     Command::new(r#"foo bar\ baz"#)?,
                     Command {
-                        executable: "foo".to_string(),
-                        arguments: vec!["bar baz".to_string()]
+                        executable: b"foo".to_vec(),
+                        arguments: vec![b"bar baz".to_vec()]
                     }
                 );
                 Ok(())
@@ -327,8 +327,8 @@ mod command {
                 assert_eq!(
                     Command::new(r#"foo bar\\baz"#)?,
                     Command {
-                        executable: "foo".to_string(),
-                        arguments: vec![r#"bar\baz"#.to_string()]
+                        executable: b"foo".to_vec(),
+                        arguments: vec![br#"bar\baz"#.to_vec()]
                     }
                 );
                 Ok(())

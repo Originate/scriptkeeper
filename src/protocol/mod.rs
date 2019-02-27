@@ -75,7 +75,7 @@ mod parse_step {
             test_parse_step(r#""foo""#)?,
             Step {
                 command: Command {
-                    executable: "foo".to_string(),
+                    executable: b"foo".to_vec(),
                     arguments: vec![],
                 },
                 stdout: vec![],
@@ -90,8 +90,8 @@ mod parse_step {
         assert_eq!(
             test_parse_step(r#""foo bar""#)?.command,
             Command {
-                executable: "foo".to_string(),
-                arguments: vec!["bar".to_string()],
+                executable: b"foo".to_vec(),
+                arguments: vec![b"bar".to_vec()],
             },
         );
         Ok(())
@@ -103,7 +103,7 @@ mod parse_step {
             test_parse_step(r#"{command: "foo"}"#)?,
             Step {
                 command: Command {
-                    executable: "foo".to_string(),
+                    executable: b"foo".to_vec(),
                     arguments: vec![],
                 },
                 stdout: vec![],
@@ -118,8 +118,8 @@ mod parse_step {
         assert_eq!(
             test_parse_step(r#"{command: "foo bar"}"#)?.command,
             Command {
-                executable: "foo".to_string(),
-                arguments: vec!["bar".to_string()],
+                executable: b"foo".to_vec(),
+                arguments: vec![b"bar".to_vec()],
             },
         );
         Ok(())
@@ -289,7 +289,7 @@ mod load {
             )?,
             Protocol::new(vec![Step {
                 command: Command {
-                    executable: "/bin/true".to_string(),
+                    executable: b"/bin/true".to_vec(),
                     arguments: vec![],
                 },
                 stdout: vec![],
@@ -318,7 +318,7 @@ mod load {
             )?
             .steps
             .map(|step| step.command.executable),
-            vec!["/bin/true", "/bin/false"],
+            vec![b"/bin/true".to_vec(), b"/bin/false".to_vec()],
         );
         Ok(())
     }
@@ -333,7 +333,7 @@ mod load {
             )?
             .steps
             .map(|step| step.command.arguments),
-            vec![vec!["foo", "bar"].map(String::from)],
+            vec![vec![b"foo".to_vec(), b"bar".to_vec()]],
         );
         Ok(())
     }
@@ -349,7 +349,7 @@ mod load {
             )?,
             Protocol::new(vec![Step {
                 command: Command {
-                    executable: "/bin/true".to_string(),
+                    executable: b"/bin/true".to_vec(),
                     arguments: vec![],
                 },
                 stdout: vec![],

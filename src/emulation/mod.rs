@@ -42,12 +42,8 @@ impl SyscallMock {
     ) -> R<()> {
         if let (Syscall::Execve, SyscallStop::Enter) = (&syscall, syscall_stop) {
             if self.tracee_pid != pid {
-                let executable =
-                    String::from_utf8(tracee_memory::peek_string(pid, registers.rdi)?)?;
-                let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?
-                    .into_iter()
-                    .map(String::from_utf8)
-                    .collect::<Result<Vec<String>, _>>()?;
+                let executable = tracee_memory::peek_string(pid, registers.rdi)?;
+                let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
                 let mock_executable_path = self.handle_step(protocol::Command {
                     executable,
                     arguments,
@@ -156,7 +152,7 @@ mod run_against_protocol {
                 &script.path(),
                 Protocol::new(vec![protocol::Step {
                     command: Command {
-                        executable: long_command.path().to_string_lossy().into_owned(),
+                        executable: long_command.path().as_os_str().as_bytes().to_vec(),
                         arguments: vec![],
                     },
                     stdout: vec![],
