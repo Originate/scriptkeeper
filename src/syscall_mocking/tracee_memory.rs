@@ -115,20 +115,35 @@ fn pokedata(pid: Pid, address: c_ulonglong, words: c_ulonglong) -> R<()> {
     Ok(())
 }
 
-fn string_to_data(string: &[u8]) -> R<c_ulonglong> {
-    if string.len() >= 8 {
+fn string_to_data(string: &[u8], max_size: usize) -> R<Vec<c_ulonglong>> {
+    if string.len() >= max_size {
         Err("string_to_data: string too long")?
     } else {
-        let mut result = [0, 0, 0, 0, 0, 0, 0, 0];
-        for (i, char) in string.iter().enumerate() {
-            result[i] = *char;
+        let mut result = vec![];
+        let number_of_words = (string.len() / 8) + 1;
+        for word_number in 0..number_of_words {
+            let mut word = [0, 0, 0, 0, 0, 0, 0, 0];
+            for i in 0..8 {
+                if let Some(char) = string.get(word_number * 8 + i) {
+                    word[i] = *char;
+                }
+            }
+            result.push(cast_to_word(word));
         }
-        Ok(cast_to_word(result))
+        Ok(result)
     }
 }
 
-pub fn poke_string(pid: Pid, address: c_ulonglong, string: &[u8]) -> R<()> {
-    pokedata(pid, address, string_to_data(string)?)
+pub fn poke_string(pid: Pid, mut address: c_ulonglong, string: &[u8], max_size: usize) -> R<()> {
+    for word in string_to_data(string, max_size)? {
+        pokedata(pid, address, word)?;
+        address += 8;
+    }
+    Ok(())
+}
+
+pub fn poke_single_word_string(pid: Pid, address: c_ulonglong, string: &[u8]) -> R<()> {
+    poke_string(pid, address, string, 8)
 }
 
 #[cfg(test)]
@@ -140,6 +155,7 @@ mod poking {
     use nix::sys::signal::Signal;
     use nix::sys::wait::{waitpid, WaitStatus};
     use nix::unistd::{execv, getpid};
+    use std::env;
     use std::ffi::CString;
     use test_utils::assert_error;
 
@@ -149,8 +165,20 @@ mod poking {
         #[test]
         fn converts_strings_to_bytes() -> R<()> {
             assert_eq!(
-                string_to_data(b"foo")?,
-                cast_to_word([102, 111, 111, 0, 0, 0, 0, 0])
+                string_to_data(b"foo", 8)?,
+                vec![cast_to_word([102, 111, 111, 0, 0, 0, 0, 0])]
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn works_for_longer_strings() -> R<()> {
+            assert_eq!(
+                string_to_data(b"foo_foo_foo", 16)?,
+                vec![
+                    cast_to_word([102, 111, 111, 95, 102, 111, 111, 95]),
+                    cast_to_word([102, 111, 111, 0, 0, 0, 0, 0]),
+                ]
             );
             Ok(())
         }
@@ -158,58 +186,109 @@ mod poking {
         #[test]
         fn errors_on_too_long_strings() -> R<()> {
             assert_error!(
-                string_to_data(b"1234567890"),
+                string_to_data(b"1234567890", 8),
                 "string_to_data: string too long"
             );
             assert_error!(
-                string_to_data(b"12345678"),
+                string_to_data(b"12345678", 8),
                 "string_to_data: string too long"
             );
             assert_eq!(
-                string_to_data(b"1234567")?,
-                cast_to_word([49, 50, 51, 52, 53, 54, 55, 0])
+                string_to_data(b"1234567", 8)?,
+                vec![cast_to_word([49, 50, 51, 52, 53, 54, 55, 0])]
+            );
+            assert_error!(
+                string_to_data(b"123456781234567890", 16),
+                "string_to_data: string too long"
+            );
+            assert_error!(
+                string_to_data(b"1234567812345678", 16),
+                "string_to_data: string too long"
+            );
+            assert_eq!(
+                string_to_data(b"123456781234567", 16)?,
+                vec![
+                    cast_to_word([49, 50, 51, 52, 53, 54, 55, 56]),
+                    cast_to_word([49, 50, 51, 52, 53, 54, 55, 0])
+                ]
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn adds_another_word_for_null_termination_if_necessary() -> R<()> {
+            assert_eq!(
+                string_to_data(b"12345678", 16)?,
+                vec![
+                    cast_to_word([49, 50, 51, 52, 53, 54, 55, 56]),
+                    cast_to_word([0, 0, 0, 0, 0, 0, 0, 0])
+                ]
             );
             Ok(())
         }
     }
 
-    #[test]
-    fn roundtrip() -> R<()> {
-        let fork_result = fork_with_child_errors(
-            || {
-                ptrace::traceme()?;
-                signal::kill(getpid(), Some(Signal::SIGSTOP))?;
-                let path = CString::new("/bin/true")?;
-                execv(&path, &[path.clone()])?;
-                Ok(())
-            },
-            |child| -> R<()> {
-                waitpid(child, None)?;
-                ptrace::setoptions(child, Options::PTRACE_O_TRACESYSGOOD)?;
-                ptrace::syscall(child)?;
+    mod roundtrip {
+        use super::*;
+        use libc::user_regs_struct;
 
-                loop {
-                    let status = waitpid(child, None)?;
-                    match status {
-                        WaitStatus::Exited(..) => {
-                            break;
-                        }
-                        WaitStatus::PtraceSyscall(..) => {
-                            let registers = ptrace::getregs(child)?;
-                            if registers.orig_rax == libc::SYS_execve as c_ulonglong {
-                                pokedata(child, registers.rdi, string_to_data(b"/foo")?)?;
-                                let result = data_to_string(peekdata_iter(child, registers.rdi))?;
-                                assert_eq!(result, b"/foo");
-                            }
-                        }
-                        _ => {}
-                    }
+        fn run_roundtrip_test(test: fn(child: Pid, registers: user_regs_struct) -> R<()>) -> R<()> {
+            fork_with_child_errors(
+                || {
+                    ptrace::traceme()?;
+                    signal::kill(getpid(), Some(Signal::SIGSTOP))?;
+                    env::current_dir()?;
+                    let path = CString::new("/bin/true")?;
+                    execv(&path, &[path.clone()])?;
+                    Ok(())
+                },
+                |child| -> R<()> {
+                    waitpid(child, None)?;
+                    ptrace::setoptions(child, Options::PTRACE_O_TRACESYSGOOD)?;
                     ptrace::syscall(child)?;
-                }
+
+                    loop {
+                        let status = waitpid(child, None)?;
+                        match status {
+                            WaitStatus::Exited(..) => {
+                                break;
+                            }
+                            WaitStatus::PtraceSyscall(..) => {
+                                let registers = ptrace::getregs(child)?;
+                                if registers.orig_rax == libc::SYS_getcwd as c_ulonglong {
+                                    test(child, registers)?;
+                                }
+                            }
+                            _ => {}
+                        }
+                        ptrace::syscall(child)?;
+                    }
+                    Ok(())
+                },
+            )
+        }
+
+        #[test]
+        fn run_roundtrip_test_runs_the_given_test() {
+            assert_error!(run_roundtrip_test(|_, _| Err("foo")?), "foo");
+        }
+
+        #[test]
+        fn roundtrip_for_a_single_word() -> R<()> {
+            run_roundtrip_test(|child, registers| {
+                poke_single_word_string(child, registers.rdi, b"foo")?;
+                assert_eq!(peek_string(child, registers.rdi)?, b"foo");
                 Ok(())
-            },
-        );
-        assert_error!(fork_result, "ENOENT: No such file or directory");
-        Ok(())
+            })
+        }
+
+        #[test]
+        fn roundtrip_for_multiple_words() -> R<()> {
+            run_roundtrip_test(|child, registers| {
+                poke_string(child, registers.rdi, b"foo_bar_baz", 16)?;
+                assert_eq!(peek_string(child, registers.rdi)?, b"foo_bar_baz");
+                Ok(())
+            })
+        }
     }
 }

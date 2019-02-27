@@ -1,6 +1,7 @@
 #![cfg_attr(feature = "dev", allow(dead_code, unused_variables, unused_imports))]
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
+#![allow(clippy::needless_range_loop)]
 #![cfg_attr(test, allow(clippy::module_inception))]
 
 #[macro_use]
