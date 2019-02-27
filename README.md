@@ -48,7 +48,7 @@ protocol: (`?` marks optional fields.)
 arguments?: string
   # List of arguments given to the tested script, seperated by spaces.
   # Example: "-rf /", default: ""
-env:
+env?:
   # Environment being passed into the tested script.
   # Example: PREFIX: /usr/local/, default: {}
   { [string]: string }
