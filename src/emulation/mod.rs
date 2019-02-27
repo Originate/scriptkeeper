@@ -61,6 +61,13 @@ impl SyscallMock {
         Ok(())
     }
 
+    fn allow_failing_scripts_to_continue() -> executable_mock::Config {
+        executable_mock::Config {
+            stdout: vec![],
+            exitcode: 0,
+        }
+    }
+
     fn handle_step(&mut self, received: protocol::Command) -> R<PathBuf> {
         let mock_config = match self.protocol.steps.pop_front() {
             Some(next_protocol_step) => {
@@ -74,10 +81,7 @@ impl SyscallMock {
             }
             None => {
                 self.register_error("<protocol end>", &received.format());
-                executable_mock::Config {
-                    stdout: vec![],
-                    exitcode: 0,
-                }
+                SyscallMock::allow_failing_scripts_to_continue()
             }
         };
         let mock_executable_contents =
