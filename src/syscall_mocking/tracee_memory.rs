@@ -115,8 +115,8 @@ fn pokedata(pid: Pid, address: c_ulonglong, words: c_ulonglong) -> R<()> {
     Ok(())
 }
 
-fn string_to_data(string: &[u8], max_size: usize) -> R<Vec<c_ulonglong>> {
-    if string.len() >= max_size {
+fn string_to_data(string: &[u8], max_size: c_ulonglong) -> R<Vec<c_ulonglong>> {
+    if string.len() as c_ulonglong >= max_size {
         Err("string_to_data: string too long")?
     } else {
         let mut result = vec![];
@@ -134,7 +134,12 @@ fn string_to_data(string: &[u8], max_size: usize) -> R<Vec<c_ulonglong>> {
     }
 }
 
-pub fn poke_string(pid: Pid, mut address: c_ulonglong, string: &[u8], max_size: usize) -> R<()> {
+pub fn poke_string(
+    pid: Pid,
+    mut address: c_ulonglong,
+    string: &[u8],
+    max_size: c_ulonglong,
+) -> R<()> {
     for word in string_to_data(string, max_size)? {
         pokedata(pid, address, word)?;
         address += 8;

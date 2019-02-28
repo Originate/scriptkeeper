@@ -7,7 +7,8 @@ use crate::syscall_mocking::syscall::Syscall;
 use crate::syscall_mocking::{tracee_memory, SyscallStop, Tracer};
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::{Context, R};
-use libc::user_regs_struct;
+use libc::{c_ulonglong, user_regs_struct};
+use nix::sys::ptrace;
 use nix::unistd::Pid;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
@@ -40,20 +41,33 @@ impl SyscallMock {
         syscall: Syscall,
         registers: user_regs_struct,
     ) -> R<()> {
-        if let (Syscall::Execve, SyscallStop::Enter) = (&syscall, syscall_stop) {
-            if self.tracee_pid != pid {
-                let executable = tracee_memory::peek_string(pid, registers.rdi)?;
-                let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
-                let mock_executable_path = self.handle_step(protocol::Command {
-                    executable,
-                    arguments,
-                })?;
-                tracee_memory::poke_single_word_string(
-                    pid,
-                    registers.rdi,
-                    &mock_executable_path.as_os_str().as_bytes(),
-                )?;
+        match (&syscall, syscall_stop) {
+            (Syscall::Execve, SyscallStop::Enter) => {
+                if self.tracee_pid != pid {
+                    let executable = tracee_memory::peek_string(pid, registers.rdi)?;
+                    let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
+                    let mock_executable_path = self.handle_step(protocol::Command {
+                        executable,
+                        arguments,
+                    })?;
+                    tracee_memory::poke_single_word_string(
+                        pid,
+                        registers.rdi,
+                        &mock_executable_path.as_os_str().as_bytes(),
+                    )?;
+                }
             }
+            (Syscall::Getcwd, SyscallStop::Exit) => {
+                if let Some(mock_cwd) = &self.protocol.cwd {
+                    let buffer_ptr = registers.rdi;
+                    let max_size = registers.rsi;
+                    tracee_memory::poke_string(pid, buffer_ptr, mock_cwd, max_size)?;
+                    let mut new_registers = registers;
+                    new_registers.rax = mock_cwd.len() as c_ulonglong + 1;
+                    ptrace::setregs(pid, new_registers)?;
+                }
+            }
+            _ => {}
         }
         Ok(())
     }

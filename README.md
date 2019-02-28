@@ -52,6 +52,9 @@ env?:
   # Environment being passed into the tested script.
   # Example: PREFIX: /usr/local/, default: {}
   { [string]: string }
+cwd?: string
+  # Current working directory the tested script will be executed in.
+  # Example: /test-dir, default: same directory that `check-protocols` is run in.
 protocol:
   # List of commands that your script is expected to execute.
   - command: string
