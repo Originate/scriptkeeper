@@ -1,7 +1,20 @@
-# doesn't do anything for relative paths
-arguments: ./relative_path
-protocol: []
+# works for relative paths
+arguments: ./script
+cwd: /basedir
+protocol:
+  - command: /usr/bin/basename /basedir/./script
+    stdout: script
+  - command: /usr/bin/basename /basedir/./script
+    stdout: script
+  - command: /usr/bin/basename /basedir/./script
+    stdout: script
+  - /usr/bin/docker run --rm -it
+    --cap-add=SYS_PTRACE
+    --mount type=bind,source=/basedir/./script,target=/root/script
+    --mount type=bind,source=/basedir/./script.protocols.yaml,target=/root/script.protocols.yaml
+    check-protocols script
 ---
+# works for absolute paths
 arguments: /test/script
 protocol:
   - command: /usr/bin/basename /test/script
