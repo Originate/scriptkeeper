@@ -167,7 +167,7 @@ pub struct Protocol {
     pub steps: VecDeque<Step>,
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
-    cwd: Option<Vec<u8>>,
+    pub cwd: Option<Vec<u8>>,
 }
 
 impl Protocol {
@@ -216,7 +216,14 @@ impl Protocol {
 
     fn add_cwd(&mut self, object: &Hash) -> R<()> {
         if let Ok(cwd) = object.expect_field("cwd") {
-            self.cwd = Some(cwd.expect_str()?.as_bytes().to_vec());
+            let cwd = cwd.expect_str()?;
+            if !cwd.starts_with('/') {
+                Err(format!(
+                    "cwd has to be an absolute path starting with \"/\", got: {:?}",
+                    cwd
+                ))?;
+            }
+            self.cwd = Some(cwd.as_bytes().to_vec());
         }
         Ok(())
     }
@@ -423,6 +430,22 @@ mod load {
                 )?
                 .cwd,
                 None
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn disallows_relative_paths() -> R<()> {
+            let yaml = YamlLoader::load_from_str(&trim_margin(
+                r##"
+                    |protocol:
+                    |  - /bin/true
+                    |cwd: foo
+                "##,
+            )?)?;
+            assert_error!(
+                Protocol::parse(yaml[0].clone()),
+                "cwd has to be an absolute path starting with \"/\", got: \"foo\""
             );
             Ok(())
         }

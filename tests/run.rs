@@ -2,6 +2,7 @@
 
 use check_protocols::utils::path_to_string;
 use check_protocols::{run_check_protocols, Context, ExitCode, R};
+use std::env;
 use std::fs;
 use std::path::PathBuf;
 use test_utils::{assert_error, trim_margin, TempFile};
@@ -453,7 +454,7 @@ mod multiple_protocols {
     }
 }
 
-mod env {
+mod environment {
     use super::*;
 
     #[test]
@@ -599,6 +600,64 @@ mod mocked_exitcodes {
                 |  exitcode: 42
                 |- /bin/ls 42
             "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+}
+
+mod working_directory {
+    use super::*;
+
+    #[test]
+    fn allows_to_specify_the_working_directory() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |ls $(pwd)/file
+            "##,
+            r##"
+                |cwd: /foo
+                |protocol:
+                |  - /bin/ls /foo/file
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn works_for_long_paths() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |ls $(pwd)/file
+            "##,
+            r##"
+                |cwd: /foo/bar/baz/foo/bar/baz/foo/bar/baz/foo
+                |protocol:
+                |  - /bin/ls /foo/bar/baz/foo/bar/baz/foo/bar/baz/foo/file
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn inherits_the_working_directory_if_not_specified() -> R<()> {
+        let cwd = env::current_dir()?;
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |ls $(pwd)/foo
+            "##,
+            &format!(
+                r##"
+                    |protocol:
+                    |  - /bin/ls {}/foo
+                "##,
+                path_to_string(&cwd)?
+            ),
             Ok(()),
         )?;
         Ok(())
