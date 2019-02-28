@@ -43,7 +43,8 @@ fn simple() -> R<()> {
             |/bin/true
         "##,
         r##"
-            |- /bin/true
+            |protocol:
+            |  - /bin/true
         "##,
         Ok(()),
     )?;
@@ -104,8 +105,9 @@ fn multiple() -> R<()> {
             |/bin/ls > /dev/null
         "##,
         r##"
-            |- /bin/true
-            |- /bin/ls
+            |protocol:
+            |  - /bin/true
+            |  - /bin/ls
         "##,
         Ok(()),
     )?;
@@ -120,7 +122,8 @@ fn failing() -> R<()> {
             |/bin/false
         "##,
         r##"
-            |- /bin/true
+            |protocol:
+            |  - /bin/true
         "##,
         Err(&trim_margin(
             "
@@ -142,8 +145,9 @@ fn failing_later() -> R<()> {
             |/bin/false
         "##,
         r##"
-            |- /bin/ls
-            |- /bin/true
+            |protocol:
+            |  - /bin/ls
+            |  - /bin/true
         "##,
         Err(&trim_margin(
             "
@@ -167,7 +171,8 @@ mod arguments {
                 |/bin/true foo
             "##,
             r##"
-                |- /bin/true foo
+                |protocol:
+                |  - /bin/true foo
             "##,
             Ok(()),
         )?;
@@ -182,7 +187,8 @@ mod arguments {
                 |/bin/true bar
             "##,
             r##"
-                |- /bin/true foo
+                |protocol:
+                |  - /bin/true foo
             "##,
             Err(&trim_margin(
                 "
@@ -203,7 +209,8 @@ mod arguments {
                 |/bin/true "foo bar"
             "##,
             r##"
-                |- /bin/true "foo bar"
+                |protocol:
+                |  - /bin/true "foo bar"
             "##,
             Ok(()),
         )?;
@@ -218,7 +225,8 @@ mod arguments {
                 |/bin/true foo bar
             "##,
             r##"
-                |- /bin/true "foo bar"
+                |protocol:
+                |  - /bin/true "foo bar"
             "##,
             Err(&trim_margin(
                 r##"
@@ -241,8 +249,9 @@ fn reports_the_first_error() -> R<()> {
             |/bin/false second
         "##,
         r##"
-            |- /bin/true first
-            |- /bin/true second
+            |protocol:
+            |  - /bin/true first
+            |  - /bin/true second
         "##,
         Err(&trim_margin(
             "
@@ -266,8 +275,9 @@ mod mismatch_in_number_of_commands {
                 |/bin/ls
             "##,
             r##"
-                |- /bin/ls
-                |- /bin/true
+                |protocol:
+                |  - /bin/ls
+                |  - /bin/true
             "##,
             Err(&trim_margin(
                 "
@@ -289,7 +299,8 @@ mod mismatch_in_number_of_commands {
                 |/bin/true
             "##,
             r##"
-                |- /bin/ls
+                |protocol:
+                |  - /bin/ls
             "##,
             Err(&trim_margin(
                 "
@@ -315,9 +326,10 @@ mod stdout {
                 |/bin/true $output
             "##,
             r##"
-                |- command: /bin/true
-                |  stdout: test_output
-                |- /bin/true test_output
+                |protocol:
+                |  - command: /bin/true
+                |    stdout: test_output
+                |  - /bin/true test_output
             "##,
             Ok(()),
         )?;
@@ -333,9 +345,10 @@ mod stdout {
                 |/bin/true $output
             "##,
             r##"
-                |- command: /bin/true
-                |  stdout: 'foo"'
-                |- '/bin/true foo\"'
+                |protocol:
+                |  - command: /bin/true
+                |    stdout: 'foo"'
+                |  - '/bin/true foo\"'
             "##,
             Ok(()),
         )?;
@@ -351,9 +364,10 @@ mod stdout {
                 |/bin/true "$output"
             "##,
             r##"
-                |- command: /bin/true
-                |  stdout: "foo\nbar"
-                |- '/bin/true foo\nbar'
+                |protocol:
+                |  - command: /bin/true
+                |    stdout: "foo\nbar"
+                |  - '/bin/true foo\nbar'
             "##,
             Ok(()),
         )?;
@@ -389,13 +403,12 @@ mod multiple_protocols {
                 |/bin/true $1
             "##,
             r##"
-                |arguments: foo
-                |protocol:
-                |  - /bin/true foo
-                |---
-                |arguments: bar
-                |protocol:
-                |  - /bin/true bar
+                |- arguments: foo
+                |  protocol:
+                |    - /bin/true foo
+                |- arguments: bar
+                |  protocol:
+                |    - /bin/true bar
             "##,
             Ok(()),
         )?;
@@ -410,9 +423,10 @@ mod multiple_protocols {
                 |/bin/false
             "##,
             r##"
-                |- /bin/true
-                |---
-                |- /bin/true
+                |- protocol:
+                |    - /bin/true
+                |- protocol:
+                |    - /bin/true
             "##,
             Err(&trim_margin(
                 "
@@ -436,9 +450,10 @@ mod multiple_protocols {
                 |/bin/false
             "##,
             r##"
-                |- /bin/false
-                |---
-                |- /bin/true
+                |- protocol:
+                |    - /bin/false
+                |- protocol:
+                |    - /bin/true
             "##,
             Err(&trim_margin(
                 "
@@ -484,7 +499,8 @@ mod environment {
                 |/bin/true $FOO
             "##,
             r##"
-                |- /bin/true
+                |protocol:
+                |  - /bin/true
             "##,
             Ok(()),
         )?;
@@ -500,7 +516,7 @@ fn failure_when_the_tested_script_exits_with_a_non_zero_exitcode() -> R<()> {
             |exit 42
         "##,
         r##"
-            |[]
+            |protocol: []
         "##,
         Err(&trim_margin(
             "
@@ -521,7 +537,8 @@ fn detects_running_commands_from_ruby_scripts() -> R<()> {
             |`ls`
         "##,
         r##"
-            |- /bin/ls
+            |protocol:
+            |  - /bin/ls
         "##,
         Ok(()),
     )?;
@@ -541,9 +558,10 @@ mod mocked_exitcodes {
                 |fi
             "##,
             r##"
-                |- command: /bin/grep foo
-                |  exitcode: 1
-                |- /bin/ls
+                |protocol:
+                |  - command: /bin/grep foo
+                |    exitcode: 1
+                |  - /bin/ls
             "##,
             Ok(()),
         )?;
@@ -560,9 +578,10 @@ mod mocked_exitcodes {
                 |fi
             "##,
             r##"
-                |- command: /bin/grep foo
-                |  exitcode: 0
-                |- /bin/ls
+                |protocol:
+                |  - command: /bin/grep foo
+                |    exitcode: 0
+                |  - /bin/ls
             "##,
             Ok(()),
         )?;
@@ -579,8 +598,9 @@ mod mocked_exitcodes {
                 |fi
             "##,
             r##"
-                |- /bin/grep foo
-                |- /bin/ls
+                |protocol:
+                |  - /bin/grep foo
+                |  - /bin/ls
             "##,
             Ok(()),
         )?;
@@ -596,9 +616,10 @@ mod mocked_exitcodes {
                 |ls $?
             "##,
             r##"
-                |- command: /bin/grep foo
-                |  exitcode: 42
-                |- /bin/ls 42
+                |protocol:
+                |  - command: /bin/grep foo
+                |    exitcode: 42
+                |  - /bin/ls 42
             "##,
             Ok(()),
         )?;

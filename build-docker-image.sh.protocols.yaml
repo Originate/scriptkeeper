@@ -1,1 +1,2 @@
-- /usr/bin/docker build -t check-protocols .
+protocol:
+  - /usr/bin/docker build -t check-protocols .

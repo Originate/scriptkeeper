@@ -1,2 +1,3 @@
-- /bin/cp foo bar
-- /bin/rm foo
+protocol:
+  - /bin/cp foo bar
+  - /bin/rm foo

@@ -29,8 +29,9 @@ docker run --rm -it hello-world
 Given that, you can create a protocols file `./foo.sh.protocols.yaml`:
 
 ```yaml
-- /bin/ls
-- /usr/bin/docker run --rm -it hello-world
+protocol:
+  - /bin/ls
+  - /usr/bin/docker run --rm -it hello-world
 ```
 
 Now running `check-protocols ./foo.sh` will tell you whether your script
@@ -86,28 +87,20 @@ protocol:
   - git push
 ```
 
-Similarly, you can specify the whole protocol as a list of steps. So the above protocol can also be written as this:
-
-``` yaml
-- git add .
-- git push
-```
-
 #### Multiple protocols
 
-YAML supports multiple documents in one file. This can be used to specify multiple protocols:
+Multiple protocols can be specified using a YAML array:
 
 ``` yaml
 # when given the 'push' argument, it pushes to the remote
-arguments: push
-protocol:
-  - git add .
-  - git push
----
+- arguments: push
+  protocol:
+    - git add .
+    - git push
 # when given the 'pull' argument, it just pulls
-arguments: push
-protocol:
-  - git pull
+- arguments: push
+  protocol:
+    - git pull
 ```
 
 ## Running inside `docker` (for OSX)
