@@ -236,10 +236,16 @@ impl Protocol {
         Ok(protocol)
     }
 
-    fn parse(yaml: Yaml) -> R<Protocol> {
+    fn parse(yaml: Yaml) -> R<Vec<Protocol>> {
         Ok(match yaml {
-            Yaml::Array(array) => Protocol::from_array(&array)?,
-            Yaml::Hash(object) => Protocol::from_object(&object)?,
+            Yaml::Array(array) => {
+                let mut result = vec![];
+                for element in array.into_iter() {
+                    result.push(Protocol::from_object(element.expect_object()?)?);
+                }
+                result
+            }
+            Yaml::Hash(object) => vec![Protocol::from_object(&object)?],
             _ => Err(format!("expected: array or object, got: {:?}", yaml))?,
         })
     }
@@ -254,18 +260,27 @@ impl Protocol {
                 error
             )
         })?;
-        let result = yaml
-            .into_iter()
-            .map(Protocol::parse)
-            .collect::<R<Vec<Protocol>>>()
-            .map_err(|error| {
+        let yaml: Yaml = {
+            if yaml.len() > 1 {
+                Err(format!(
+                    "multiple YAML documents not allowed (in {})",
+                    protocols_file.to_string_lossy()
+                ))?;
+            }
+            yaml.into_iter().next().ok_or_else(|| {
                 format!(
-                    "unexpected type in {}: {}",
-                    protocols_file.to_string_lossy(),
-                    error
+                    "no YAML documents (in {})",
+                    protocols_file.to_string_lossy()
                 )
-            })?;;
-        Ok(result)
+            })?
+        };
+        Ok(Protocol::parse(yaml).map_err(|error| {
+            format!(
+                "unexpected type in {}: {}",
+                protocols_file.to_string_lossy(),
+                error
+            )
+        })?)
     }
 }
 
@@ -273,15 +288,20 @@ impl Protocol {
 mod load {
     use super::*;
     use crate::R;
+    use pretty_assertions::assert_eq;
     use std::path::PathBuf;
     use std::*;
     use test_utils::{assert_error, trim_margin, Mappable, TempFile};
 
-    fn test_parse(protocol_string: &str) -> R<Protocol> {
-        let tempfile = TempFile::new()?;
+    fn test_parse(tempfile: &TempFile, protocol_string: &str) -> R<Vec<Protocol>> {
         let protocols_file = tempfile.path().with_extension("protocols.yaml");
         fs::write(&protocols_file, trim_margin(protocol_string)?)?;
-        let result = Protocol::load(&tempfile.path())?;
+        Protocol::load(&tempfile.path())
+    }
+
+    fn test_parse_one(protocol_string: &str) -> R<Protocol> {
+        let tempfile = TempFile::new()?;
+        let result = test_parse(&tempfile, protocol_string)?;
         assert_eq!(result.len(), 1);
         Ok(result.into_iter().next().unwrap())
     }
@@ -289,9 +309,10 @@ mod load {
     #[test]
     fn reads_a_protocol_from_a_sibling_yaml_file() -> R<()> {
         assert_eq!(
-            test_parse(
+            test_parse_one(
                 r##"
-                    |- /bin/true
+                    |protocol:
+                    |  - /bin/true
                 "##,
             )?,
             Protocol::new(vec![Step {
@@ -317,10 +338,11 @@ mod load {
     #[test]
     fn works_for_multiple_commands() -> R<()> {
         assert_eq!(
-            test_parse(
+            test_parse_one(
                 r##"
-                    |- /bin/true
-                    |- /bin/false
+                    |protocol:
+                    |  - /bin/true
+                    |  - /bin/false
                 "##
             )?
             .steps
@@ -333,9 +355,10 @@ mod load {
     #[test]
     fn allows_to_specify_arguments() -> R<()> {
         assert_eq!(
-            test_parse(
+            test_parse_one(
                 r##"
-                    |- /bin/true foo bar
+                    |protocol:
+                    |  - /bin/true foo bar
                 "##
             )?
             .steps
@@ -348,7 +371,7 @@ mod load {
     #[test]
     fn allows_to_specify_the_protocol_as_an_object() -> R<()> {
         assert_eq!(
-            test_parse(
+            test_parse_one(
                 r##"
                     |protocol:
                     |  - /bin/true
@@ -369,7 +392,7 @@ mod load {
     #[test]
     fn allows_to_specify_script_arguments() -> R<()> {
         assert_eq!(
-            test_parse(
+            test_parse_one(
                 r##"
                     |protocol:
                     |  - /bin/true
@@ -385,7 +408,7 @@ mod load {
     #[test]
     fn allows_to_specify_the_script_environment() -> R<()> {
         assert_eq!(
-            test_parse(
+            test_parse_one(
                 r##"
                     |protocol:
                     |  - /bin/true
@@ -401,13 +424,53 @@ mod load {
         Ok(())
     }
 
+    #[test]
+    fn allows_to_specify_multiple_protocols() -> R<()> {
+        let tempfile = TempFile::new()?;
+        assert_eq!(
+            test_parse(
+                &tempfile,
+                r##"
+                    |- arguments: foo
+                    |  protocol: []
+                    |- arguments: bar
+                    |  protocol: []
+                "##,
+            )?
+            .map(|protocol| protocol.arguments),
+            vec![vec!["foo"], vec!["bar"]]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn disallows_multiple_yaml_documents() -> R<()> {
+        let tempfile = TempFile::new()?;
+        assert_error!(
+            test_parse(
+                &tempfile,
+                r##"
+                    |protocol: []
+                    |---
+                    |protocol: []
+                "##,
+            ),
+            format!(
+                "multiple YAML documents not allowed (in {}.protocols.yaml)",
+                path_to_string(&tempfile.path())?
+            )
+        );
+        Ok(())
+    }
+
     mod working_directory {
         use super::*;
+        use pretty_assertions::assert_eq;
 
         #[test]
         fn allows_to_specify_the_working_directory() -> R<()> {
             assert_eq!(
-                test_parse(
+                test_parse_one(
                     r##"
                         |protocol:
                         |  - /bin/true
@@ -423,9 +486,10 @@ mod load {
         #[test]
         fn none_is_the_default() -> R<()> {
             assert_eq!(
-                test_parse(
+                test_parse_one(
                     r##"
-                        |- /bin/true
+                        |protocol:
+                        |  - /bin/true
                     "##
                 )?
                 .cwd,

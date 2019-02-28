@@ -1,4 +1,4 @@
-ci: test build fmt clippy doc
+ci: test build fmt clippy doc scripts
 
 test:
   cargo test --all --color=always --features=ci -- --test-threads=1 --quiet
