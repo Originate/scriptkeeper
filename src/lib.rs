@@ -76,8 +76,9 @@ impl Context {
     }
 
     pub fn new_test_context() -> Context {
+        let cwd = std::env::current_dir().unwrap();
         Context {
-            check_protocols_executable: PathBuf::from("./target/debug/check-protocols"),
+            check_protocols_executable: cwd.join("./target/debug/check-protocols"),
         }
     }
 }
