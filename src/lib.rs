@@ -14,7 +14,7 @@ mod syscall_mocking;
 pub mod utils;
 
 use crate::emulation::{executable_mock, run_against_protocols};
-use protocol::Protocol;
+use protocol::Protocols;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -139,7 +139,7 @@ pub fn run_check_protocols(context: Context, script: &Path) -> R<(ExitCode, Stri
             script.to_string_lossy()
         ))?
     }
-    let expected_protocols = Protocol::load(script)?;
+    let expected_protocols = Protocols::load(script)?;
     let results = run_against_protocols(context, script, expected_protocols)?;
     Ok((results.exitcode(), results.format_test_results()))
 }

@@ -103,6 +103,21 @@ Multiple protocols can be specified using a YAML array:
     - git pull
 ```
 
+You can also put everything into a `protocols` field:
+
+``` yaml
+protocols:
+  # when given the 'push' argument, it pushes to the remote
+  - arguments: push
+    protocol:
+      - git add .
+      - git push
+  # when given the 'pull' argument, it just pulls
+  - arguments: push
+    protocol:
+      - git pull
+```
+
 ## Running inside `docker` (for OSX)
 
 You can run the tool inside docker, for example like this:
