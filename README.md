@@ -1,5 +1,17 @@
 # `check-protocols`
 
+Test driven development for bash scripts (or any script, really)
+
+## Description
+
+Automated tests help us write well-behaved applications, and that's great, but
+what about all those pesky deploy scripts? How do we test those?
+
+`check-protocols` is a toolkit for people who wish to apply TDD to bash
+scripting. Because of its design, `check-protocols` also happens to work for
+*any* script that makes syscalls. It is designed for the ability to be added
+to existing bash scripts, without the need to alter them.
+
  [![Waffle.io - Columns and their card count](https://badge.waffle.io/Originate/check-protocols.svg?columns=all)](https://waffle.io/Originate/check-protocols)
 
 ## Status
