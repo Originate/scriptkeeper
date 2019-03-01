@@ -2,7 +2,7 @@ pub mod executable_mock;
 pub mod test_result;
 
 use crate::protocol;
-use crate::protocol::Protocol;
+use crate::protocol::{Protocol, Protocols};
 use crate::syscall_mocking::syscall::Syscall;
 use crate::syscall_mocking::{tracee_memory, SyscallStop, Tracer};
 use crate::utils::short_temp_files::ShortTempFile;
@@ -216,10 +216,11 @@ mod run_against_protocol {
 pub fn run_against_protocols(
     context: Context,
     executable: &Path,
-    expected: Vec<Protocol>,
+    expected: Protocols,
 ) -> R<TestResults> {
     Ok(TestResults(
         expected
+            .protocols
             .into_iter()
             .map(|expected| run_against_protocol(context.clone(), executable, expected))
             .collect::<R<Vec<TestResult>>>()?,
