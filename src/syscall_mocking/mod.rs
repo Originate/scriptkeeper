@@ -2,6 +2,7 @@ pub mod syscall;
 pub mod tracee_memory;
 
 use crate::emulation::SyscallMock;
+use crate::utils::parse_shebang;
 use crate::R;
 use nix::sys::ptrace;
 use nix::sys::ptrace::Options;
@@ -12,10 +13,11 @@ use nix::unistd::Pid;
 use nix::unistd::{execve, fork, getpid, ForkResult};
 use std::collections::HashMap;
 use std::ffi::CString;
-use std::fs::{read_to_string, write};
+use std::fs;
 use std::os::unix::ffi::OsStrExt;
 use std::panic;
 use std::path::Path;
+use std::str;
 use syscall::Syscall;
 use tempdir::TempDir;
 
@@ -40,6 +42,31 @@ impl Tracer {
         }
     }
 
+    fn execve(executable: &Path, args: Vec<String>, env: HashMap<String, String>) -> R<()> {
+        let path = CString::new(executable.as_os_str().as_bytes())?;
+        let mut c_args = vec![path.clone()];
+        for arg in args {
+            c_args.push(CString::new(arg)?);
+        }
+        let mut c_env = vec![];
+        for (key, value) in env {
+            c_env.push(CString::new(format!("{}={}", key, value))?);
+        }
+        execve(&path, &c_args, &c_env).map_err(|error| {
+            let hint = match parse_shebang(executable) {
+                Some(shebang) => format!("Does \"{}\" exist?", shebang),
+                None => "Does your interpreter exist?".to_string(),
+            };
+            format!(
+                "execve'ing {} failed with error: {}\n{}",
+                executable.to_string_lossy(),
+                error,
+                hint,
+            )
+        })?;
+        Ok(())
+    }
+
     pub fn run_against_mock<F>(
         executable: &Path,
         args: Vec<String>,
@@ -53,16 +80,7 @@ impl Tracer {
             || {
                 ptrace::traceme().map_err(|error| format!("PTRACE_TRACEME failed: {}", error))?;
                 signal::kill(getpid(), Some(Signal::SIGSTOP))?;
-                let path = CString::new(executable.as_os_str().as_bytes())?;
-                let mut c_args = vec![path.clone()];
-                for arg in args {
-                    c_args.push(CString::new(arg)?);
-                }
-                let mut c_env = vec![];
-                for (key, value) in env {
-                    c_env.push(CString::new(format!("{}={}", key, value))?);
-                }
-                execve(&path, &c_args, &c_env)?;
+                Tracer::execve(executable, args, env)?;
                 Ok(())
             },
             |tracee_pid: Pid| -> R<SyscallMock> {
@@ -223,7 +241,7 @@ pub fn fork_with_child_errors<A>(
 ) -> R<A> {
     let tempdir = TempDir::new("check-protocols")?;
     let error_file_path = tempdir.path().join("error");
-    write(&error_file_path, "")?;
+    fs::write(&error_file_path, "")?;
     match fork()? {
         ForkResult::Child => {
             Box::leak(Box::new(tempdir));
@@ -240,13 +258,13 @@ pub fn fork_with_child_errors<A>(
             })();
             match result {
                 Ok(()) => {}
-                Err(error) => write(&error_file_path, format!("{}", error))?,
+                Err(error) => fs::write(&error_file_path, format!("{}", error))?,
             };
             std::process::exit(0);
         }
         ForkResult::Parent { child } => {
             let result = parent_action(child);
-            match read_to_string(&error_file_path)?.as_str() {
+            match fs::read_to_string(&error_file_path)?.as_str() {
                 "" => result,
                 error => Err(error)?,
             }
@@ -266,7 +284,7 @@ mod test_fork_with_child_errors {
         let temp_file_path = tempdir.path().join("foo");
         fork_with_child_errors(
             || {
-                write(&temp_file_path, "bar")?;
+                fs::write(&temp_file_path, "bar")?;
                 execv(&CString::new("/bin/true")?, &[])?;
                 Ok(())
             },
@@ -279,7 +297,7 @@ mod test_fork_with_child_errors {
                 Ok(())
             },
         )?;
-        assert_eq!(read_to_string(&temp_file_path)?, "bar");
+        assert_eq!(fs::read_to_string(&temp_file_path)?, "bar");
         Ok(())
     }
 

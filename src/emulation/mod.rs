@@ -144,7 +144,7 @@ mod run_against_protocol {
     use super::*;
     use crate::protocol::command::Command;
     use std::fs;
-    use test_utils::{assert_error, trim_margin, TempFile};
+    use test_utils::{trim_margin, TempFile};
 
     #[test]
     fn works_for_longer_file_names() -> R<()> {
@@ -176,18 +176,6 @@ mod run_against_protocol {
             TestResult::Pass
         );
         Ok(())
-    }
-
-    #[test]
-    fn complains_when_the_file_does_not_exist() {
-        assert_error!(
-            run_against_protocol(
-                Context::new_test_context(),
-                Path::new("./does_not_exist"),
-                Protocol::empty()
-            ),
-            "ENOENT: No such file or directory"
-        );
     }
 
     #[test]
