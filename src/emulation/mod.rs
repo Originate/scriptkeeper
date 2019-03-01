@@ -107,8 +107,11 @@ impl SyscallMock {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_error(&expected_step.command.format(), "<script terminated>");
         }
-        if exitcode != 0 {
-            self.register_error("<exitcode 0>", &format!("<exitcode {}>", exitcode));
+        if exitcode != self.protocol.exitcode {
+            self.register_error(
+                &format!("<exitcode {}>", self.protocol.exitcode),
+                &format!("<exitcode {}>", exitcode),
+            );
         }
     }
 

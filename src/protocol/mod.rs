@@ -168,7 +168,7 @@ pub struct Protocol {
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
     pub cwd: Option<Vec<u8>>,
-    exitcode: i32,
+    pub exitcode: i32,
 }
 
 impl Protocol {
