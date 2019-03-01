@@ -7,15 +7,6 @@ use std::fs;
 use std::path::PathBuf;
 use test_utils::{assert_error, trim_margin, TempFile};
 
-#[test]
-fn nice_error_when_script_does_not_exist() {
-    let result = run_check_protocols(
-        Context::new_test_context(),
-        &PathBuf::from("./does-not-exist"),
-    );
-    assert_error!(result, "executable file not found: ./does-not-exist");
-}
-
 fn test_run_check_protocols(script: &TempFile, protocol: &str) -> R<(ExitCode, String)> {
     fs::write(
         script.path().with_extension("protocols.yaml"),
@@ -158,6 +149,55 @@ fn failing_later() -> R<()> {
         )?),
     )?;
     Ok(())
+}
+
+mod nice_user_errors {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn nice_error_when_script_does_not_exist() {
+        let result = run_check_protocols(
+            Context::new_test_context(),
+            &PathBuf::from("./does-not-exist"),
+        );
+        assert_error!(result, "executable file not found: ./does-not-exist");
+    }
+
+    #[test]
+    fn nice_error_when_shebang_refers_to_missing_interpreter() -> R<()> {
+        let script = TempFile::write_temp_script(
+            trim_margin(
+                r##"
+                    |#!/usr/bin/foo
+                    |/bin/true
+                "##,
+            )?
+            .as_bytes(),
+        )?;
+        let result = test_run_check_protocols(
+            &script,
+            r##"
+                |protocol:
+                |  - /bin/true
+            "##,
+        );
+        assert_error!(
+            result,
+            trim_margin(
+                format!(
+                    r##"
+                        |execve'ing {} failed with error: ENOENT: No such file or directory
+                        |Does "#!/usr/bin/foo" exist?
+                    "##,
+                    path_to_string(script.path().as_ref())?
+                )
+                .as_str(),
+            )?
+            .trim()
+        );
+        Ok(())
+    }
 }
 
 mod arguments {
