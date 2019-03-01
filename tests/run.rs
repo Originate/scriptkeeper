@@ -549,27 +549,6 @@ mod environment {
 }
 
 #[test]
-fn failure_when_the_tested_script_exits_with_a_non_zero_exitcode() -> R<()> {
-    test_run(
-        r##"
-            |#!/usr/bin/env bash
-            |exit 42
-        "##,
-        r##"
-            |protocol: []
-        "##,
-        Err(&trim_margin(
-            "
-                |error:
-                |  expected: <exitcode 0>
-                |  received: <exitcode 42>
-            ",
-        )?),
-    )?;
-    Ok(())
-}
-
-#[test]
 fn detects_running_commands_from_ruby_scripts() -> R<()> {
     test_run(
         r##"
@@ -720,6 +699,69 @@ mod working_directory {
                 path_to_string(&cwd)?
             ),
             Ok(()),
+        )?;
+        Ok(())
+    }
+}
+
+mod expected_exitcode {
+    use super::*;
+
+    #[test]
+    fn failure_when_the_tested_script_exits_with_a_non_zero_exitcode() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |exit 42
+            "##,
+            r##"
+                |protocol: []
+            "##,
+            Err(&trim_margin(
+                "
+                    |error:
+                    |  expected: <exitcode 0>
+                    |  received: <exitcode 42>
+                ",
+            )?),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn expect_non_zero_exitcode_passing() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |exit 42
+            "##,
+            r##"
+                |protocol: []
+                |exitcode: 42
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn expect_non_zero_exitcode_failing() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |true
+            "##,
+            r##"
+                |protocol: []
+                |exitcode: 42
+            "##,
+            Err(&trim_margin(
+                "
+                |error:
+                |  expected: <exitcode 42>
+                |  received: <exitcode 0>
+            ",
+            )?),
         )?;
         Ok(())
     }
