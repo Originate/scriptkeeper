@@ -168,6 +168,7 @@ pub struct Protocol {
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
     pub cwd: Option<Vec<u8>>,
+    exitcode: i32,
 }
 
 impl Protocol {
@@ -182,6 +183,7 @@ impl Protocol {
             arguments: vec![],
             env: HashMap::new(),
             cwd: None,
+            exitcode: 0,
         }
     }
 
@@ -228,11 +230,19 @@ impl Protocol {
         Ok(())
     }
 
+    fn add_exitcode(&mut self, object: &Hash) -> R<()> {
+        if let Ok(exitcode) = object.expect_field("exitcode") {
+            self.exitcode = exitcode.expect_integer()?;
+        }
+        Ok(())
+    }
+
     fn from_object(object: &Hash) -> R<Protocol> {
         let mut protocol = Protocol::from_array(object.expect_field("protocol")?.expect_array()?)?;
         protocol.add_arguments(&object)?;
         protocol.add_env(&object)?;
         protocol.add_cwd(&object)?;
+        protocol.add_exitcode(&object)?;
         Ok(protocol)
     }
 }
@@ -568,6 +578,42 @@ mod load {
             assert_error!(
                 Protocols::parse(yaml[0].clone()),
                 "cwd has to be an absolute path starting with \"/\", got: \"foo\""
+            );
+            Ok(())
+        }
+    }
+
+    mod exitcode {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn allows_to_specify_the_expected_exit_code() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r##"
+                        |protocol:
+                        |  - /bin/true
+                        |exitcode: 42
+                    "##
+                )?
+                .exitcode,
+                42
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn uses_zero_as_the_default() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r##"
+                        |protocol:
+                        |  - /bin/true
+                    "##
+                )?
+                .exitcode,
+                0
             );
             Ok(())
         }
