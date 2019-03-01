@@ -1,4 +1,4 @@
-# `check-protocols`
+# Check Protocols [![CircleCI](https://circleci.com/gh/Originate/check-protocols.svg?style=svg)](https://circleci.com/gh/Originate/check-protocols) [![Waffle.io - Columns and their card count](https://badge.waffle.io/Originate/check-protocols.svg?columns=all)](https://waffle.io/Originate/check-protocols)
 
 Test driven development for bash scripts (or any script, really)
 
@@ -12,7 +12,6 @@ scripting. Because of its design, `check-protocols` also happens to work for
 *any* script that makes syscalls. It is designed for the ability to be added
 to existing bash scripts, without the need to alter them.
 
- [![Waffle.io - Columns and their card count](https://badge.waffle.io/Originate/check-protocols.svg?columns=all)](https://waffle.io/Originate/check-protocols)
 
 ## Status
 
