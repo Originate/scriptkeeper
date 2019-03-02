@@ -1,6 +1,18 @@
-# `check-protocols`
+# Check Protocols [![CircleCI](https://circleci.com/gh/Originate/check-protocols.svg?style=svg)](https://circleci.com/gh/Originate/check-protocols) [![Waffle.io - Columns and their card count](https://badge.waffle.io/Originate/check-protocols.svg?columns=all)](https://waffle.io/Originate/check-protocols)
 
- [![Waffle.io - Columns and their card count](https://badge.waffle.io/Originate/check-protocols.svg?columns=all)](https://waffle.io/Originate/check-protocols)
+Run tests against your scripts without changing your scripts.
+
+## Description
+
+Automated tests help us write well-behaved applications, and that's great, but
+what about all those pesky little scripts we use in and around our applications
+(e.g. deploy scripts)? How do we test those?
+
+`check-protocols` is a tool for people who wish to write tests for existing
+scripts and/or use TDD to write new scripts. Because of its design,
+`check-protocols` is language agnostic, since it mocks out syscalls. That means
+you can test Bash scripts just as well as Python, Ruby, etc.
+
 
 ## Status
 
