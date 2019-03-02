@@ -37,7 +37,7 @@ impl Step {
 
     fn add_stdout(&mut self, object: &Hash) -> R<()> {
         if let Ok(stdout) = object.expect_field("stdout") {
-            self.stdout = stdout.expect_str()?.bytes().collect();
+            self.stdout = stdout.expect_str()?.as_bytes().to_vec();
         }
         Ok(())
     }
@@ -250,6 +250,7 @@ impl Protocol {
 #[derive(Debug, PartialEq)]
 pub struct Protocols {
     pub protocols: Vec<Protocol>,
+    whitelisted_commands: Vec<Vec<u8>>,
 }
 
 impl Protocols {
@@ -258,7 +259,20 @@ impl Protocols {
         for element in array.iter() {
             result.push(Protocol::from_object(element.expect_object()?)?);
         }
-        Ok(Protocols { protocols: result })
+        Ok(Protocols {
+            protocols: result,
+            whitelisted_commands: vec![],
+        })
+    }
+
+    fn add_whitelisted_commands(&mut self, object: &Hash) -> R<()> {
+        if let Ok(unmocked_commands) = object.expect_field("unmockedCommands") {
+            for unmocked_command in unmocked_commands.expect_array()? {
+                self.whitelisted_commands
+                    .push(unmocked_command.expect_str()?.as_bytes().to_vec());
+            }
+        }
+        Ok(())
     }
 
     fn parse(yaml: Yaml) -> R<Protocols> {
@@ -268,9 +282,14 @@ impl Protocols {
                 object.expect_field("protocols"),
                 object.expect_field("protocol"),
             ) {
-                (Ok(protocols), _) => Protocols::from_array(protocols.expect_array()?)?,
+                (Ok(protocols), _) => {
+                    let mut protocols = Protocols::from_array(protocols.expect_array()?)?;
+                    protocols.add_whitelisted_commands(object)?;
+                    protocols
+                }
                 (Err(_), Ok(_)) => Protocols {
                     protocols: vec![Protocol::from_object(&object)?],
+                    whitelisted_commands: vec![],
                 },
                 (Err(_), Err(_)) => Err(format!(
                     "expected field \"protocol\" or \"protocols\", got: {:?}",
@@ -614,6 +633,31 @@ mod load {
                 )?
                 .exitcode,
                 0
+            );
+            Ok(())
+        }
+    }
+
+    mod unmocked_commands {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn allows_to_specify_unmocked_commands() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_eq!(
+                test_parse(
+                    &tempfile,
+                    r##"
+                        |protocols:
+                        |  - protocol: []
+                        |unmockedCommands:
+                        |  - foo
+                    "##
+                )?
+                .whitelisted_commands
+                .map(|command| String::from_utf8(command).unwrap()),
+                vec!["foo"]
             );
             Ok(())
         }
