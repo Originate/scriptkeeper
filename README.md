@@ -29,25 +29,40 @@ Feel free to open (or vote on)
 `check-protocols` allows you to write tests -- so-called protocols -- for
 scripts (or other executables) -- without the need to modify your executables.
 
-Here's an example script `./foo.sh`:
+Here's an example script `./build-image.sh`:
 
 ```shell
 #!/usr/bin/env bash
 
-ls
-docker run --rm -it hello-world
+if [ -z "$(git status --porcelain)" ] ; then
+  commit=$(git rev-parse HEAD)
+  docker build --tag image_name:$commit .
+else
+  exit 1
+fi
 ```
 
-Given that, you can create a protocols file `./foo.sh.protocols.yaml`:
+And here's a matching protocols file `./build-image.sh.protocols.yaml`:
 
 ```yaml
-protocol:
-  - /bin/ls
-  - /usr/bin/docker run --rm -it hello-world
+protocols:
+  # builds a docker image when git repo is clean
+  - protocol:
+    - command: /usr/bin/git status --porcelain
+      stdout: ""
+    - command: /usr/bin/git rev-parse HEAD
+      stdout: "mock_commit_hash\n"
+    - /usr/bin/docker build --tag image_name:mock_commit_hash .
+  # aborts when git repo is not clean
+  - protocol:
+    - command: /usr/bin/git status --porcelain
+      stdout: " M some-file"
+    exitcode: 1
 ```
 
-Now running `check-protocols ./foo.sh` will tell you whether your script
-`./foo.sh` conforms to your protocols in `./foo.sh.protocols.yaml`.
+Now running `check-protocols ./build-image.sh` will tell you whether your script
+`./build-image.sh` conforms to your protocols in
+`./build-image.sh.protocols.yaml`.
 
 There are more example test cases in the [tests/examples](./tests/examples)
 folder.
