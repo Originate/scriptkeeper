@@ -250,7 +250,7 @@ impl Protocol {
 #[derive(Debug, PartialEq)]
 pub struct Protocols {
     pub protocols: Vec<Protocol>,
-    pub whitelisted_commands: Vec<Vec<u8>>,
+    pub unmocked_commands: Vec<Vec<u8>>,
 }
 
 impl Protocols {
@@ -261,14 +261,14 @@ impl Protocols {
         }
         Ok(Protocols {
             protocols: result,
-            whitelisted_commands: vec![],
+            unmocked_commands: vec![],
         })
     }
 
-    fn add_whitelisted_commands(&mut self, object: &Hash) -> R<()> {
+    fn add_unmocked_commands(&mut self, object: &Hash) -> R<()> {
         if let Ok(unmocked_commands) = object.expect_field("unmockedCommands") {
             for unmocked_command in unmocked_commands.expect_array()? {
-                self.whitelisted_commands
+                self.unmocked_commands
                     .push(unmocked_command.expect_str()?.as_bytes().to_vec());
             }
         }
@@ -284,12 +284,12 @@ impl Protocols {
             ) {
                 (Ok(protocols), _) => {
                     let mut protocols = Protocols::from_array(protocols.expect_array()?)?;
-                    protocols.add_whitelisted_commands(object)?;
+                    protocols.add_unmocked_commands(object)?;
                     protocols
                 }
                 (Err(_), Ok(_)) => Protocols {
                     protocols: vec![Protocol::from_object(&object)?],
-                    whitelisted_commands: vec![],
+                    unmocked_commands: vec![],
                 },
                 (Err(_), Err(_)) => Err(format!(
                     "expected field \"protocol\" or \"protocols\", got: {:?}",
@@ -655,7 +655,7 @@ mod load {
                         |  - foo
                     "##
                 )?
-                .whitelisted_commands
+                .unmocked_commands
                 .map(|command| String::from_utf8(command).unwrap()),
                 vec!["foo"]
             );
