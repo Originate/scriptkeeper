@@ -170,6 +170,7 @@ pub struct Protocol {
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
     pub cwd: Option<Vec<u8>>,
+    stderr: Option<Vec<u8>>,
     pub exitcode: i32,
     pub mocked_files: Vec<Vec<u8>>,
 }
@@ -188,6 +189,7 @@ impl Protocol {
             cwd: None,
             exitcode: 0,
             mocked_files: vec![],
+            stderr: None,
         }
     }
 
@@ -230,6 +232,13 @@ impl Protocol {
         Ok(())
     }
 
+    fn add_stderr(&mut self, object: &Hash) -> R<()> {
+        if let Ok(stderr) = object.expect_field("stderr") {
+            self.stderr = Some(stderr.expect_str()?.as_bytes().to_vec());
+        }
+        Ok(())
+    }
+
     fn add_exitcode(&mut self, object: &Hash) -> R<()> {
         if let Ok(exitcode) = object.expect_field("exitcode") {
             self.exitcode = exitcode.expect_integer()?;
@@ -252,6 +261,7 @@ impl Protocol {
         protocol.add_arguments(&object)?;
         protocol.add_env(&object)?;
         protocol.add_cwd(&object)?;
+        protocol.add_stderr(&object)?;
         protocol.add_exitcode(&object)?;
         protocol.add_mocked_files(&object)?;
         Ok(protocol)
@@ -787,6 +797,41 @@ mod load {
             vec![("/foo")]
         );
         Ok(())
+    }
+
+    mod expected_stderr {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn allows_to_specify_the_expected_stderr() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r##"
+                        |- protocol: []
+                        |  stderr: foo
+                    "##
+                )?
+                .stderr
+                .map(|s| String::from_utf8(s).unwrap()),
+                Some("foo".to_string())
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn none_is_the_default() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r##"
+                        |- protocol: []
+                    "##
+                )?
+                .stderr,
+                None
+            );
+            Ok(())
+        }
     }
 }
 
