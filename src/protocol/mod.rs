@@ -250,7 +250,7 @@ impl Protocol {
 #[derive(Debug, PartialEq)]
 pub struct Protocols {
     pub protocols: Vec<Protocol>,
-    whitelisted_commands: Vec<Vec<u8>>,
+    pub whitelisted_commands: Vec<Vec<u8>>,
 }
 
 impl Protocols {
