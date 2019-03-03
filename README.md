@@ -54,34 +54,39 @@ folder.
 
 ### `.protocols.yaml` format
 
-Here's all the fields that are available in the yaml declarations for a
-protocol: (`?` marks optional fields.)
+Here's all the fields that are available in the yaml declarations for the
+protocols: (`?` marks optional fields.)
 
 ``` yaml
-arguments?: string
-  # List of arguments given to the tested script, seperated by spaces.
-  # Example: "-rf /", default: ""
-env?:
-  # Environment being passed into the tested script.
-  # Example: PREFIX: /usr/local/, default: {}
-  { [string]: string }
-cwd?: string
-  # Current working directory the tested script will be executed in.
-  # Example: /test-dir, default: same directory that `check-protocols` is run in.
-exitcode?: number
-  # Exitcode that the tested script is expected to exit with.
-  # Default: 0.
-protocol:
-  # List of commands that your script is expected to execute.
-  - command: string
-      # the executable, followed by its arguments, separated by spaces.
-      # Example: /bin/chmod +x foo.sh
-    stdout?: string
-      # Mocked output of this command.
-      # Default: ""
+protocols:
+  - arguments?: string
+      # List of arguments given to the tested script, seperated by spaces.
+      # Example: "-rf /", default: ""
+    env?:
+      # Environment being passed into the tested script.
+      # Example: PREFIX: /usr/local/, default: {}
+      { [string]: string }
+    cwd?: string
+      # Current working directory the tested script will be executed in.
+      # Example: /test-dir, default: same directory that `check-protocols` is run in.
     exitcode?: number
-      # Mocked exitcode of the command.
-      # Default: 0
+      # Exitcode that the tested script is expected to exit with.
+      # Default: 0.
+    protocol:
+      # List of commands that your script is expected to execute.
+      - command: string
+          # the executable, followed by its arguments, separated by spaces.
+          # Example: /bin/chmod +x foo.sh
+        stdout?: string
+          # Mocked output of this command.
+          # Default: ""
+        exitcode?: number
+          # Mocked exitcode of the command.
+          # Default: 0
+unmockedCommands: [string]
+  # List of executables that are not going to be mocked out, but are going to be
+  # executed instead.
+  # Example: ["sed", "awk"], default: [].
 ```
 
 #### Shorthands
