@@ -768,7 +768,7 @@ mod expected_exitcode {
 }
 
 #[test]
-fn allows_to_whitelist_commands() -> R<()> {
+fn allows_to_unmock_commands() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash

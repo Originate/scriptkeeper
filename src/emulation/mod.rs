@@ -19,7 +19,7 @@ pub struct SyscallMock {
     context: Context,
     tracee_pid: Pid,
     protocol: Protocol,
-    whitelisted_commands: Vec<Vec<u8>>,
+    unmocked_commands: Vec<Vec<u8>>,
     result: TestResult,
     temporary_executables: Vec<ShortTempFile>,
 }
@@ -29,13 +29,13 @@ impl SyscallMock {
         context: Context,
         tracee_pid: Pid,
         protocol: Protocol,
-        whitelisted_commands: &[Vec<u8>],
+        unmocked_commands: &[Vec<u8>],
     ) -> SyscallMock {
         SyscallMock {
             context,
             tracee_pid,
             protocol,
-            whitelisted_commands: whitelisted_commands.to_vec(),
+            unmocked_commands: unmocked_commands.to_vec(),
             result: TestResult::Pass,
             temporary_executables: vec![],
         }
@@ -52,7 +52,7 @@ impl SyscallMock {
             (Syscall::Execve, SyscallStop::Enter) => {
                 if self.tracee_pid != pid {
                     let executable = tracee_memory::peek_string(pid, registers.rdi)?;
-                    if !self.whitelisted_commands.contains(&executable) {
+                    if !self.unmocked_commands.contains(&executable) {
                         let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
                         let mock_executable_path = self.handle_step(protocol::Command {
                             executable,
@@ -141,13 +141,13 @@ pub fn run_against_protocol(
     context: Context,
     executable: &Path,
     expected: Protocol,
-    whitelisted_commands: &[Vec<u8>],
+    unmocked_commands: &[Vec<u8>],
 ) -> R<TestResult> {
     let syscall_mock = Tracer::run_against_mock(
         executable,
         expected.arguments.clone(),
         expected.env.clone(),
-        |tracee_pid| SyscallMock::new(context, tracee_pid, expected, whitelisted_commands),
+        |tracee_pid| SyscallMock::new(context, tracee_pid, expected, unmocked_commands),
     )?;
     Ok(syscall_mock.result)
 }
@@ -221,14 +221,14 @@ pub fn run_against_protocols(
     executable: &Path,
     Protocols {
         protocols,
-        whitelisted_commands,
+        unmocked_commands,
     }: Protocols,
 ) -> R<TestResults> {
     Ok(TestResults(
         protocols
             .into_iter()
             .map(|expected| {
-                run_against_protocol(context.clone(), executable, expected, &whitelisted_commands)
+                run_against_protocol(context.clone(), executable, expected, &unmocked_commands)
             })
             .collect::<R<Vec<TestResult>>>()?,
     ))
