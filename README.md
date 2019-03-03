@@ -68,6 +68,9 @@ env?:
 cwd?: string
   # Current working directory the tested script will be executed in.
   # Example: /test-dir, default: same directory that `check-protocols` is run in.
+exitcode?: number
+  # Exitcode that the tested script is expected to exit with.
+  # Default: 0.
 protocol:
   # List of commands that your script is expected to execute.
   - command: string
