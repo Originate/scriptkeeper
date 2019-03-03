@@ -1,16 +1,17 @@
+mod debugging;
 pub mod syscall;
 pub mod tracee_memory;
 
 use crate::emulation::SyscallMock;
 use crate::utils::parse_shebang;
 use crate::R;
+use debugging::Debugger;
 use nix::sys::ptrace;
 use nix::sys::ptrace::Options;
 use nix::sys::signal;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{wait, waitpid, WaitStatus};
-use nix::unistd::Pid;
-use nix::unistd::{execve, fork, getpid, ForkResult};
+use nix::unistd::{execve, fork, getpid, ForkResult, Pid};
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::fs;
@@ -31,6 +32,7 @@ pub struct Tracer {
     tracee_pid: Pid,
     syscall_mock: SyscallMock,
     entered_syscalls: HashMap<Pid, Syscall>,
+    debugger: Debugger,
 }
 
 impl Tracer {
@@ -39,6 +41,7 @@ impl Tracer {
             tracee_pid,
             syscall_mock,
             entered_syscalls: HashMap::new(),
+            debugger: Debugger::new(),
         }
     }
 
@@ -124,6 +127,8 @@ impl Tracer {
             let registers = ptrace::getregs(pid)?;
             let syscall = Syscall::from(registers);
             let syscall_stop = self.update_syscall_state(pid, &syscall)?;
+            self.debugger
+                .log_syscall(pid, &syscall_stop, &syscall, &registers)?;
             self.syscall_mock
                 .handle_syscall(pid, syscall_stop, syscall, registers)?;
         }
