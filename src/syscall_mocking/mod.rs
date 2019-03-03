@@ -162,7 +162,7 @@ mod test_tracer {
             let pid = Pid::from_raw(1);
             Tracer::new(
                 pid,
-                SyscallMock::new(Context::new_test_context(), pid, Protocol::empty()),
+                SyscallMock::new(Context::new_test_context(), pid, Protocol::empty(), &[]),
             )
         }
 

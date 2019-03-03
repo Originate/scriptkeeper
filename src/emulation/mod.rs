@@ -19,16 +19,23 @@ pub struct SyscallMock {
     context: Context,
     tracee_pid: Pid,
     protocol: Protocol,
+    whitelisted_commands: Vec<Vec<u8>>,
     result: TestResult,
     temporary_executables: Vec<ShortTempFile>,
 }
 
 impl SyscallMock {
-    pub fn new(context: Context, tracee_pid: Pid, protocol: Protocol) -> SyscallMock {
+    pub fn new(
+        context: Context,
+        tracee_pid: Pid,
+        protocol: Protocol,
+        whitelisted_commands: &[Vec<u8>],
+    ) -> SyscallMock {
         SyscallMock {
             context,
             tracee_pid,
             protocol,
+            whitelisted_commands: whitelisted_commands.to_vec(),
             result: TestResult::Pass,
             temporary_executables: vec![],
         }
@@ -45,16 +52,18 @@ impl SyscallMock {
             (Syscall::Execve, SyscallStop::Enter) => {
                 if self.tracee_pid != pid {
                     let executable = tracee_memory::peek_string(pid, registers.rdi)?;
-                    let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
-                    let mock_executable_path = self.handle_step(protocol::Command {
-                        executable,
-                        arguments,
-                    })?;
-                    tracee_memory::poke_single_word_string(
-                        pid,
-                        registers.rdi,
-                        &mock_executable_path.as_os_str().as_bytes(),
-                    )?;
+                    if !self.whitelisted_commands.contains(&executable) {
+                        let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
+                        let mock_executable_path = self.handle_step(protocol::Command {
+                            executable,
+                            arguments,
+                        })?;
+                        tracee_memory::poke_single_word_string(
+                            pid,
+                            registers.rdi,
+                            &mock_executable_path.as_os_str().as_bytes(),
+                        )?;
+                    }
                 }
             }
             (Syscall::Getcwd, SyscallStop::Exit) => {
@@ -132,12 +141,13 @@ pub fn run_against_protocol(
     context: Context,
     executable: &Path,
     expected: Protocol,
+    whitelisted_commands: &[Vec<u8>],
 ) -> R<TestResult> {
     let syscall_mock = Tracer::run_against_mock(
         executable,
         expected.arguments.clone(),
         expected.env.clone(),
-        |tracee_pid| SyscallMock::new(context, tracee_pid, expected),
+        |tracee_pid| SyscallMock::new(context, tracee_pid, expected, whitelisted_commands),
     )?;
     Ok(syscall_mock.result)
 }
@@ -174,7 +184,8 @@ mod run_against_protocol {
                     },
                     stdout: vec![],
                     exitcode: 0
-                }])
+                }]),
+                &[]
             )?,
             TestResult::Pass
         );
@@ -198,6 +209,7 @@ mod run_against_protocol {
             Context::new_test_context(),
             &script.path(),
             Protocol::empty(),
+            &[],
         )?;
         assert!(!testfile.path().exists(), "touch was executed");
         Ok(())
@@ -207,13 +219,17 @@ mod run_against_protocol {
 pub fn run_against_protocols(
     context: Context,
     executable: &Path,
-    expected: Protocols,
+    Protocols {
+        protocols,
+        whitelisted_commands,
+    }: Protocols,
 ) -> R<TestResults> {
     Ok(TestResults(
-        expected
-            .protocols
+        protocols
             .into_iter()
-            .map(|expected| run_against_protocol(context.clone(), executable, expected))
+            .map(|expected| {
+                run_against_protocol(context.clone(), executable, expected, &whitelisted_commands)
+            })
             .collect::<R<Vec<TestResult>>>()?,
     ))
 }
