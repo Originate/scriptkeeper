@@ -1,3 +1,4 @@
+use super::argument_parser::Parser;
 use crate::R;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -41,130 +42,20 @@ impl Command {
         words.join(" ")
     }
 
-    pub fn new(string: &str) -> R<Command> {
-        use std::collections::VecDeque;
-
-        #[derive(Debug)]
-        struct Parser {
-            original: String,
-            input: VecDeque<char>,
-        };
-
-        impl Parser {
-            fn parse_error<A>(&self, message: &str) -> R<A> {
-                Err(format!("{} ({:?})", message, self.original))?
-            }
-
-            fn skip_spaces(&mut self) {
-                loop {
-                    match self.input.pop_front() {
-                        Some(' ') => {}
-                        Some(char) => {
-                            self.input.push_front(char);
-                            break;
-                        }
-                        None => break,
-                    }
-                }
-            }
-
-            fn skip_char(&mut self, expected: char, message: &str) -> R<()> {
-                let next = self.input.pop_front();
-                if next != Some(expected) {
-                    self.parse_error(message)?;
-                }
-                Ok(())
-            }
-
-            fn peek_chars(&mut self, expected: Vec<Option<char>>, message: &str) -> R<()> {
-                let peeked = self.input.get(0);
-                if !expected.contains(&peeked.cloned()) {
-                    self.parse_error(message)?;
-                }
-                Ok(())
-            }
-
-            fn parse_char(&mut self, excluded: &[char]) -> R<Option<char>> {
-                Ok(match self.input.pop_front() {
-                    None => None,
-                    Some('\\') => Some(match self.input.pop_front() {
-                        None => self.parse_error("a backslash must be followed by a character")?,
-                        Some('"') => '"',
-                        Some('n') => '\n',
-                        Some(' ') => ' ',
-                        Some('\\') => '\\',
-                        Some(char) => {
-                            self.parse_error(&format!("unknown escaped character {}", char))?
-                        }
-                    }),
-                    Some(char) => {
-                        if excluded.contains(&char) {
-                            self.input.push_front(char);
-                            None
-                        } else {
-                            Some(char)
-                        }
-                    }
-                })
-            }
-
-            fn collect_chars_until(&mut self, excluded: &[char]) -> R<String> {
-                let mut result = "".to_string();
-                while let Some(char) = self.parse_char(excluded)? {
-                    result.push(char);
-                }
-                Ok(result)
-            }
-
-            fn parse_word(&mut self) -> R<Option<String>> {
-                self.skip_spaces();
-                Ok(match self.input.get(0) {
-                    None => None,
-                    Some('"') => {
-                        self.skip_char('"', "shouldn't happen")?;
-                        let word = self.collect_chars_until(&['"'])?;
-                        self.skip_char('"', "unmatched quotes")?;
-                        self.peek_chars(
-                            vec![Some(' '), None],
-                            "closing quotes must be followed by a space",
-                        )?;
-                        Some(word)
-                    }
-                    Some(_) => {
-                        let result = self.collect_chars_until(&[' ', '"'])?;
-                        self.peek_chars(
-                            vec![Some(' '), None],
-                            "opening quotes must be preceeded by a space",
-                        )?;
-                        Some(result)
-                    }
-                })
-            }
-
-            fn parse_command(&mut self) -> R<Command> {
-                let executable = match self.parse_word()? {
-                    None => self.parse_error("expected: space-separated command and arguments")?,
-                    Some(executable) => executable.into_bytes(),
-                };
-                let mut arguments = vec![];
-                loop {
-                    match self.parse_word()? {
-                        None => break,
-                        Some(word) => arguments.push(word.into_bytes()),
-                    }
-                }
-                Ok(Command {
-                    executable,
-                    arguments,
-                })
-            }
+    pub fn new(command: &str) -> R<Command> {
+        let mut words = Parser::parse_arguments(command)?
+            .into_iter()
+            .map(|word| word.into_bytes());
+        match words.next() {
+            Some(executable) => Ok(Command {
+                executable,
+                arguments: words.collect(),
+            }),
+            None => Err(format!(
+                "expected: space-separated command and arguments ({:?})",
+                command.to_string()
+            ))?,
         }
-
-        Ok(Parser {
-            original: string.to_string(),
-            input: string.chars().collect(),
-        }
-        .parse_command()?)
     }
 }
 

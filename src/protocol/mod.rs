@@ -1,8 +1,10 @@
 extern crate yaml_rust;
 
+mod argument_parser;
 pub mod command;
 mod yaml;
 
+use self::argument_parser::Parser;
 use crate::protocol::yaml::*;
 use crate::utils::path_to_string;
 use crate::R;
@@ -195,11 +197,7 @@ impl Protocol {
 
     fn add_arguments(&mut self, object: &Hash) -> R<()> {
         if let Ok(arguments) = object.expect_field("arguments") {
-            self.arguments = arguments
-                .expect_str()?
-                .split_whitespace()
-                .map(String::from)
-                .collect();
+            self.arguments = Parser::parse_arguments(arguments.expect_str()?)?;
         }
         Ok(())
     }
@@ -440,22 +438,6 @@ mod load {
     }
 
     #[test]
-    fn allows_to_specify_script_arguments() -> R<()> {
-        assert_eq!(
-            test_parse_one(
-                r##"
-                    |protocol:
-                    |  - /bin/true
-                    |arguments: "foo bar"
-                "##
-            )?
-            .arguments,
-            vec!["foo", "bar"]
-        );
-        Ok(())
-    }
-
-    #[test]
     fn allows_to_specify_the_script_environment() -> R<()> {
         assert_eq!(
             test_parse_one(
@@ -548,6 +530,64 @@ mod load {
             )
         );
         Ok(())
+    }
+
+    mod script_arguments {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn allows_arguments() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r##"
+                        |protocol:
+                        |  - /bin/true
+                        |arguments: foo bar
+                    "##
+                )?
+                .arguments,
+                vec!["foo", "bar"]
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn allows_arguments_with_whitespace() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r##"
+                        |protocol:
+                        |  - /bin/true
+                        |arguments: foo "bar baz"
+                    "##
+                )?
+                .arguments,
+                vec!["foo", "bar baz"]
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn disallows_arguments_of_invalid_type() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_error!(
+                test_parse(
+                    &tempfile,
+                    r##"
+                        |protocol:
+                        |  - /bin/true
+                        |arguments: 42
+                    "##
+                ),
+                format!(
+                    "unexpected type in {}.protocols.yaml: \
+                     expected: string, got: Integer(42)",
+                    path_to_string(&tempfile.path())?
+                )
+            );
+            Ok(())
+        }
     }
 
     mod working_directory {
