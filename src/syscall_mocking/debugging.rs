@@ -3,7 +3,8 @@ use super::syscall::Syscall::*;
 use super::tracee_memory;
 use super::SyscallStop;
 use crate::R;
-use libc::{c_ulonglong, user_regs_struct};
+use libc::{c_longlong, c_ulonglong, user_regs_struct};
+use nix::errno;
 use nix::unistd::Pid;
 use std::collections::HashMap;
 use std::env;
@@ -82,6 +83,15 @@ impl Debugger {
         }
     }
 
+    fn format_return_value(registers: &user_regs_struct) -> String {
+        let return_value = registers.rax;
+        if (return_value as c_longlong) < 0 {
+            errno::from_i32(-(return_value as i32)).to_string()
+        } else {
+            return_value.to_string()
+        }
+    }
+
     pub fn log_syscall(
         &mut self,
         pid: Pid,
@@ -110,8 +120,11 @@ impl Debugger {
                 SyscallStop::Exit => match enter_log_messages.get(&pid) {
                     None => eprintln!("error: exit without enter"),
                     Some(message) => {
-                        let return_value = registers.rax;
-                        eprintln!("{} -> {}", message, return_value);
+                        eprintln!(
+                            "{} -> {}",
+                            message,
+                            Debugger::format_return_value(registers)
+                        );
                         enter_log_messages.remove(&pid);
                     }
                 },
