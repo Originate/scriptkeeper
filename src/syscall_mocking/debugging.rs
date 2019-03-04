@@ -64,6 +64,7 @@ impl Debugger {
                 ("count", registers.rdx.to_string()),
             ],
             Close => vec![("fd", registers.rdi.to_string())],
+            Stat => vec![("filename", Debugger::string(pid, registers.rdi))],
             Fstat => vec![("fd", registers.rdi.to_string())],
             Dup2 => vec![
                 ("oldfd", registers.rdi.to_string()),
