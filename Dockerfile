@@ -1,6 +1,7 @@
 FROM rust:1.32.0
 
 RUN cargo install cargo-watch
+RUN apt-get update && apt-get install -y ruby
 
 WORKDIR /root/check-protocols
 ADD Cargo.* ./
