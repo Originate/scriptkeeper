@@ -73,6 +73,10 @@ impl Debugger {
                 ("argv", Debugger::string_array(pid, registers.rsi)),
                 ("envp", Debugger::string_array(pid, registers.rdx)),
             ],
+            Fcntl => vec![
+                ("fd", registers.rdi.to_string()),
+                ("cmd", format!("{:?}", FcntlCmd::from(registers.rsi))),
+            ],
             Openat => vec![("filename", Debugger::string(pid, registers.rsi))],
             _ => vec![],
         }
@@ -114,5 +118,29 @@ impl Debugger {
             },
         }
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+#[allow(non_camel_case_types)]
+enum FcntlCmd {
+    F_DUPFD,
+    F_GETFD,
+    F_SETFD,
+    F_GETFL,
+    F_SETFL,
+    Unknown(c_ulonglong),
+}
+
+impl From<c_ulonglong> for FcntlCmd {
+    fn from(fcntl_cmd: c_ulonglong) -> Self {
+        match fcntl_cmd {
+            0 => FcntlCmd::F_DUPFD,
+            1 => FcntlCmd::F_GETFD,
+            2 => FcntlCmd::F_SETFD,
+            3 => FcntlCmd::F_GETFL,
+            4 => FcntlCmd::F_SETFL,
+            unknown => FcntlCmd::Unknown(unknown),
+        }
     }
 }
