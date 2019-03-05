@@ -72,6 +72,19 @@ pub fn peek_string_array(pid: Pid, address: c_ulonglong) -> R<Vec<Vec<u8>>> {
     Ok(result)
 }
 
+#[allow(dead_code)]
+pub fn peek_bytes(pid: Pid, address: c_ulonglong, count: usize) -> R<Vec<u8>> {
+    let iter = peekdata_iter(pid, address);
+    let mut vec = vec![];
+    for word in iter {
+        vec.append(&mut cast_to_byte_array(word?).to_vec());
+        if vec.len() >= count {
+            break;
+        }
+    }
+    Ok(vec.into_iter().take(count).collect())
+}
+
 #[cfg(test)]
 mod peeking {
     use super::*;
@@ -152,9 +165,81 @@ pub fn poke_single_word_string(pid: Pid, address: c_ulonglong, string: &[u8]) ->
 }
 
 #[cfg(test)]
-mod poking {
+mod string_to_data {
+    use super::*;
+    use test_utils::assert_error;
+
+    #[test]
+    fn converts_strings_to_bytes() -> R<()> {
+        assert_eq!(
+            string_to_data(b"foo", 8)?,
+            vec![cast_to_word([102, 111, 111, 0, 0, 0, 0, 0])]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn works_for_longer_strings() -> R<()> {
+        assert_eq!(
+            string_to_data(b"foo_foo_foo", 16)?,
+            vec![
+                cast_to_word([102, 111, 111, 95, 102, 111, 111, 95]),
+                cast_to_word([102, 111, 111, 0, 0, 0, 0, 0]),
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn errors_on_too_long_strings() -> R<()> {
+        assert_error!(
+            string_to_data(b"1234567890", 8),
+            "string_to_data: string too long"
+        );
+        assert_error!(
+            string_to_data(b"12345678", 8),
+            "string_to_data: string too long"
+        );
+        assert_eq!(
+            string_to_data(b"1234567", 8)?,
+            vec![cast_to_word([49, 50, 51, 52, 53, 54, 55, 0])]
+        );
+        assert_error!(
+            string_to_data(b"123456781234567890", 16),
+            "string_to_data: string too long"
+        );
+        assert_error!(
+            string_to_data(b"1234567812345678", 16),
+            "string_to_data: string too long"
+        );
+        assert_eq!(
+            string_to_data(b"123456781234567", 16)?,
+            vec![
+                cast_to_word([49, 50, 51, 52, 53, 54, 55, 56]),
+                cast_to_word([49, 50, 51, 52, 53, 54, 55, 0])
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn adds_another_word_for_null_termination_if_necessary() -> R<()> {
+        assert_eq!(
+            string_to_data(b"12345678", 16)?,
+            vec![
+                cast_to_word([49, 50, 51, 52, 53, 54, 55, 56]),
+                cast_to_word([0, 0, 0, 0, 0, 0, 0, 0])
+            ]
+        );
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod roundtrip {
     use super::*;
     use crate::syscall_mocking::fork_with_child_errors;
+    use libc::user_regs_struct;
     use nix::sys::ptrace::Options;
     use nix::sys::signal;
     use nix::sys::signal::Signal;
@@ -164,134 +249,82 @@ mod poking {
     use std::ffi::CString;
     use test_utils::assert_error;
 
-    mod string_to_data {
-        use super::*;
+    fn run_roundtrip_test(test: fn(child: Pid, registers: user_regs_struct) -> R<()>) -> R<()> {
+        fork_with_child_errors(
+            || {
+                ptrace::traceme()?;
+                signal::kill(getpid(), Some(Signal::SIGSTOP))?;
+                env::current_dir()?;
+                let path = CString::new("/bin/true")?;
+                execv(&path, &[path.clone()])?;
+                Ok(())
+            },
+            |child| -> R<()> {
+                waitpid(child, None)?;
+                ptrace::setoptions(child, Options::PTRACE_O_TRACESYSGOOD)?;
+                ptrace::syscall(child)?;
 
-        #[test]
-        fn converts_strings_to_bytes() -> R<()> {
-            assert_eq!(
-                string_to_data(b"foo", 8)?,
-                vec![cast_to_word([102, 111, 111, 0, 0, 0, 0, 0])]
-            );
-            Ok(())
-        }
-
-        #[test]
-        fn works_for_longer_strings() -> R<()> {
-            assert_eq!(
-                string_to_data(b"foo_foo_foo", 16)?,
-                vec![
-                    cast_to_word([102, 111, 111, 95, 102, 111, 111, 95]),
-                    cast_to_word([102, 111, 111, 0, 0, 0, 0, 0]),
-                ]
-            );
-            Ok(())
-        }
-
-        #[test]
-        fn errors_on_too_long_strings() -> R<()> {
-            assert_error!(
-                string_to_data(b"1234567890", 8),
-                "string_to_data: string too long"
-            );
-            assert_error!(
-                string_to_data(b"12345678", 8),
-                "string_to_data: string too long"
-            );
-            assert_eq!(
-                string_to_data(b"1234567", 8)?,
-                vec![cast_to_word([49, 50, 51, 52, 53, 54, 55, 0])]
-            );
-            assert_error!(
-                string_to_data(b"123456781234567890", 16),
-                "string_to_data: string too long"
-            );
-            assert_error!(
-                string_to_data(b"1234567812345678", 16),
-                "string_to_data: string too long"
-            );
-            assert_eq!(
-                string_to_data(b"123456781234567", 16)?,
-                vec![
-                    cast_to_word([49, 50, 51, 52, 53, 54, 55, 56]),
-                    cast_to_word([49, 50, 51, 52, 53, 54, 55, 0])
-                ]
-            );
-            Ok(())
-        }
-
-        #[test]
-        fn adds_another_word_for_null_termination_if_necessary() -> R<()> {
-            assert_eq!(
-                string_to_data(b"12345678", 16)?,
-                vec![
-                    cast_to_word([49, 50, 51, 52, 53, 54, 55, 56]),
-                    cast_to_word([0, 0, 0, 0, 0, 0, 0, 0])
-                ]
-            );
-            Ok(())
-        }
+                loop {
+                    let status = waitpid(child, None)?;
+                    match status {
+                        WaitStatus::Exited(..) => {
+                            break;
+                        }
+                        WaitStatus::PtraceSyscall(..) => {
+                            let registers = ptrace::getregs(child)?;
+                            if registers.orig_rax == libc::SYS_getcwd as c_ulonglong {
+                                test(child, registers)?;
+                            }
+                        }
+                        _ => {}
+                    }
+                    ptrace::syscall(child)?;
+                }
+                Ok(())
+            },
+        )
     }
 
-    mod roundtrip {
+    #[test]
+    fn run_roundtrip_test_runs_the_given_test() {
+        assert_error!(run_roundtrip_test(|_, _| Err("foo")?), "foo");
+    }
+
+    #[test]
+    fn short_string() -> R<()> {
+        run_roundtrip_test(|child, registers| {
+            poke_single_word_string(child, registers.rdi, b"foo")?;
+            assert_eq!(peek_string(child, registers.rdi)?, b"foo");
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn long_string() -> R<()> {
+        run_roundtrip_test(|child, registers| {
+            poke_string(child, registers.rdi, b"foo_bar_baz", 16)?;
+            assert_eq!(peek_string(child, registers.rdi)?, b"foo_bar_baz");
+            Ok(())
+        })
+    }
+
+    mod peek_bytes {
         use super::*;
-        use libc::user_regs_struct;
-
-        fn run_roundtrip_test(test: fn(child: Pid, registers: user_regs_struct) -> R<()>) -> R<()> {
-            fork_with_child_errors(
-                || {
-                    ptrace::traceme()?;
-                    signal::kill(getpid(), Some(Signal::SIGSTOP))?;
-                    env::current_dir()?;
-                    let path = CString::new("/bin/true")?;
-                    execv(&path, &[path.clone()])?;
-                    Ok(())
-                },
-                |child| -> R<()> {
-                    waitpid(child, None)?;
-                    ptrace::setoptions(child, Options::PTRACE_O_TRACESYSGOOD)?;
-                    ptrace::syscall(child)?;
-
-                    loop {
-                        let status = waitpid(child, None)?;
-                        match status {
-                            WaitStatus::Exited(..) => {
-                                break;
-                            }
-                            WaitStatus::PtraceSyscall(..) => {
-                                let registers = ptrace::getregs(child)?;
-                                if registers.orig_rax == libc::SYS_getcwd as c_ulonglong {
-                                    test(child, registers)?;
-                                }
-                            }
-                            _ => {}
-                        }
-                        ptrace::syscall(child)?;
-                    }
-                    Ok(())
-                },
-            )
-        }
 
         #[test]
-        fn run_roundtrip_test_runs_the_given_test() {
-            assert_error!(run_roundtrip_test(|_, _| Err("foo")?), "foo");
-        }
-
-        #[test]
-        fn roundtrip_for_a_single_word() -> R<()> {
+        fn short_count() -> R<()> {
             run_roundtrip_test(|child, registers| {
-                poke_single_word_string(child, registers.rdi, b"foo")?;
-                assert_eq!(peek_string(child, registers.rdi)?, b"foo");
+                poke_string(child, registers.rdi, b"foo_bar", 16)?;
+                assert_eq!(peek_bytes(child, registers.rdi, 3)?, b"foo");
                 Ok(())
             })
         }
 
         #[test]
-        fn roundtrip_for_multiple_words() -> R<()> {
+        fn longer_count() -> R<()> {
             run_roundtrip_test(|child, registers| {
                 poke_string(child, registers.rdi, b"foo_bar_baz", 16)?;
-                assert_eq!(peek_string(child, registers.rdi)?, b"foo_bar_baz");
+                assert_eq!(peek_bytes(child, registers.rdi, 10)?, b"foo_bar_ba");
                 Ok(())
             })
         }
