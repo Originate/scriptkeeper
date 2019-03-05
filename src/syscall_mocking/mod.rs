@@ -127,10 +127,15 @@ impl Tracer {
             let registers = ptrace::getregs(pid)?;
             let syscall = Syscall::from(registers);
             let syscall_stop = self.update_syscall_state(pid, &syscall)?;
-            self.debugger
-                .log_syscall(pid, &syscall_stop, &syscall, &registers)?;
-            self.syscall_mock
-                .handle_syscall(pid, syscall_stop, syscall, registers)?;
+            let Tracer {
+                debugger,
+                syscall_mock,
+                ..
+            } = self;
+
+            debugger.log_syscall(pid, &syscall_stop, &syscall, || {
+                syscall_mock.handle_syscall(pid, &syscall_stop, &syscall, &registers)
+            })?;
         }
         Ok(())
     }

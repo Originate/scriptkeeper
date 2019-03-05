@@ -5,6 +5,7 @@ use super::SyscallStop;
 use crate::R;
 use libc::{c_longlong, c_ulonglong, user_regs_struct};
 use nix::errno;
+use nix::sys::ptrace;
 use nix::unistd::Pid;
 use std::collections::HashMap;
 use std::env;
@@ -63,6 +64,7 @@ impl Debugger {
                 ("buf", Debugger::string(pid, registers.rsi)),
                 ("count", registers.rdx.to_string()),
             ],
+            Open => vec![("filename", Debugger::string(pid, registers.rdi))],
             Close => vec![("fd", registers.rdi.to_string())],
             Stat => vec![("filename", Debugger::string(pid, registers.rdi))],
             Fstat => vec![("fd", registers.rdi.to_string())],
@@ -93,13 +95,33 @@ impl Debugger {
         }
     }
 
-    pub fn log_syscall(
+    pub fn log_syscall<F: FnOnce() -> R<()>>(
         &mut self,
         pid: Pid,
         syscall_stop: &SyscallStop,
         syscall: &Syscall,
-        registers: &user_regs_struct,
+        make_syscall: F,
     ) -> R<()> {
+        match syscall_stop {
+            SyscallStop::Enter => {
+                self.log_syscall_details(pid, syscall_stop, syscall)?;
+                make_syscall()?;
+            }
+            SyscallStop::Exit => {
+                make_syscall()?;
+                self.log_syscall_details(pid, syscall_stop, syscall)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn log_syscall_details(
+        &mut self,
+        pid: Pid,
+        syscall_stop: &SyscallStop,
+        syscall: &Syscall,
+    ) -> R<()> {
+        let registers = ptrace::getregs(pid)?;
         match self {
             Debugger::Disabled => {}
             Debugger::Debugger {
@@ -124,7 +146,7 @@ impl Debugger {
                         eprintln!(
                             "{} -> {}",
                             message,
-                            Debugger::format_return_value(registers)
+                            Debugger::format_return_value(&registers)
                         );
                         enter_log_messages.remove(&pid);
                     }

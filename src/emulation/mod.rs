@@ -44,9 +44,9 @@ impl SyscallMock {
     pub fn handle_syscall(
         &mut self,
         pid: Pid,
-        syscall_stop: SyscallStop,
-        syscall: Syscall,
-        registers: user_regs_struct,
+        syscall_stop: &SyscallStop,
+        syscall: &Syscall,
+        registers: &user_regs_struct,
     ) -> R<()> {
         match (&syscall, syscall_stop) {
             (Syscall::Execve, SyscallStop::Enter) => {
@@ -71,9 +71,9 @@ impl SyscallMock {
                     let buffer_ptr = registers.rdi;
                     let max_size = registers.rsi;
                     tracee_memory::poke_string(pid, buffer_ptr, mock_cwd, max_size)?;
-                    let mut new_registers = registers;
-                    new_registers.rax = mock_cwd.len() as c_ulonglong + 1;
-                    ptrace::setregs(pid, new_registers)?;
+                    let mut registers = *registers;
+                    registers.rax = mock_cwd.len() as c_ulonglong + 1;
+                    ptrace::setregs(pid, registers)?;
                 }
             }
             _ => {}
