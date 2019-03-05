@@ -10,8 +10,8 @@ pub fn path_to_string(path: &Path) -> R<&str> {
         .ok_or_else(|| format!("invalid utf8 sequence: {:?}", &path))?)
 }
 
-pub fn parse_shebang(executable: &Path) -> Option<String> {
-    let contents = fs::read(executable).ok()?;
+pub fn parse_shebang(program: &Path) -> Option<String> {
+    let contents = fs::read(program).ok()?;
     if contents.starts_with(b"#!") {
         let bytes = contents
             .into_iter()

@@ -6,6 +6,7 @@ use crate::syscall_mock::SyscallMock;
 use crate::utils::parse_shebang;
 use crate::R;
 use debugging::Debugger;
+use nix;
 use nix::sys::ptrace;
 use nix::sys::ptrace::Options;
 use nix::sys::signal;
@@ -13,6 +14,7 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::{wait, waitpid, WaitStatus};
 use nix::unistd::{execve, fork, getpid, ForkResult, Pid};
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::ffi::CString;
 use std::fs;
 use std::os::unix::ffi::OsStrExt;
@@ -45,33 +47,72 @@ impl Tracer {
         }
     }
 
-    fn execve(executable: &Path, args: Vec<String>, env: HashMap<String, String>) -> R<()> {
-        let path = CString::new(executable.as_os_str().as_bytes())?;
-        let mut c_args = vec![path.clone()];
-        for arg in args {
-            c_args.push(CString::new(arg)?);
+    fn execve_params(
+        interpreter: &Option<Vec<u8>>,
+        program: &Path,
+        args: Vec<String>,
+        env: HashMap<String, String>,
+    ) -> R<(CString, Vec<CString>, Vec<CString>)> {
+        let c_executable = CString::new(program.as_os_str().as_bytes())?;
+        let mut c_args = VecDeque::new();
+        c_args.push_back(c_executable.clone());
+        for arg in &args {
+            c_args.push_back(CString::new(arg.clone())?);
         }
         let mut c_env = vec![];
         for (key, value) in env {
             c_env.push(CString::new(format!("{}={}", key, value))?);
         }
-        execve(&path, &c_args, &c_env).map_err(|error| {
-            let hint = match parse_shebang(executable) {
-                Some(shebang) => format!("Does \"{}\" exist?", shebang),
-                None => "Does your interpreter exist?".to_string(),
-            };
-            format!(
-                "execve'ing {} failed with error: {}\n{}",
-                executable.to_string_lossy(),
-                error,
-                hint,
+        Ok(match interpreter {
+            Some(interpreter) => {
+                c_args.push_front(CString::new(interpreter.clone())?);
+                (
+                    CString::new(interpreter.clone())?,
+                    c_args.into_iter().collect(),
+                    c_env,
+                )
+            }
+            None => (c_executable.clone(), c_args.into_iter().collect(), c_env),
+        })
+    }
+
+    fn format_execve_error(
+        error: nix::Error,
+        interpreter: &Option<Vec<u8>>,
+        program: &Path,
+    ) -> String {
+        let (program, interpreter) = if let Some(interpreter) = interpreter {
+            (program, String::from_utf8_lossy(&interpreter).to_string())
+        } else {
+            (
+                program,
+                parse_shebang(program).unwrap_or_else(|| "your interpreter".to_string()),
             )
-        })?;
+        };
+        let hint = format!("Does {} exist?", interpreter);
+        format!(
+            "execve'ing {} failed with error: {}\n{}",
+            program.to_string_lossy(),
+            error,
+            hint,
+        )
+    }
+
+    fn execve(
+        interpreter: &Option<Vec<u8>>,
+        program: &Path,
+        args: Vec<String>,
+        env: HashMap<String, String>,
+    ) -> R<()> {
+        let (c_executable, c_args, c_env) = Tracer::execve_params(interpreter, program, args, env)?;
+        execve(&c_executable, &c_args, &c_env)
+            .map_err(|error| Self::format_execve_error(error, interpreter, program))?;
         Ok(())
     }
 
     pub fn run_against_mock<F>(
-        executable: &Path,
+        interpreter: &Option<Vec<u8>>,
+        program: &Path,
         args: Vec<String>,
         env: HashMap<String, String>,
         mk_syscall_mock: F,
@@ -83,7 +124,7 @@ impl Tracer {
             || {
                 ptrace::traceme().map_err(|error| format!("PTRACE_TRACEME failed: {}", error))?;
                 signal::kill(getpid(), Some(Signal::SIGSTOP))?;
-                Tracer::execve(executable, args, env)?;
+                Tracer::execve(interpreter, program, args, env)?;
                 Ok(())
             },
             |tracee_pid: Pid| -> R<SyscallMock> {

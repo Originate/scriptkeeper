@@ -98,6 +98,11 @@ protocols:
         exitcode?: number
           # Mocked exitcode of the command.
           # Default: 0
+interpreter?: string
+    # The interpreter that should be used to run the tested script.
+    # Example: "/bin/bash", default: The program itself will be executed
+    # directly, without an interpreter. In that case it has to have the
+    # executable flag set. Often you also will need a hashbang.
 unmockedCommands: [string]
   # List of executables that are not going to be mocked out, but are going to be
   # executed instead.

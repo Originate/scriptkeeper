@@ -30,6 +30,23 @@ fn simple() -> R<()> {
     Ok(())
 }
 
+#[test]
+fn can_specify_interpreter() -> R<()> {
+    test_run(
+        r##"
+            |`true`
+        "##,
+        r##"
+            |protocols:
+            |  - protocol:
+            |    - /bin/true
+            |interpreter: /usr/bin/ruby
+        "##,
+        Ok(()),
+    )?;
+    Ok(())
+}
+
 mod yaml_parse_errors {
     use super::*;
     use pretty_assertions::assert_eq;
@@ -177,7 +194,77 @@ mod nice_user_errors {
                 format!(
                     r##"
                         |execve'ing {} failed with error: ENOENT: No such file or directory
-                        |Does "#!/usr/bin/foo" exist?
+                        |Does #!/usr/bin/foo exist?
+                    "##,
+                    path_to_string(script.path().as_ref())?
+                )
+                .as_str(),
+            )?
+            .trim()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn nice_error_when_shebang_missing() -> R<()> {
+        let script = TempFile::write_temp_script(
+            trim_margin(
+                r##"
+                    |/bin/true
+                "##,
+            )?
+            .as_bytes(),
+        )?;
+        let result = test_run_with_tempfile(
+            &script,
+            r##"
+                |protocol:
+                |  - /bin/true
+            "##,
+        );
+        assert_error!(
+            result,
+            trim_margin(
+                format!(
+                    r##"
+                        |execve'ing {} failed with error: ENOEXEC: Exec format error
+                        |Does your interpreter exist?
+                    "##,
+                    path_to_string(script.path().as_ref())?
+                )
+                .as_str(),
+            )?
+            .trim()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn nice_error_when_yaml_refers_to_missing_interpreter() -> R<()> {
+        let script = TempFile::write_temp_script(
+            trim_margin(
+                r##"
+                    |`true`
+                "##,
+            )?
+            .as_bytes(),
+        )?;
+        let result = test_run_with_tempfile(
+            &script,
+            r##"
+                |protocols:
+                |  - protocol:
+                |    - /bin/true
+                |interpreter: /usr/bin/foo
+            "##,
+        );
+        assert_error!(
+            result,
+            trim_margin(
+                format!(
+                    r##"
+                        |execve'ing {} failed with error: ENOENT: No such file or directory
+                        |Does /usr/bin/foo exist?
                     "##,
                     path_to_string(script.path().as_ref())?
                 )

@@ -139,12 +139,14 @@ impl SyscallMock {
 
 pub fn run_against_protocol(
     context: Context,
-    executable: &Path,
+    interpreter: &Option<Vec<u8>>,
+    program: &Path,
     expected: Protocol,
     unmocked_commands: &[Vec<u8>],
 ) -> R<TestResult> {
     let syscall_mock = Tracer::run_against_mock(
-        executable,
+        interpreter,
+        program,
         expected.arguments.clone(),
         expected.env.clone(),
         |tracee_pid| SyscallMock::new(context, tracee_pid, expected, unmocked_commands),
@@ -176,6 +178,7 @@ mod run_against_protocol {
         assert_eq!(
             run_against_protocol(
                 Context::new_test_context(),
+                &None,
                 &script.path(),
                 Protocol::new(vec![protocol::Step {
                     command: Command {
@@ -207,6 +210,7 @@ mod run_against_protocol {
         )?;
         let _ = run_against_protocol(
             Context::new_test_context(),
+            &None,
             &script.path(),
             Protocol::empty(),
             &[],
@@ -218,17 +222,24 @@ mod run_against_protocol {
 
 pub fn run_against_protocols(
     context: Context,
-    executable: &Path,
+    program: &Path,
     Protocols {
         protocols,
         unmocked_commands,
+        interpreter,
     }: Protocols,
 ) -> R<TestResults> {
     Ok(TestResults(
         protocols
             .into_iter()
             .map(|expected| {
-                run_against_protocol(context.clone(), executable, expected, &unmocked_commands)
+                run_against_protocol(
+                    context.clone(),
+                    &interpreter,
+                    program,
+                    expected,
+                    &unmocked_commands,
+                )
             })
             .collect::<R<Vec<TestResult>>>()?,
     ))

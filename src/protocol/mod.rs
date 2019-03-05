@@ -249,6 +249,7 @@ impl Protocol {
 pub struct Protocols {
     pub protocols: Vec<Protocol>,
     pub unmocked_commands: Vec<Vec<u8>>,
+    pub interpreter: Option<Vec<u8>>,
 }
 
 impl Protocols {
@@ -260,7 +261,15 @@ impl Protocols {
         Ok(Protocols {
             protocols: result,
             unmocked_commands: vec![],
+            interpreter: None,
         })
+    }
+
+    fn add_interpreter(&mut self, object: &Hash) -> R<()> {
+        if let Ok(interpreter) = object.expect_field("interpreter") {
+            self.interpreter = Some(interpreter.expect_str()?.as_bytes().to_vec());
+        }
+        Ok(())
     }
 
     fn add_unmocked_commands(&mut self, object: &Hash) -> R<()> {
@@ -283,11 +292,13 @@ impl Protocols {
                 (Ok(protocols), _) => {
                     let mut protocols = Protocols::from_array(protocols.expect_array()?)?;
                     protocols.add_unmocked_commands(object)?;
+                    protocols.add_interpreter(object)?;
                     protocols
                 }
                 (Err(_), Ok(_)) => Protocols {
                     protocols: vec![Protocol::from_object(&object)?],
                     unmocked_commands: vec![],
+                    interpreter: None,
                 },
                 (Err(_), Err(_)) => Err(format!(
                     "expected field \"protocol\" or \"protocols\", got: {:?}",
@@ -698,6 +709,51 @@ mod load {
                 .unmocked_commands
                 .map(|command| String::from_utf8(command).unwrap()),
                 vec!["foo"]
+            );
+            Ok(())
+        }
+    }
+
+    mod specified_interpreter {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn allows_a_specified_interpreter() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_eq!(
+                test_parse(
+                    &tempfile,
+                    r##"
+                        |protocols:
+                        |  - protocol: []
+                        |interpreter: /bin/bash
+                    "##,
+                )?
+                .interpreter
+                .unwrap(),
+                b"/bin/bash",
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn disallows_an_interpreter_with_an_invalid_type() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_error!(
+                test_parse(
+                    &tempfile,
+                    r##"
+                        |protocols:
+                        |  - protocol: []
+                        |interpreter: 42
+                    "##,
+                ),
+                format!(
+                    "unexpected type in {}.protocols.yaml: \
+                     expected: string, got: Integer(42)",
+                    path_to_string(&tempfile.path())?
+                )
             );
             Ok(())
         }
