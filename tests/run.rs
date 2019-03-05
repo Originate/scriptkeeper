@@ -1,30 +1,18 @@
+#![cfg_attr(
+    feature = "dev",
+    allow(dead_code, unused_variables, unused_imports, unreachable_code)
+)]
 #![deny(clippy::all)]
 
+#[path = "./utils.rs"]
+mod utils;
+
 use check_protocols::utils::path_to_string;
-use check_protocols::{run_check_protocols, Context, ExitCode, R};
+use check_protocols::{run_check_protocols, Context, R};
 use std::env;
-use std::fs;
 use std::path::PathBuf;
 use test_utils::{assert_error, trim_margin, TempFile};
-
-fn test_run_check_protocols(script: &TempFile, protocol: &str) -> R<(ExitCode, String)> {
-    fs::write(
-        script.path().with_extension("protocols.yaml"),
-        trim_margin(protocol)?,
-    )?;
-    run_check_protocols(Context::new_test_context(), &script.path())
-}
-
-fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -> R<()> {
-    let script = TempFile::write_temp_script(trim_margin(script_code)?.as_bytes())?;
-    let output = test_run_check_protocols(&script, protocol)?;
-    let expected_output = match expected {
-        Err(expected_output) => (ExitCode(1), expected_output.to_string()),
-        Ok(()) => (ExitCode(0), "All tests passed.\n".to_string()),
-    };
-    assert_eq!(output, expected_output);
-    Ok(())
-}
+use utils::{test_run, test_run_with_tempfile};
 
 #[test]
 fn simple() -> R<()> {
@@ -44,11 +32,12 @@ fn simple() -> R<()> {
 
 mod yaml_parse_errors {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn wrong_types() -> R<()> {
         let script = TempFile::write_temp_script(b"")?;
-        let result = test_run_check_protocols(
+        let result = test_run_with_tempfile(
             &script,
             r##"
                 |protocol: 42
@@ -68,7 +57,7 @@ mod yaml_parse_errors {
     #[test]
     fn invalid_yaml() -> R<()> {
         let script = TempFile::write_temp_script(b"")?;
-        let result = test_run_check_protocols(
+        let result = test_run_with_tempfile(
             &script,
             r##"
                 |protocol: - boo
@@ -175,7 +164,7 @@ mod nice_user_errors {
             )?
             .as_bytes(),
         )?;
-        let result = test_run_check_protocols(
+        let result = test_run_with_tempfile(
             &script,
             r##"
                 |protocol:
