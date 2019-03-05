@@ -2,12 +2,12 @@ use check_protocols::{run_check_protocols, Context, ExitCode, R};
 use path::PathBuf;
 use std::*;
 
-#[allow(dead_code)]
-fn test_run_from_directory(directory: &str) -> R<()> {
-    let script_file = PathBuf::from(directory).join("script");
+pub fn test_run_from_directory(directory: &str) -> R<()> {
+    let directory = PathBuf::from("./tests/examples").join(directory);
+    let script_file = directory.join("script");
     let output = run_check_protocols(Context::new_test_context(), &script_file)
         .map_err(|error| format!("can't execute {:?}: {}", &script_file, error))?;
-    let expected_file = PathBuf::from(directory).join("expected");
+    let expected_file = directory.join("expected");
     let expected = String::from_utf8(
         fs::read(&expected_file)
             .map_err(|error| format!("error reading {:?}: {}", &expected_file, error))?,
@@ -16,3 +16,16 @@ fn test_run_from_directory(directory: &str) -> R<()> {
     assert_eq!(output.1, expected);
     Ok(())
 }
+
+macro_rules! example {
+    ($directory:ident) => {
+        #[test]
+        fn $directory() -> R<()> {
+            test_run_from_directory(stringify!($directory))?;
+            Ok(())
+        }
+    };
+}
+
+example!(simple);
+example!(bigger);
