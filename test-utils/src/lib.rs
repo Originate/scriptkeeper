@@ -16,12 +16,12 @@ pub fn trim_margin(str: &str) -> R<String> {
     ))
 }
 
-fn run(command: &str, args: Vec<&str>) -> R<()> {
-    let status = Command::new(command).args(args).status()?;
+pub fn run(command: &str, args: Vec<&str>) -> R<()> {
+    let status = Command::new(&command).args(&args).status()?;
     if status.success() {
         Ok(())
     } else {
-        Err("command failed")?
+        Err(format!("command failed: {} {:?}", command, args))?
     }
 }
 
