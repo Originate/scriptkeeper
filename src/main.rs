@@ -2,7 +2,7 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
-use check_protocols::{run_main, wrap_main, Context};
+use check_protocols::{context::Context, run_main, wrap_main};
 
 fn main() {
     wrap_main(

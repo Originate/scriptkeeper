@@ -203,8 +203,8 @@ mod test_tracer {
 
     mod update_syscall_state {
         use super::*;
+        use crate::context::Context;
         use crate::protocol::Protocol;
-        use crate::Context;
         use test_utils::assert_error;
 
         fn tracer() -> Tracer {

@@ -3,12 +3,12 @@
     allow(dead_code, unused_variables, unused_imports, unreachable_code)
 )]
 #![deny(clippy::all)]
+#![allow(dead_code)]
 
-use check_protocols::{run_check_protocols, Context, ExitCode, R};
+use check_protocols::{context::Context, run_check_protocols, ExitCode, R};
 use pretty_assertions::assert_eq;
 use std::fs;
 use std::io::Cursor;
-use std::io::Write;
 use test_utils::{trim_margin, TempFile};
 
 pub fn test_run_with_tempfile(script: &TempFile, protocol: &str) -> R<(ExitCode, String)> {
