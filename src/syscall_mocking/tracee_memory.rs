@@ -261,6 +261,7 @@ mod poking {
                             WaitStatus::PtraceSyscall(..) => {
                                 let registers = ptrace::getregs(child)?;
                                 if registers.orig_rax == libc::SYS_getcwd as c_ulonglong {
+                                    assert!(registers.rsi >= 512);
                                     test(child, registers)?;
                                 }
                             }
