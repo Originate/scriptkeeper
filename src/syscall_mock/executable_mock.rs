@@ -16,7 +16,7 @@ pub fn create_mock_executable(context: &Context, config: Config) -> R<Vec<u8>> {
     let mut result = b"#!".to_vec();
     result.append(
         &mut context
-            .check_protocols_executable
+            .check_protocols_executable()
             .as_os_str()
             .as_bytes()
             .to_vec(),
@@ -52,7 +52,7 @@ mod test {
     #[test]
     fn renders_an_executable_that_outputs_the_given_stdout() -> R<()> {
         let mock_executable = TempFile::write_temp_script(&create_mock_executable(
-            &Context::new_test_context(),
+            &Context::new_mock(),
             Config {
                 stdout: b"foo".to_vec(),
                 exitcode: 0,
@@ -66,7 +66,7 @@ mod test {
     #[test]
     fn renders_an_executable_that_exits_with_the_given_exitcode() -> R<()> {
         let mock_executable = TempFile::write_temp_script(&create_mock_executable(
-            &Context::new_test_context(),
+            &Context::new_mock(),
             Config {
                 stdout: b"foo".to_vec(),
                 exitcode: 42,

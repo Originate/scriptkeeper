@@ -2,6 +2,7 @@
     feature = "dev",
     allow(dead_code, unused_variables, unused_imports, unreachable_code)
 )]
+#![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 #![allow(dead_code)]
 
@@ -17,7 +18,7 @@ pub fn test_run_with_tempfile(script: &TempFile, protocol: &str) -> R<(ExitCode,
         trim_margin(protocol)?,
     )?;
     with_cursor(|cursor| -> R<ExitCode> {
-        run_check_protocols(Context::new_test_context(), &script.path(), cursor)
+        run_check_protocols(Context::new_mock(), &script.path(), cursor)
     })
 }
 

@@ -32,3 +32,4 @@ pretty_assertions = "*"
 [features]
 dev = []
 ci = []
+test = []

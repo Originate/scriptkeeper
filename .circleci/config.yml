@@ -21,10 +21,10 @@ jobs:
           name: clippy
           command: |
             rustup component add clippy
-            cargo clippy --tests
+            cargo clippy --tests --features 'ci test'
       - run:
           name: tests
-          command: cargo test --features=ci -- --test-threads=1
+          command: cargo test --all --features 'ci test' -- --test-threads=1
       - run:
           name: build
           command: cargo build --features=ci

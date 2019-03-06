@@ -94,7 +94,7 @@ mod run_main {
 
     #[test]
     fn when_passed_executable_mock_flag_behaves_like_executable_mock() -> R<()> {
-        let context = Context::new_test_context();
+        let context = Context::new_mock();
         let executable_contents = create_mock_executable(
             &context,
             executable_mock::Config {
@@ -198,7 +198,7 @@ mod run_against_protocol {
         )?;
         assert_eq!(
             run_against_protocol(
-                Context::new_test_context(),
+                Context::new_mock(),
                 &None,
                 &script.path(),
                 Protocol::new(vec![protocol::Step {
@@ -230,7 +230,7 @@ mod run_against_protocol {
             .as_bytes(),
         )?;
         let _ = run_against_protocol(
-            Context::new_test_context(),
+            Context::new_mock(),
             &None,
             &script.path(),
             Protocol::empty(),
