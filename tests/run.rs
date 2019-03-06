@@ -8,7 +8,7 @@
 mod utils;
 
 use check_protocols::utils::path_to_string;
-use check_protocols::{run_check_protocols, Context, R};
+use check_protocols::{context::Context, run_check_protocols, R};
 use std::env;
 use std::path::PathBuf;
 use test_utils::{assert_error, trim_margin, TempFile};

@@ -10,17 +10,19 @@ extern crate serde_derive;
 extern crate memoffset;
 
 mod cli;
+pub mod context;
 mod protocol;
 mod syscall_mock;
 mod tracer;
 pub mod utils;
 
+use crate::context::Context;
 use crate::protocol::{Protocol, Protocols};
 use crate::syscall_mock::test_result::{TestResult, TestResults};
 use crate::syscall_mock::{executable_mock, SyscallMock};
 use crate::tracer::Tracer;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub type R<A> = Result<A, Box<std::error::Error>>;
 
@@ -65,26 +67,6 @@ mod wrap_main {
         wrap_main(mock_exit, main);
         assert_eq!(exitcodes, vec![ExitCode(1)]);
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Context {
-    check_protocols_executable: PathBuf,
-}
-
-impl Context {
-    pub fn new() -> R<Context> {
-        Ok(Context {
-            check_protocols_executable: std::env::current_exe()?,
-        })
-    }
-
-    pub fn new_test_context() -> Context {
-        let cwd = std::env::current_dir().unwrap();
-        Context {
-            check_protocols_executable: cwd.join("./target/debug/check-protocols"),
-        }
     }
 }
 

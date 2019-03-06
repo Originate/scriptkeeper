@@ -1,12 +1,13 @@
 pub mod executable_mock;
 pub mod test_result;
 
+use crate::context::Context;
 use crate::protocol;
 use crate::protocol::Protocol;
 use crate::tracer::syscall::Syscall;
 use crate::tracer::{tracee_memory, SyscallStop};
 use crate::utils::short_temp_files::ShortTempFile;
-use crate::{Context, R};
+use crate::R;
 use libc::{c_ulonglong, user_regs_struct};
 use nix::sys::ptrace;
 use nix::unistd::Pid;

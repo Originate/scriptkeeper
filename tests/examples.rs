@@ -1,7 +1,7 @@
 #[path = "./utils.rs"]
 mod utils;
 
-use check_protocols::{run_check_protocols, Context, ExitCode, R};
+use check_protocols::{context::Context, run_check_protocols, ExitCode, R};
 use path::PathBuf;
 use std::*;
 use utils::with_cursor;
