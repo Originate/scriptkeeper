@@ -2,6 +2,7 @@
     feature = "dev",
     allow(dead_code, unused_variables, unused_imports, unreachable_code)
 )]
+#![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
 #[path = "./utils.rs"]
@@ -165,7 +166,7 @@ mod nice_user_errors {
     fn nice_error_when_script_does_not_exist() {
         let result = with_cursor(|cursor| {
             run_check_protocols(
-                Context::new_test_context(),
+                Context::new_mock(),
                 &PathBuf::from("./does-not-exist"),
                 cursor,
             )
