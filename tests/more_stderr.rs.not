@@ -1,0 +1,62 @@
+
+#[test]
+#[ignore]
+fn allows_to_specify_the_expected_stderr() -> R<()> {
+    test_run(
+        r##"
+            |#!/usr/bin/env bash
+            |echo foo 1>&2
+        "##,
+        r##"
+            |- protocol: []
+            |  stderr: "foo\n"
+        "##,
+        Ok(()),
+    )?;
+    panic!("pending");
+    Ok(())
+}
+
+#[test]
+#[ignore]
+fn errors_when_the_script_does_not_conform_to_the_expected_stderr() -> R<()> {
+    test_run(
+        r##"
+            |#!/usr/bin/env bash
+            |echo bar 1>&2
+        "##,
+        r##"
+            |- protocol: []
+            |  stderr: "foo\n"
+        "##,
+        Err(&trim_margin(
+            "
+                |error:
+                |  expected stderr:
+                |foo
+                |  received stderr:
+                |bar
+            ",
+        )?),
+    )?;
+    Ok(())
+}
+
+#[test]
+#[ignore]
+fn allows_to_switch_back_to_stdout() -> R<()> {
+    test_run(
+        r##"
+            |#!/usr/bin/env bash
+            |echo foo 1>&2
+            |echo bar
+        "##,
+        r##"
+            |- protocol: []
+            |  stderr: "foo\n"
+        "##,
+        Ok(()),
+    )?;
+    panic!("pending");
+    Ok(())
+}

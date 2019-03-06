@@ -85,6 +85,8 @@ impl SyscallMock {
                     let mut chunk = tracee_memory::peek_bytes(pid, registers.rsi, count)?;
                     self.captured_stderr.append(&mut chunk);
                 }
+                // fixme: what does the syscall return? That has to be mocked too.
+                // fixme: what if the syscall writes less bytes? switch to getgid?
             }
             _ => {}
         }

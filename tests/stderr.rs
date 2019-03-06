@@ -86,3 +86,30 @@ mod file_descriptor_2 {
         Ok(())
     }
 }
+
+#[test]
+#[ignore]
+fn relays_stderr_to_the_user() -> R<()> {
+    test_run_c(
+        r##"
+            |#include <stdio.h>
+            |int main() {
+            |  printf("foo\n");
+            |  return 0;
+            |}
+        "##,
+        r##"
+            |- protocol: []
+            |  stderr: "foo\n"
+        "##,
+        Err(&trim_margin(
+            "
+                |error:
+                |  expected output to stderr:
+                |foo
+                |  received output to stderr:
+            ",
+        )?),
+    )?;
+    Ok(())
+}
