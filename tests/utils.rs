@@ -7,6 +7,8 @@
 use check_protocols::{run_check_protocols, Context, ExitCode, R};
 use pretty_assertions::assert_eq;
 use std::fs;
+use std::io::Cursor;
+use std::io::Write;
 use test_utils::{trim_margin, TempFile};
 
 pub fn test_run_with_tempfile(script: &TempFile, protocol: &str) -> R<(ExitCode, String)> {
@@ -14,7 +16,9 @@ pub fn test_run_with_tempfile(script: &TempFile, protocol: &str) -> R<(ExitCode,
         script.path().with_extension("protocols.yaml"),
         trim_margin(protocol)?,
     )?;
-    run_check_protocols(Context::new_test_context(), &script.path())
+    with_cursor(|cursor| -> R<ExitCode> {
+        run_check_protocols(Context::new_test_context(), &script.path(), cursor)
+    })
 }
 
 fn compare_results(result: (ExitCode, String), expected: Result<(), &str>) {
@@ -30,4 +34,13 @@ pub fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -
     let result = test_run_with_tempfile(&script, protocol)?;
     compare_results(result, expected);
     Ok(())
+}
+
+pub fn with_cursor<A, F>(action: F) -> R<(A, String)>
+where
+    F: FnOnce(&mut Cursor<Vec<u8>>) -> R<A>,
+{
+    let mut cursor = Cursor::new(vec![]);
+    let result = action(&mut cursor)?;
+    Ok((result, String::from_utf8(cursor.into_inner())?))
 }
