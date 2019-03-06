@@ -20,6 +20,7 @@ pub struct SyscallMock {
     tracee_pid: Pid,
     protocol: Protocol,
     unmocked_commands: Vec<Vec<u8>>,
+    captured_stderr: Vec<u8>,
     result: TestResult,
     temporary_executables: Vec<ShortTempFile>,
 }
@@ -36,6 +37,7 @@ impl SyscallMock {
             tracee_pid,
             protocol,
             unmocked_commands: unmocked_commands.to_vec(),
+            captured_stderr: vec![],
             result: TestResult::Pass,
             temporary_executables: vec![],
         }
@@ -76,6 +78,14 @@ impl SyscallMock {
                     ptrace::setregs(pid, registers)?;
                 }
             }
+            (Syscall::Write, SyscallStop::Enter) => {
+                let fd = registers.rdi;
+                if fd == 2 {
+                    let count = registers.rdx;
+                    let mut chunk = tracee_memory::peek_bytes(pid, registers.rsi, count)?;
+                    self.captured_stderr.append(&mut chunk);
+                }
+            }
             _ => {}
         }
         Ok(())
@@ -92,7 +102,10 @@ impl SyscallMock {
         let mock_config = match self.protocol.steps.pop_front() {
             Some(next_protocol_step) => {
                 if next_protocol_step.command != received {
-                    self.register_error(&next_protocol_step.command.format(), &received.format());
+                    self.register_step_error(
+                        &next_protocol_step.command.format(),
+                        &received.format(),
+                    );
                 }
                 executable_mock::Config {
                     stdout: next_protocol_step.stdout,
@@ -100,7 +113,7 @@ impl SyscallMock {
                 }
             }
             None => {
-                self.register_error("<protocol end>", &received.format());
+                self.register_step_error("<protocol end>", &received.format());
                 SyscallMock::allow_failing_scripts_to_continue()
             }
         };
@@ -114,23 +127,36 @@ impl SyscallMock {
 
     pub fn handle_end(&mut self, exitcode: i32) {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
-            self.register_error(&expected_step.command.format(), "<script terminated>");
+            self.register_step_error(&expected_step.command.format(), "<script terminated>");
         }
         if exitcode != self.protocol.exitcode {
-            self.register_error(
+            self.register_step_error(
                 &format!("<exitcode {}>", self.protocol.exitcode),
                 &format!("<exitcode {}>", exitcode),
             );
         }
+        if let Some(expected_stderr) = &self.protocol.stderr {
+            if &self.captured_stderr != expected_stderr {
+                self.register_error(format!(
+                    "  expected output to stderr:\n{}  received output to stderr:\n{}",
+                    String::from_utf8_lossy(&expected_stderr.clone()).as_ref(),
+                    String::from_utf8_lossy(&self.captured_stderr.clone()).as_ref(),
+                ));
+            }
+        }
     }
 
-    fn register_error(&mut self, expected: &str, received: &str) {
+    fn register_step_error(&mut self, expected: &str, received: &str) {
+        self.register_error(format!(
+            "  expected: {}\n  received: {}\n",
+            expected, received
+        ));
+    }
+
+    fn register_error(&mut self, message: String) {
         match self.result {
             TestResult::Pass => {
-                self.result = TestResult::Failure(format!(
-                    "  expected: {}\n  received: {}\n",
-                    expected, received
-                ));
+                self.result = TestResult::Failure(message);
             }
             TestResult::Failure(_) => {}
         }

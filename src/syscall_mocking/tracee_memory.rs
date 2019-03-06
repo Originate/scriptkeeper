@@ -72,17 +72,16 @@ pub fn peek_string_array(pid: Pid, address: c_ulonglong) -> R<Vec<Vec<u8>>> {
     Ok(result)
 }
 
-#[allow(dead_code)]
-pub fn peek_bytes(pid: Pid, address: c_ulonglong, count: usize) -> R<Vec<u8>> {
+pub fn peek_bytes(pid: Pid, address: c_ulonglong, count: c_ulonglong) -> R<Vec<u8>> {
     let iter = peekdata_iter(pid, address);
     let mut vec = vec![];
     for word in iter {
         vec.append(&mut cast_to_byte_array(word?).to_vec());
-        if vec.len() >= count {
+        if vec.len() as c_ulonglong >= count {
             break;
         }
     }
-    Ok(vec.into_iter().take(count).collect())
+    Ok(vec.into_iter().take(count as usize).collect())
 }
 
 #[cfg(test)]
