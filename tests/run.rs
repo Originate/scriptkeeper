@@ -800,3 +800,122 @@ fn complains_when_expected_an_unmocked_command() -> R<()> {
     )?;
     Ok(())
 }
+
+mod file_mocking {
+    use super::*;
+
+    mod in_ruby {
+        use super::*;
+
+        #[test]
+        fn allows_to_mock_files_existence_in_ruby() -> R<()> {
+            test_run(
+                r##"
+                    |#!/usr/bin/env ruby
+                    |`cat /foo/bar` if File.exists?("/foo/bar")
+                "##,
+                r##"
+                    |protocols:
+                    |  - protocol:
+                    |      - /bin/cat /foo/bar
+                    |    filetree:
+                    |      - /foo/bar
+                "##,
+                Ok(()),
+            )?;
+            Ok(())
+        }
+
+        #[test]
+        fn allows_to_mock_folders_existence_in_ruby() -> R<()> {
+            test_run(
+                r##"
+                    |#!/usr/bin/env ruby
+                    |`cat /foo/bar/test` if Dir.exists?("/foo/bar/")
+                    |`cat /foo/bar/test2` if File.directory?("/foo/bar/")
+                "##,
+                r##"
+                    |protocols:
+                    |  - protocol:
+                    |      - /bin/cat /foo/bar/test
+                    |      - /bin/cat /foo/bar/test2
+                    |    filetree:
+                    |      - /foo/bar/
+                "##,
+                Ok(()),
+            )?;
+            Ok(())
+        }
+    }
+
+    mod in_bash {
+        use super::*;
+
+        #[test]
+        fn allows_to_mock_files_existence() -> R<()> {
+            test_run(
+                r##"
+                    |#!/usr/bin/env bash
+                    |if [ -f /foo/bar ]; then
+                    |  cat /foo/bar
+                    |fi
+                "##,
+                r##"
+                    |protocols:
+                    |  - protocol:
+                    |      - /bin/cat /foo/bar
+                    |    filetree:
+                    |      - /foo/bar
+                "##,
+                Ok(()),
+            )?;
+            Ok(())
+        }
+
+        #[test]
+        fn allows_to_mock_directory_existence() -> R<()> {
+            test_run(
+                r##"
+                    |#!/usr/bin/env bash
+                    |if [ -d /foo/bar/ ]; then
+                    |  cat /foo/bar/test
+                    |fi
+                "##,
+                r##"
+                    |protocols:
+                    |  - protocol:
+                    |      - command: /bin/cat /foo/bar/test
+                    |    filetree:
+                    |      - /foo/bar/
+                "##,
+                Ok(()),
+            )?;
+            Ok(())
+        }
+
+        #[test]
+        fn does_not_mock_existence_of_unspecified_files() -> R<()> {
+            test_run(
+                r##"
+                    |#!/usr/bin/env bash
+                    |if [ -f /foo/bar ]; then
+                    |  cat /foo/bar
+                    |fi
+                "##,
+                r##"
+                    |protocols:
+                    |  - protocol:
+                    |    - /bin/cat /foo/bar
+                "##,
+                Err(&trim_margin(
+                    "
+                        |error:
+                        |  expected: /bin/cat /foo/bar
+                        |  received: <script terminated>
+                    ",
+                )?),
+            )?;
+            Ok(())
+        }
+    }
+}
