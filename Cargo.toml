@@ -20,6 +20,7 @@ linked-hash-map = "*"
 bincode = "*"
 serde_derive = "*"
 serde = "*"
+memoffset = "*"
 
 [build-dependencies]
 trim-margin = "*"
