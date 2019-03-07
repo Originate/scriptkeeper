@@ -171,6 +171,7 @@ pub struct Protocol {
     pub env: HashMap<String, String>,
     pub cwd: Option<Vec<u8>>,
     pub exitcode: i32,
+    pub mocked_files: Vec<Vec<u8>>,
 }
 
 impl Protocol {
@@ -186,6 +187,7 @@ impl Protocol {
             env: HashMap::new(),
             cwd: None,
             exitcode: 0,
+            mocked_files: vec![],
         }
     }
 
@@ -235,12 +237,23 @@ impl Protocol {
         Ok(())
     }
 
+    fn add_filetree(&mut self, object: &Hash) -> R<()> {
+        if let Ok(filetree) = object.expect_field("filetree") {
+            for entry in filetree.expect_array()?.iter() {
+                self.mocked_files
+                    .push(entry.expect_str()?.as_bytes().to_owned());
+            }
+        }
+        Ok(())
+    }
+
     fn from_object(object: &Hash) -> R<Protocol> {
         let mut protocol = Protocol::from_array(object.expect_field("protocol")?.expect_array()?)?;
         protocol.add_arguments(&object)?;
         protocol.add_env(&object)?;
         protocol.add_cwd(&object)?;
         protocol.add_exitcode(&object)?;
+        protocol.add_filetree(&object)?;
         Ok(protocol)
     }
 }
@@ -701,6 +714,24 @@ mod load {
             );
             Ok(())
         }
+    }
+
+    #[test]
+    fn allows_to_specify_the_local_folder_tree() -> R<()> {
+        assert_eq!(
+            test_parse_one(
+                r##"
+                    |protocol:
+                    |  - /bin/true
+                    |filetree:
+                    |  - /usr/local/bin/unrar
+                "##
+            )?
+            .mocked_files
+            .map(|mocked_file| String::from_utf8(mocked_file).unwrap()),
+            vec![("/usr/local/bin/unrar")]
+        );
+        Ok(())
     }
 }
 
