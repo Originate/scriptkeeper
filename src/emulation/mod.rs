@@ -76,6 +76,18 @@ impl SyscallMock {
                     ptrace::setregs(pid, registers)?;
                 }
             }
+            (Syscall::Stat, SyscallStop::Exit) if !self.protocol.mocked_files.is_empty() => {
+                let filename = tracee_memory::peek_string(pid, registers.rdi)?;
+                if self.protocol.mocked_files.contains(&filename) {
+                    if filename.ends_with(b"/") {
+                        let buffer_ptr = registers.rsi;
+                        tracee_memory::poke_four_bytes(pid, buffer_ptr + 24, libc::S_IFDIR as i32)?;
+                    }
+                    let mut registers = *registers;
+                    registers.rax = 0;
+                    ptrace::setregs(pid, registers)?;
+                }
+            }
             _ => {}
         }
         Ok(())
@@ -140,14 +152,14 @@ impl SyscallMock {
 pub fn run_against_protocol(
     context: Context,
     executable: &Path,
-    expected: Protocol,
+    protocol: Protocol,
     unmocked_commands: &[Vec<u8>],
 ) -> R<TestResult> {
     let syscall_mock = Tracer::run_against_mock(
         executable,
-        expected.arguments.clone(),
-        expected.env.clone(),
-        |tracee_pid| SyscallMock::new(context, tracee_pid, expected, unmocked_commands),
+        protocol.arguments.clone(),
+        protocol.env.clone(),
+        |tracee_pid| SyscallMock::new(context, tracee_pid, protocol, unmocked_commands),
     )?;
     Ok(syscall_mock.result)
 }
