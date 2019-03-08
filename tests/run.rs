@@ -13,7 +13,7 @@ use check_protocols::{context::Context, run_check_protocols, R};
 use std::env;
 use std::path::PathBuf;
 use test_utils::{assert_error, trim_margin, TempFile};
-use utils::{test_run, test_run_with_tempfile, with_cursor};
+use utils::{test_run, test_run_with_tempfile};
 
 #[test]
 fn simple() -> R<()> {
@@ -166,14 +166,10 @@ mod nice_user_errors {
 
     #[test]
     fn nice_error_when_script_does_not_exist() {
-        let result = with_cursor(|cursor| {
-            run_check_protocols(
-                &Context::new_mock(),
-                &PathBuf::from("./does-not-exist"),
-                cursor,
-            )
-        });
-        assert_error!(result, "executable file not found: ./does-not-exist");
+        assert_error!(
+            run_check_protocols(&Context::new_mock(), &PathBuf::from("./does-not-exist")),
+            "executable file not found: ./does-not-exist"
+        );
     }
 
     #[test]

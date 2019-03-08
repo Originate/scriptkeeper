@@ -79,9 +79,7 @@ pub fn run_main(
         cli::Args::ExecutableMock {
             executable_mock_path,
         } => executable_mock::run(&executable_mock_path, stdout_handle)?,
-        cli::Args::CheckProtocols { script_path } => {
-            run_check_protocols(context, &script_path, stdout_handle)?
-        }
+        cli::Args::CheckProtocols { script_path } => run_check_protocols(context, &script_path)?,
     })
 }
 
@@ -116,11 +114,7 @@ mod run_main {
     }
 }
 
-pub fn run_check_protocols(
-    context: &Context,
-    script: &Path,
-    stdout: &mut impl Write,
-) -> R<ExitCode> {
+pub fn run_check_protocols(context: &Context, script: &Path) -> R<ExitCode> {
     if !script.exists() {
         Err(format!(
             "executable file not found: {}",
@@ -128,8 +122,8 @@ pub fn run_check_protocols(
         ))?
     }
     let expected_protocols = Protocols::load(script)?;
-    let results = run_against_protocols(context, script, expected_protocols)?;
-    write!(stdout, "{}", results.format_test_results())?;
+    let results = run_against_protocols(&context, script, expected_protocols)?;
+    write!(context.stdout(), "{}", results.format_test_results())?;
     Ok(results.exitcode())
 }
 
