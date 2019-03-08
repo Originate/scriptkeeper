@@ -10,7 +10,7 @@ extern crate serde_derive;
 mod cli;
 mod emulation;
 mod protocol;
-mod syscall_mocking;
+mod tracer;
 pub mod utils;
 
 use crate::emulation::{executable_mock, run_against_protocols};
