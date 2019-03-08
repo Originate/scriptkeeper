@@ -144,7 +144,8 @@ impl Debugger {
                     None => eprintln!("error: exit without enter"),
                     Some(message) => {
                         eprintln!(
-                            "{} -> {}",
+                            "{}: {} -> {}",
+                            pid,
                             message,
                             Debugger::format_return_value(&registers)
                         );
