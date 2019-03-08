@@ -1,7 +1,9 @@
 mod debugging;
+mod stdio_redirecting;
 pub mod syscall;
 pub mod tracee_memory;
 
+use crate::context::Context;
 use crate::syscall_mock::{test_result::TestResult, SyscallMock};
 use crate::utils::parse_hashbang;
 use crate::R;
@@ -21,6 +23,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::panic;
 use std::path::Path;
 use std::str;
+use stdio_redirecting::Redirector;
 use syscall::Syscall;
 use tempdir::TempDir;
 
@@ -111,6 +114,7 @@ impl Tracer {
     }
 
     pub fn run_against_mock<F>(
+        context: &Context,
         interpreter: &Option<Vec<u8>>,
         program: &Path,
         args: Vec<String>,
@@ -120,14 +124,17 @@ impl Tracer {
     where
         F: FnOnce(Pid) -> SyscallMock,
     {
+        let redirector = Redirector::new(context)?;
         fork_with_child_errors(
             || {
+                redirector.child()?;
                 ptrace::traceme().map_err(|error| format!("PTRACE_TRACEME failed: {}", error))?;
                 signal::kill(getpid(), Some(Signal::SIGSTOP))?;
                 Tracer::execve(interpreter, program, args, env)?;
                 Ok(())
             },
             |tracee_pid: Pid| -> R<TestResult> {
+                redirector.parent()?;
                 waitpid(tracee_pid, None)?;
                 ptrace::setoptions(
                     tracee_pid,
@@ -211,7 +218,7 @@ mod test_tracer {
             let pid = Pid::from_raw(1);
             Tracer::new(
                 pid,
-                SyscallMock::new(Context::new_mock(), pid, Protocol::empty(), &[]),
+                SyscallMock::new(&Context::new_mock(), pid, Protocol::empty(), &[]),
             )
         }
 

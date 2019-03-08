@@ -27,13 +27,13 @@ pub struct SyscallMock {
 
 impl SyscallMock {
     pub fn new(
-        context: Context,
+        context: &Context,
         tracee_pid: Pid,
         protocol: Protocol,
         unmocked_commands: &[Vec<u8>],
     ) -> SyscallMock {
         SyscallMock {
-            context,
+            context: context.clone(),
             tracee_pid,
             protocol,
             unmocked_commands: unmocked_commands.to_vec(),
