@@ -2,17 +2,17 @@ pub mod executable_mock;
 pub mod test_result;
 
 use crate::protocol;
-use crate::protocol::{Protocol, Protocols};
+use crate::protocol::Protocol;
 use crate::tracer::syscall::Syscall;
-use crate::tracer::{tracee_memory, SyscallStop, Tracer};
+use crate::tracer::{tracee_memory, SyscallStop};
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::{Context, R};
 use libc::{c_ulonglong, user_regs_struct};
 use nix::sys::ptrace;
 use nix::unistd::Pid;
 use std::os::unix::ffi::OsStrExt;
-use std::path::{Path, PathBuf};
-use test_result::{TestResult, TestResults};
+use std::path::PathBuf;
+use test_result::TestResult;
 
 #[derive(Debug)]
 pub struct SyscallMock {
@@ -20,7 +20,7 @@ pub struct SyscallMock {
     tracee_pid: Pid,
     protocol: Protocol,
     unmocked_commands: Vec<Vec<u8>>,
-    result: TestResult,
+    pub result: TestResult,
     temporary_executables: Vec<ShortTempFile>,
 }
 
@@ -155,112 +155,4 @@ impl SyscallMock {
             TestResult::Failure(_) => {}
         }
     }
-}
-
-pub fn run_against_protocol(
-    context: Context,
-    interpreter: &Option<Vec<u8>>,
-    program: &Path,
-    protocol: Protocol,
-    unmocked_commands: &[Vec<u8>],
-) -> R<TestResult> {
-    let syscall_mock = Tracer::run_against_mock(
-        interpreter,
-        program,
-        protocol.arguments.clone(),
-        protocol.env.clone(),
-        |tracee_pid| SyscallMock::new(context, tracee_pid, protocol, unmocked_commands),
-    )?;
-    Ok(syscall_mock.result)
-}
-
-#[cfg(test)]
-mod run_against_protocol {
-    use super::*;
-    use crate::protocol::command::Command;
-    use std::fs;
-    use test_utils::{trim_margin, TempFile};
-
-    #[test]
-    fn works_for_longer_file_names() -> R<()> {
-        let long_command = TempFile::new()?;
-        fs::copy("/bin/true", long_command.path())?;
-        let script = TempFile::write_temp_script(
-            trim_margin(&format!(
-                r##"
-                    |#!/usr/bin/env bash
-                    |{}
-                "##,
-                long_command.path().to_string_lossy()
-            ))?
-            .as_bytes(),
-        )?;
-        assert_eq!(
-            run_against_protocol(
-                Context::new_test_context(),
-                &None,
-                &script.path(),
-                Protocol::new(vec![protocol::Step {
-                    command: Command {
-                        executable: long_command.path().as_os_str().as_bytes().to_vec(),
-                        arguments: vec![],
-                    },
-                    stdout: vec![],
-                    exitcode: 0
-                }]),
-                &[]
-            )?,
-            TestResult::Pass
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn does_not_execute_the_commands() -> R<()> {
-        let testfile = TempFile::new()?;
-        let script = TempFile::write_temp_script(
-            trim_margin(&format!(
-                r##"
-                    |#!/usr/bin/env bash
-                    |touch {}
-                "##,
-                testfile.path().to_string_lossy()
-            ))?
-            .as_bytes(),
-        )?;
-        let _ = run_against_protocol(
-            Context::new_test_context(),
-            &None,
-            &script.path(),
-            Protocol::empty(),
-            &[],
-        )?;
-        assert!(!testfile.path().exists(), "touch was executed");
-        Ok(())
-    }
-}
-
-pub fn run_against_protocols(
-    context: Context,
-    program: &Path,
-    Protocols {
-        protocols,
-        unmocked_commands,
-        interpreter,
-    }: Protocols,
-) -> R<TestResults> {
-    Ok(TestResults(
-        protocols
-            .into_iter()
-            .map(|expected| {
-                run_against_protocol(
-                    context.clone(),
-                    &interpreter,
-                    program,
-                    expected,
-                    &unmocked_commands,
-                )
-            })
-            .collect::<R<Vec<TestResult>>>()?,
-    ))
 }
