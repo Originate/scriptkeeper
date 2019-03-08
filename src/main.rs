@@ -7,6 +7,6 @@ use check_protocols::{context::Context, run_main, wrap_main};
 fn main() {
     wrap_main(
         |exitcode| exitcode.exit(),
-        || run_main(Context::new()?, std::env::args(), &mut std::io::stdout()),
+        || run_main(&Context::new()?, std::env::args(), &mut std::io::stdout()),
     );
 }

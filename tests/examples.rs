@@ -17,7 +17,7 @@ pub fn test_run_from_directory(directory: &str) -> R<()> {
     let directory = PathBuf::from("./tests/examples").join(directory);
     let script_file = directory.join("script");
     let output =
-        with_cursor(|cursor| run_check_protocols(Context::new_mock(), &script_file, cursor))
+        with_cursor(|cursor| run_check_protocols(&Context::new_mock(), &script_file, cursor))
             .map_err(|error| format!("can't execute {:?}: {}", &script_file, error))?;
     let expected_file = directory.join("expected");
     let expected = String::from_utf8(

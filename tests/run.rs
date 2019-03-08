@@ -56,6 +56,7 @@ mod yaml_parse_errors {
     fn wrong_types() -> R<()> {
         let script = TempFile::write_temp_script(b"")?;
         let result = test_run_with_tempfile(
+            &Context::new_mock(),
             &script,
             r##"
                 |protocol: 42
@@ -76,6 +77,7 @@ mod yaml_parse_errors {
     fn invalid_yaml() -> R<()> {
         let script = TempFile::write_temp_script(b"")?;
         let result = test_run_with_tempfile(
+            &Context::new_mock(),
             &script,
             r##"
                 |protocol: - boo
@@ -166,7 +168,7 @@ mod nice_user_errors {
     fn nice_error_when_script_does_not_exist() {
         let result = with_cursor(|cursor| {
             run_check_protocols(
-                Context::new_mock(),
+                &Context::new_mock(),
                 &PathBuf::from("./does-not-exist"),
                 cursor,
             )
@@ -186,6 +188,7 @@ mod nice_user_errors {
             .as_bytes(),
         )?;
         let result = test_run_with_tempfile(
+            &Context::new_mock(),
             &script,
             r##"
                 |protocol:
@@ -220,6 +223,7 @@ mod nice_user_errors {
             .as_bytes(),
         )?;
         let result = test_run_with_tempfile(
+            &Context::new_mock(),
             &script,
             r##"
                 |protocol:
@@ -254,6 +258,7 @@ mod nice_user_errors {
             .as_bytes(),
         )?;
         let result = test_run_with_tempfile(
+            &Context::new_mock(),
             &script,
             r##"
                 |protocols:

@@ -71,7 +71,7 @@ mod wrap_main {
 }
 
 pub fn run_main(
-    context: Context,
+    context: &Context,
     args: impl Iterator<Item = String>,
     stdout_handle: &mut impl Write,
 ) -> R<ExitCode> {
@@ -110,14 +110,14 @@ mod run_main {
         ]
         .into_iter();
         let mut cursor: Cursor<Vec<u8>> = Cursor::new(vec![]);
-        run_main(context, args, &mut cursor)?;
+        run_main(&context, args, &mut cursor)?;
         assert_eq!(cursor.into_inner(), b"foo");
         Ok(())
     }
 }
 
 pub fn run_check_protocols(
-    context: Context,
+    context: &Context,
     script: &Path,
     stdout: &mut impl Write,
 ) -> R<ExitCode> {
@@ -134,7 +134,7 @@ pub fn run_check_protocols(
 }
 
 fn run_against_protocols(
-    context: Context,
+    context: &Context,
     program: &Path,
     Protocols {
         protocols,
@@ -146,26 +146,21 @@ fn run_against_protocols(
         protocols
             .into_iter()
             .map(|expected| {
-                run_against_protocol(
-                    context.clone(),
-                    &interpreter,
-                    program,
-                    expected,
-                    &unmocked_commands,
-                )
+                run_against_protocol(context, &interpreter, program, expected, &unmocked_commands)
             })
             .collect::<R<Vec<TestResult>>>()?,
     ))
 }
 
 pub fn run_against_protocol(
-    context: Context,
+    context: &Context,
     interpreter: &Option<Vec<u8>>,
     program: &Path,
     expected: Protocol,
     unmocked_commands: &[Vec<u8>],
 ) -> R<TestResult> {
     Tracer::run_against_mock(
+        context,
         interpreter,
         program,
         expected.arguments.clone(),
@@ -198,7 +193,7 @@ mod run_against_protocol {
         )?;
         assert_eq!(
             run_against_protocol(
-                Context::new_mock(),
+                &Context::new_mock(),
                 &None,
                 &script.path(),
                 Protocol::new(vec![protocol::Step {
@@ -230,7 +225,7 @@ mod run_against_protocol {
             .as_bytes(),
         )?;
         let _ = run_against_protocol(
-            Context::new_mock(),
+            &Context::new_mock(),
             &None,
             &script.path(),
             Protocol::empty(),
