@@ -154,7 +154,7 @@ pub fn poke_single_word_string(pid: Pid, address: c_ulonglong, string: &[u8]) ->
 #[cfg(test)]
 mod poking {
     use super::*;
-    use crate::syscall_mocking::fork_with_child_errors;
+    use crate::tracer::fork_with_child_errors;
     use nix::sys::ptrace::Options;
     use nix::sys::signal;
     use nix::sys::signal::Signal;

@@ -3,8 +3,8 @@ pub mod test_result;
 
 use crate::protocol;
 use crate::protocol::{Protocol, Protocols};
-use crate::syscall_mocking::syscall::Syscall;
-use crate::syscall_mocking::{tracee_memory, SyscallStop, Tracer};
+use crate::tracer::syscall::Syscall;
+use crate::tracer::{tracee_memory, SyscallStop, Tracer};
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::{Context, R};
 use libc::{c_ulonglong, user_regs_struct};
