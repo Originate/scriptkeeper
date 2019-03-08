@@ -8,12 +8,12 @@
 extern crate serde_derive;
 
 mod cli;
-mod emulation;
 mod protocol;
+mod syscall_mock;
 mod tracer;
 pub mod utils;
 
-use crate::emulation::{executable_mock, run_against_protocols};
+use crate::syscall_mock::{executable_mock, run_against_protocols};
 use protocol::Protocols;
 use std::io::Write;
 use std::path::{Path, PathBuf};

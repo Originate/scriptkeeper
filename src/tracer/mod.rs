@@ -2,7 +2,7 @@ mod debugging;
 pub mod syscall;
 pub mod tracee_memory;
 
-use crate::emulation::SyscallMock;
+use crate::syscall_mock::SyscallMock;
 use crate::utils::parse_shebang;
 use crate::R;
 use debugging::Debugger;
