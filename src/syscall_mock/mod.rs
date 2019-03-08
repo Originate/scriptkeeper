@@ -132,7 +132,7 @@ impl SyscallMock {
         Ok(path)
     }
 
-    pub fn handle_end(&mut self, exitcode: i32) {
+    pub fn handle_end(mut self, exitcode: i32) -> TestResult {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_error(&expected_step.command.format(), "<script terminated>");
         }
@@ -142,6 +142,7 @@ impl SyscallMock {
                 &format!("<exitcode {}>", exitcode),
             );
         }
+        self.result
     }
 
     fn register_error(&mut self, expected: &str, received: &str) {

@@ -2,7 +2,7 @@ mod debugging;
 pub mod syscall;
 pub mod tracee_memory;
 
-use crate::syscall_mock::SyscallMock;
+use crate::syscall_mock::{test_result::TestResult, SyscallMock};
 use crate::utils::parse_hashbang;
 use crate::R;
 use debugging::Debugger;
@@ -116,7 +116,7 @@ impl Tracer {
         args: Vec<String>,
         env: HashMap<String, String>,
         mk_syscall_mock: F,
-    ) -> R<SyscallMock>
+    ) -> R<TestResult>
     where
         F: FnOnce(Pid) -> SyscallMock,
     {
@@ -127,7 +127,7 @@ impl Tracer {
                 Tracer::execve(interpreter, program, args, env)?;
                 Ok(())
             },
-            |tracee_pid: Pid| -> R<SyscallMock> {
+            |tracee_pid: Pid| -> R<TestResult> {
                 waitpid(tracee_pid, None)?;
                 ptrace::setoptions(
                     tracee_pid,
@@ -137,30 +137,28 @@ impl Tracer {
                 )?;
                 ptrace::syscall(tracee_pid)?;
 
-                let mut syscall_mock = Tracer::new(tracee_pid, mk_syscall_mock(tracee_pid));
-                syscall_mock.trace()?;
-                Ok(syscall_mock.syscall_mock)
+                let mut tracer = Tracer::new(tracee_pid, mk_syscall_mock(tracee_pid));
+                let exitcode = tracer.trace()?;
+                Ok(tracer.syscall_mock.handle_end(exitcode))
             },
         )
     }
 
-    fn trace(&mut self) -> R<()> {
-        loop {
+    fn trace(&mut self) -> R<i32> {
+        Ok(loop {
             let status = wait()?;
             self.handle_wait_status(status)?;
             match status {
                 WaitStatus::Exited(pid, exitcode) => {
                     if self.tracee_pid == pid {
-                        self.syscall_mock.handle_end(exitcode);
-                        break;
+                        break exitcode;
                     }
                 }
                 _ => {
                     ptrace::syscall(status.pid().unwrap())?;
                 }
             }
-        }
-        Ok(())
+        })
     }
 
     fn handle_wait_status(&mut self, status: WaitStatus) -> R<()> {

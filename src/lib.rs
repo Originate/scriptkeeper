@@ -180,14 +180,13 @@ pub fn run_against_protocol(
     expected: Protocol,
     unmocked_commands: &[Vec<u8>],
 ) -> R<TestResult> {
-    let syscall_mock = Tracer::run_against_mock(
+    Tracer::run_against_mock(
         interpreter,
         program,
         expected.arguments.clone(),
         expected.env.clone(),
         |tracee_pid| SyscallMock::new(context, tracee_pid, expected, unmocked_commands),
-    )?;
-    Ok(syscall_mock.result)
+    )
 }
 
 #[cfg(test)]
