@@ -26,14 +26,14 @@ pub fn create_mock_executable(context: &Context, config: Config) -> R<Vec<u8>> {
 }
 
 pub fn run(executable_mock_path: &Path, stdout_handle: &mut impl Write) -> R<ExitCode> {
-    let config: Config = deserialize(&skip_shabang_line(fs::read(executable_mock_path)?))?;
+    let config: Config = deserialize(&skip_hashbang_line(fs::read(executable_mock_path)?))?;
     stdout_handle.write_all(&config.stdout)?;
     Ok(ExitCode(config.exitcode))
 }
 
 const NEWLINE: u8 = 0x0A;
 
-fn skip_shabang_line(input: Vec<u8>) -> Vec<u8> {
+fn skip_hashbang_line(input: Vec<u8>) -> Vec<u8> {
     input
         .clone()
         .into_iter()

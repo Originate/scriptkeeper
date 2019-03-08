@@ -171,7 +171,7 @@ mod nice_user_errors {
     }
 
     #[test]
-    fn nice_error_when_shebang_refers_to_missing_interpreter() -> R<()> {
+    fn nice_error_when_hashbang_refers_to_missing_interpreter() -> R<()> {
         let script = TempFile::write_temp_script(
             trim_margin(
                 r##"
@@ -206,7 +206,7 @@ mod nice_user_errors {
     }
 
     #[test]
-    fn nice_error_when_shebang_missing() -> R<()> {
+    fn nice_error_when_hashbang_missing() -> R<()> {
         let script = TempFile::write_temp_script(
             trim_margin(
                 r##"

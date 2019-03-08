@@ -3,7 +3,7 @@ pub mod syscall;
 pub mod tracee_memory;
 
 use crate::syscall_mock::SyscallMock;
-use crate::utils::parse_shebang;
+use crate::utils::parse_hashbang;
 use crate::R;
 use debugging::Debugger;
 use nix;
@@ -86,7 +86,7 @@ impl Tracer {
         } else {
             (
                 program,
-                parse_shebang(program).unwrap_or_else(|| "your interpreter".to_string()),
+                parse_hashbang(program).unwrap_or_else(|| "your interpreter".to_string()),
             )
         };
         let hint = format!("Does {} exist?", interpreter);
