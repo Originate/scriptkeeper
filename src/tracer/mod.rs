@@ -127,14 +127,14 @@ impl Tracer {
         let redirector = Redirector::new(context)?;
         fork_with_child_errors(
             || {
-                redirector.child()?;
+                redirector.child_redirect_streams()?;
                 ptrace::traceme().map_err(|error| format!("PTRACE_TRACEME failed: {}", error))?;
                 signal::kill(getpid(), Some(Signal::SIGSTOP))?;
                 Tracer::execve(interpreter, program, args, env)?;
                 Ok(())
             },
             |tracee_pid: Pid| -> R<TestResult> {
-                redirector.parent()?;
+                let join = redirector.parent_relay_streams()?;
                 waitpid(tracee_pid, None)?;
                 ptrace::setoptions(
                     tracee_pid,
@@ -146,6 +146,7 @@ impl Tracer {
 
                 let mut tracer = Tracer::new(tracee_pid, mk_syscall_mock(tracee_pid));
                 let exitcode = tracer.trace()?;
+                join()?;
                 Ok(tracer.syscall_mock.handle_end(exitcode))
             },
         )

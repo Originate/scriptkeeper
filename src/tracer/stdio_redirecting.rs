@@ -7,52 +7,90 @@ use std::thread;
 type RawFd = c_int;
 
 pub struct Redirector {
+    stdout: Redirect,
+    stderr: Redirect,
+}
+
+impl Redirector {
+    pub fn new(context: &Context) -> R<Redirector> {
+        Ok(Redirector {
+            stdout: Redirect::new(context, StreamType::Stdout)?,
+            stderr: Redirect::new(context, StreamType::Stderr)?,
+        })
+    }
+
+    pub fn child_redirect_streams(&self) -> R<()> {
+        self.stdout.child_redirect_stream()?;
+        self.stderr.child_redirect_stream()?;
+        Ok(())
+    }
+
+    pub fn parent_relay_streams(&self) -> R<impl FnOnce() -> R<()>> {
+        let a = self.stdout.parent_relay_stream()?;
+        let b = self.stderr.parent_relay_stream()?;
+        Ok(|| -> R<()> {
+            a.join().unwrap()?;
+            b.join().unwrap()?;
+            Ok(())
+        })
+    }
+}
+
+#[derive(Clone, Copy)]
+enum StreamType {
+    Stdout,
+    Stderr,
+}
+
+struct Redirect {
+    stream_type: StreamType,
     context: Context,
     read_end: RawFd,
     write_end: RawFd,
 }
 
-impl Redirector {
-    pub fn new(context: &Context) -> R<Redirector> {
+impl Redirect {
+    fn new(context: &Context, stream_type: StreamType) -> R<Redirect> {
         let (read_end, write_end) = pipe()?;
-        Ok(Redirector {
+        Ok(Redirect {
+            stream_type,
             context: context.clone(),
             read_end,
             write_end,
         })
     }
 
-    pub fn child(&self) -> R<()> {
+    fn child_redirect_stream(&self) -> R<()> {
         close(self.read_end)?;
-        dup2(self.write_end, libc::STDERR_FILENO)?;
+        let stdstream_fileno = match self.stream_type {
+            StreamType::Stdout => libc::STDOUT_FILENO,
+            StreamType::Stderr => libc::STDERR_FILENO,
+        };
+        dup2(self.write_end, stdstream_fileno)?;
         close(self.write_end)?;
         Ok(())
     }
 
-    pub fn parent(&self) -> R<()> {
+    fn parent_relay_stream(&self) -> R<thread::JoinHandle<Result<(), String>>> {
         close(self.write_end)?;
         let read_end = self.read_end;
         let context = self.context.clone();
-        thread::spawn(move || {
+        let stream_type = self.stream_type;
+        Ok(thread::spawn(move || -> Result<(), String> {
             let mut buffer = [0; 1024];
             loop {
-                match read(read_end, &mut buffer) {
-                    Ok(count) => {
-                        if count == 0 {
-                            break;
-                        }
-                        context.stderr().write_all(&buffer[..count]).unwrap();
-                    }
-                    Err(error) => {
-                        context
-                            .stderr()
-                            .write_all(format!("{}", error).as_bytes())
-                            .unwrap();
-                        break;
-                    }
+                let count = read(read_end, &mut buffer).map_err(|error| error.to_string())?;
+                if count == 0 {
+                    return Ok(());
                 }
+                let mut stdstream = match stream_type {
+                    StreamType::Stdout => context.stdout(),
+                    StreamType::Stderr => context.stderr(),
+                };
+                stdstream
+                    .write_all(&buffer[..count])
+                    .map_err(|error| error.to_string())?;
             }
-        });
-        Ok(())
+        }))
     }
 }
