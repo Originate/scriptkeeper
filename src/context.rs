@@ -9,7 +9,8 @@ pub enum Context {
     },
     #[cfg(feature = "test")]
     TestContext {
-        stderr: mock_stderr::MockStderr,
+        stdout: mock_stream::MockStream,
+        stderr: mock_stream::MockStream,
     },
 }
 
@@ -23,7 +24,8 @@ impl Context {
     #[cfg(feature = "test")]
     pub fn new_mock() -> Context {
         Context::TestContext {
-            stderr: mock_stderr::MockStderr::default(),
+            stdout: mock_stream::MockStream::default(),
+            stderr: mock_stream::MockStream::default(),
         }
     }
 
@@ -40,11 +42,27 @@ impl Context {
         }
     }
 
+    pub fn stdout(&self) -> Box<Write> {
+        match self {
+            Context::Context { .. } => Box::new(std::io::stdout()),
+            #[cfg(feature = "test")]
+            Context::TestContext { stdout, .. } => Box::new(stdout.clone()),
+        }
+    }
+
+    #[cfg(feature = "test")]
+    pub fn get_captured_stdout(&self) -> String {
+        match self {
+            Context::Context { .. } => panic!("tests should use the TestContext"),
+            Context::TestContext { stdout, .. } => stdout.get_captured_stream(),
+        }
+    }
+
     pub fn stderr(&self) -> Box<Write> {
         match self {
             Context::Context { .. } => Box::new(std::io::stderr()),
             #[cfg(feature = "test")]
-            Context::TestContext { stderr } => Box::new(stderr.clone()),
+            Context::TestContext { stderr, .. } => Box::new(stderr.clone()),
         }
     }
 
@@ -52,23 +70,23 @@ impl Context {
     pub fn get_captured_stderr(&self) -> String {
         match self {
             Context::Context { .. } => panic!("tests should use the TestContext"),
-            Context::TestContext { stderr } => stderr.get_captured_stderr(),
+            Context::TestContext { stderr, .. } => stderr.get_captured_stream(),
         }
     }
 }
 
 #[cfg(feature = "test")]
-mod mock_stderr {
+mod mock_stream {
     use std::io::{Cursor, Error, ErrorKind, Write};
     use std::sync::{Arc, Mutex, MutexGuard};
 
     #[derive(Debug, Clone)]
-    pub struct MockStderr {
+    pub struct MockStream {
         cursor: Arc<Mutex<Cursor<Vec<u8>>>>,
     }
 
-    impl MockStderr {
-        pub fn get_captured_stderr(&self) -> String {
+    impl MockStream {
+        pub fn get_captured_stream(&self) -> String {
             let cursor = self.cursor.lock().unwrap();
             String::from_utf8(cursor.clone().into_inner()).unwrap()
         }
@@ -81,15 +99,15 @@ mod mock_stderr {
         }
     }
 
-    impl Default for MockStderr {
-        fn default() -> MockStderr {
-            MockStderr {
+    impl Default for MockStream {
+        fn default() -> MockStream {
+            MockStream {
                 cursor: Arc::new(Mutex::new(Cursor::new(vec![]))),
             }
         }
     }
 
-    impl Write for MockStderr {
+    impl Write for MockStream {
         fn write(&mut self, chunk: &[u8]) -> Result<usize, Error> {
             self.lock()?.write(chunk)
         }
