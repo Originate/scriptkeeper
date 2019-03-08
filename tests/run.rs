@@ -843,47 +843,51 @@ mod expected_exitcode {
     }
 }
 
-#[test]
-fn allows_to_unmock_commands() -> R<()> {
-    test_run(
-        r##"
-            |#!/usr/bin/env bash
-            |ls $(dirname dir/file)
-        "##,
-        r##"
-            |protocols:
-            |  - protocol:
-            |    - /bin/ls dir
-            |unmockedCommands:
-            |  - /usr/bin/dirname
-        "##,
-        Ok(()),
-    )?;
-    Ok(())
-}
+mod unmocked_commands {
+    use super::*;
 
-#[test]
-fn complains_when_expected_an_unmocked_command() -> R<()> {
-    test_run(
-        r##"
-            |#!/usr/bin/env bash
-            |ls $(dirname dir/file)
-        "##,
-        r##"
-            |protocols:
-            |  - protocol:
-            |    - /usr/bin/dirname dir/file
-            |    - /bin/ls dir
-            |unmockedCommands:
-            |  - /usr/bin/dirname
-        "##,
-        Err(&trim_margin(
-            "
-                |error:
-                |  expected: /usr/bin/dirname dir/file
-                |  received: /bin/ls dir
-            ",
-        )?),
-    )?;
-    Ok(())
+    #[test]
+    fn allows_to_unmock_commands() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |ls $(dirname dir/file)
+            "##,
+            r##"
+                |protocols:
+                |  - protocol:
+                |    - /bin/ls dir
+                |unmockedCommands:
+                |  - /usr/bin/dirname
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn complains_when_expected_an_unmocked_command() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |ls $(dirname dir/file)
+            "##,
+            r##"
+                |protocols:
+                |  - protocol:
+                |    - /usr/bin/dirname dir/file
+                |    - /bin/ls dir
+                |unmockedCommands:
+                |  - /usr/bin/dirname
+            "##,
+            Err(&trim_margin(
+                "
+                    |error:
+                    |  expected: /usr/bin/dirname dir/file
+                    |  received: /bin/ls dir
+                ",
+            )?),
+        )?;
+        Ok(())
+    }
 }
