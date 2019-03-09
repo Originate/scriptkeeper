@@ -891,3 +891,67 @@ mod unmocked_commands {
         Ok(())
     }
 }
+
+mod file_mocking {
+    use super::*;
+
+    #[test]
+    fn allows_to_mock_files_existence() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |if [ -f /foo ]; then
+                |  /bin/true
+                |fi
+            "##,
+            r##"
+                |protocols:
+                |  - protocol:
+                |      - /bin/true
+                |    mockedFiles:
+                |      - /foo
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn allows_to_mock_directory_existence() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |if [ -d /foo/ ]; then
+                |  /bin/true
+                |fi
+            "##,
+            r##"
+                |protocols:
+                |  - protocol:
+                |      - command: /bin/true
+                |    mockedFiles:
+                |      - /foo/
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn does_not_mock_existence_of_unspecified_files() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+                |if [ -f /foo ]; then
+                |  /bin/true
+                |fi
+            "##,
+            r##"
+                |protocols:
+                |  - protocol: []
+            "##,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+}
