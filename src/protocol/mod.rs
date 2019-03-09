@@ -171,6 +171,7 @@ pub struct Protocol {
     pub env: HashMap<String, String>,
     pub cwd: Option<Vec<u8>>,
     pub exitcode: i32,
+    pub mocked_files: Vec<Vec<u8>>,
 }
 
 impl Protocol {
@@ -186,6 +187,7 @@ impl Protocol {
             env: HashMap::new(),
             cwd: None,
             exitcode: 0,
+            mocked_files: vec![],
         }
     }
 
@@ -235,12 +237,23 @@ impl Protocol {
         Ok(())
     }
 
+    fn add_mocked_files(&mut self, object: &Hash) -> R<()> {
+        if let Ok(paths) = object.expect_field("mockedFiles") {
+            for path in paths.expect_array()?.iter() {
+                self.mocked_files
+                    .push(path.expect_str()?.as_bytes().to_owned());
+            }
+        }
+        Ok(())
+    }
+
     fn from_object(object: &Hash) -> R<Protocol> {
         let mut protocol = Protocol::from_array(object.expect_field("protocol")?.expect_array()?)?;
         protocol.add_arguments(&object)?;
         protocol.add_env(&object)?;
         protocol.add_cwd(&object)?;
         protocol.add_exitcode(&object)?;
+        protocol.add_mocked_files(&object)?;
         Ok(protocol)
     }
 }
@@ -757,6 +770,23 @@ mod load {
             );
             Ok(())
         }
+    }
+
+    #[test]
+    fn allows_to_specify_mocked_files() -> R<()> {
+        assert_eq!(
+            test_parse_one(
+                r##"
+                    |protocol: []
+                    |mockedFiles:
+                    |  - /foo
+                "##
+            )?
+            .mocked_files
+            .map(|path| String::from_utf8_lossy(&path).into_owned()),
+            vec![("/foo")]
+        );
+        Ok(())
     }
 }
 
