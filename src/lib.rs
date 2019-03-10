@@ -93,7 +93,7 @@ pub fn run_main(
     args: impl Iterator<Item = String>,
     stdout_handle: &mut impl Write,
 ) -> R<ExitCode> {
-    Ok(match cli::parse_args(args)? {
+    Ok(match cli::parse_args(args) {
         cli::Args::ExecutableMock {
             executable_mock_path,
         } => executable_mock::run(&executable_mock_path, stdout_handle)?,

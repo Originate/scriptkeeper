@@ -21,6 +21,7 @@ bincode = "*"
 serde_derive = "*"
 serde = "*"
 memoffset = "*"
+clap = "*"
 
 [build-dependencies]
 trim-margin = "*"
