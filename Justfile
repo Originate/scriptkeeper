@@ -21,7 +21,6 @@ scripts:
 
 dev:
   cargo test --all --color=always --features 'dev test' -- --test-threads=1 --quiet
-  ag fixme .
 
 run_bigger:
   cargo run -- tests/examples/bigger/script
