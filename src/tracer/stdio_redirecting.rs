@@ -17,7 +17,7 @@ impl Redirector {
     pub fn new(context: &Context) -> R<Redirector> {
         Ok(Redirector {
             stdout: Redirect::new(context, StreamType::Stdout)?,
-            stderr: Redirect::new(context, StreamType::Stderr)?,
+            stderr: Redirect::new_capturing(context, StreamType::Stderr)?,
         })
     }
 
@@ -49,18 +49,34 @@ pub struct Redirect {
     context: Context,
     read_end: RawFd,
     write_end: RawFd,
-    captured: Arc<Mutex<Cursor<Vec<u8>>>>,
+    captured: Option<Arc<Mutex<Cursor<Vec<u8>>>>>,
 }
 
 impl Redirect {
     fn new(context: &Context, stream_type: StreamType) -> R<Redirect> {
+        Redirect::new_internal(context, stream_type, None)
+    }
+
+    fn new_capturing(context: &Context, stream_type: StreamType) -> R<Redirect> {
+        Redirect::new_internal(
+            context,
+            stream_type,
+            Some(Arc::new(Mutex::new(Cursor::new(vec![])))),
+        )
+    }
+
+    fn new_internal(
+        context: &Context,
+        stream_type: StreamType,
+        captured: Option<Arc<Mutex<Cursor<Vec<u8>>>>>,
+    ) -> R<Redirect> {
         let (read_end, write_end) = pipe()?;
         Ok(Redirect {
             stream_type,
             context: context.clone(),
             read_end,
             write_end,
-            captured: Arc::new(Mutex::new(Cursor::new(vec![]))),
+            captured,
         })
     }
 
@@ -95,17 +111,24 @@ impl Redirect {
                 stdstream
                     .write_all(&buffer[..count])
                     .map_err(|error| error.to_string())?;
-                captured
-                    .lock()
-                    .unwrap()
-                    .write_all(&buffer[..count])
-                    .unwrap();
+                if let Some(captured) = &captured {
+                    captured
+                        .lock()
+                        .unwrap()
+                        .write_all(&buffer[..count])
+                        .unwrap();
+                }
             }
         }))
     }
 
-    pub fn captured(&self) -> R<Vec<u8>> {
-        let cursor = self.captured.lock().map_err(|error| error.to_string())?;
-        Ok(cursor.clone().into_inner())
+    pub fn captured(&self) -> R<Option<Vec<u8>>> {
+        Ok(match &self.captured {
+            None => None,
+            Some(captured) => Some({
+                let cursor = captured.lock().map_err(|error| error.to_string())?;
+                cursor.clone().into_inner()
+            }),
+        })
     }
 }

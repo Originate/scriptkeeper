@@ -136,7 +136,7 @@ impl SyscallMock {
         Ok(path)
     }
 
-    pub fn handle_end(mut self, exitcode: i32, captured_stderr: Vec<u8>) -> TestResult {
+    pub fn handle_end(mut self, exitcode: i32, captured_stderr: Option<Vec<u8>>) -> TestResult {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_step_error(&expected_step.command.format(), "<script terminated>");
         }
@@ -147,13 +147,18 @@ impl SyscallMock {
             );
         }
         if let Some(expected_stderr) = &self.protocol.stderr {
-            if &captured_stderr != expected_stderr {
-                self.register_error(format!(
-                    "  expected output to stderr: {:?}\
-                     \n  received output to stderr: {:?}\n",
-                    String::from_utf8_lossy(&expected_stderr.clone()).as_ref(),
-                    String::from_utf8_lossy(&captured_stderr.clone()).as_ref(),
-                ));
+            match captured_stderr {
+                None => panic!("stderr expected, but not captured"),
+                Some(captured_stderr) => {
+                    if &captured_stderr != expected_stderr {
+                        self.register_error(format!(
+                            "  expected output to stderr: {:?}\
+                             \n  received output to stderr: {:?}\n",
+                            String::from_utf8_lossy(&expected_stderr.clone()).as_ref(),
+                            String::from_utf8_lossy(&captured_stderr.clone()).as_ref(),
+                        ));
+                    }
+                }
             }
         }
         self.result
