@@ -170,7 +170,7 @@ pub struct Protocol {
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
     pub cwd: Option<Vec<u8>>,
-    stderr: Option<Vec<u8>>,
+    pub stderr: Option<Vec<u8>>,
     pub exitcode: i32,
     pub mocked_files: Vec<Vec<u8>>,
 }

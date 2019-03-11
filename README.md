@@ -84,6 +84,9 @@ protocols:
     cwd?: string
       # Current working directory the tested script will be executed in.
       # Example: /test-dir, default: same directory that `check-protocols` is run in.
+    stderr?: string
+      # Output that the script is expected to write to stderr.
+      # Example: "error message\n", default: stderr output is not checked.
     exitcode?: number
       # Exitcode that the tested script is expected to exit with.
       # Default: 0.
