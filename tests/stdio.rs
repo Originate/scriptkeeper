@@ -97,4 +97,26 @@ mod expected_stderr {
         )?;
         Ok(())
     }
+
+    #[test]
+    fn fails_when_expecting_stderr_but_none_printed() -> R<()> {
+        test_run(
+            r##"
+                |#!/usr/bin/env bash
+            "##,
+            r##"
+                |protocols:
+                |  - protocol: []
+                |    stderr: "foo\n"
+            "##,
+            Err(&trim_margin(
+                r##"
+                    |error:
+                    |  expected output to stderr: "foo\n"
+                    |  received output to stderr: ""
+                "##,
+            )?),
+        )?;
+        Ok(())
+    }
 }
