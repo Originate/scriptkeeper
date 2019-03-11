@@ -4,8 +4,9 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub enum Context {
-    #[cfg(not(feature = "test"))]
-    Context { check_protocols_executable: PathBuf },
+    Context {
+        check_protocols_executable: PathBuf,
+    },
     #[cfg(feature = "test")]
     TestContext {
         stdout: mock_stream::MockStream,
@@ -14,16 +15,10 @@ pub enum Context {
 }
 
 impl Context {
-    #[cfg(not(feature = "test"))]
     pub fn new() -> R<Context> {
         Ok(Context::Context {
             check_protocols_executable: std::env::current_exe()?,
         })
-    }
-
-    #[cfg(feature = "test")]
-    pub fn new() -> R<Context> {
-        Ok(Context::new_mock())
     }
 
     #[cfg(feature = "test")]
@@ -36,7 +31,6 @@ impl Context {
 
     pub fn check_protocols_executable(&self) -> PathBuf {
         match self {
-            #[cfg(not(feature = "test"))]
             Context::Context {
                 check_protocols_executable,
             } => check_protocols_executable.clone(),
@@ -50,7 +44,6 @@ impl Context {
 
     pub fn stdout(&self) -> Box<Write> {
         match self {
-            #[cfg(not(feature = "test"))]
             Context::Context { .. } => Box::new(std::io::stdout()),
             #[cfg(feature = "test")]
             Context::TestContext { stdout, .. } => Box::new(stdout.clone()),
@@ -60,13 +53,13 @@ impl Context {
     #[cfg(feature = "test")]
     pub fn get_captured_stdout(&self) -> String {
         match self {
+            Context::Context { .. } => panic!("tests should use the TestContext"),
             Context::TestContext { stdout, .. } => stdout.get_captured_stream(),
         }
     }
 
     pub fn stderr(&self) -> Box<Write> {
         match self {
-            #[cfg(not(feature = "test"))]
             Context::Context { .. } => Box::new(std::io::stderr()),
             #[cfg(feature = "test")]
             Context::TestContext { stderr, .. } => Box::new(stderr.clone()),
@@ -76,6 +69,7 @@ impl Context {
     #[cfg(feature = "test")]
     pub fn get_captured_stderr(&self) -> String {
         match self {
+            Context::Context { .. } => panic!("tests should use the TestContext"),
             Context::TestContext { stderr, .. } => stderr.get_captured_stream(),
         }
     }
