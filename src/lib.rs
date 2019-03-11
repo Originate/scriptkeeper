@@ -20,6 +20,7 @@ use crate::context::Context;
 use crate::protocol::{Protocol, Protocols};
 use crate::syscall_mock::test_result::{TestResult, TestResults};
 use crate::syscall_mock::{executable_mock, SyscallMock};
+use crate::tracer::stdio_redirecting::CaptureStderr;
 use crate::tracer::Tracer;
 use std::io::Write;
 use std::path::Path;
@@ -159,6 +160,11 @@ pub fn run_against_protocol(
         program,
         expected.arguments.clone(),
         expected.env.clone(),
+        if expected.stderr.is_some() {
+            CaptureStderr::Capture
+        } else {
+            CaptureStderr::NoCapture
+        },
         |tracee_pid| SyscallMock::new(context, tracee_pid, expected, unmocked_commands),
     )
 }

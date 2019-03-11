@@ -1,5 +1,5 @@
 mod debugging;
-mod stdio_redirecting;
+pub mod stdio_redirecting;
 pub mod syscall;
 pub mod tracee_memory;
 
@@ -23,7 +23,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::panic;
 use std::path::Path;
 use std::str;
-use stdio_redirecting::Redirector;
+use stdio_redirecting::{CaptureStderr, Redirector};
 use syscall::Syscall;
 use tempdir::TempDir;
 
@@ -119,12 +119,13 @@ impl Tracer {
         program: &Path,
         args: Vec<String>,
         env: HashMap<String, String>,
+        capture_stderr: CaptureStderr,
         mk_syscall_mock: F,
     ) -> R<TestResult>
     where
         F: FnOnce(Pid) -> SyscallMock,
     {
-        let redirector = Redirector::new(context)?;
+        let redirector = Redirector::new(context, capture_stderr)?;
         fork_with_child_errors(
             || {
                 redirector.child_redirect_streams()?;
