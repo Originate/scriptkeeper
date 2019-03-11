@@ -71,15 +71,11 @@ mod wrap_main {
     }
 }
 
-pub fn run_main(
-    context: &Context,
-    args: impl Iterator<Item = String>,
-    stdout_handle: &mut impl Write,
-) -> R<ExitCode> {
+pub fn run_main(context: &Context, args: impl Iterator<Item = String>) -> R<ExitCode> {
     Ok(match cli::parse_args(args)? {
         cli::Args::ExecutableMock {
             executable_mock_path,
-        } => executable_mock::run(&executable_mock_path, stdout_handle)?,
+        } => executable_mock::run(context, &executable_mock_path)?,
         cli::Args::CheckProtocols { script_path } => run_check_protocols(context, &script_path)?,
     })
 }
@@ -88,7 +84,6 @@ pub fn run_main(
 mod run_main {
     use super::*;
     use executable_mock::create_mock_executable;
-    use std::io::Cursor;
     use test_utils::TempFile;
 
     #[test]
@@ -108,9 +103,8 @@ mod run_main {
             file.path().to_string_lossy().into_owned(),
         ]
         .into_iter();
-        let mut cursor: Cursor<Vec<u8>> = Cursor::new(vec![]);
-        run_main(&context, args, &mut cursor)?;
-        assert_eq!(cursor.into_inner(), b"foo");
+        run_main(&context, args)?;
+        assert_eq!(context.get_captured_stdout(), "foo");
         Ok(())
     }
 }
