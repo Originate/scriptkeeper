@@ -143,11 +143,12 @@ impl Tracer {
                         | Options::PTRACE_O_TRACEVFORK,
                 )?;
                 ptrace::syscall(tracee_pid)?;
-
                 let mut tracer = Tracer::new(tracee_pid, mk_syscall_mock(tracee_pid));
                 let exitcode = tracer.trace()?;
                 join()?;
-                Ok(tracer.syscall_mock.handle_end(exitcode))
+                Ok(tracer
+                    .syscall_mock
+                    .handle_end(exitcode, redirector.stderr.captured()?))
             },
         )
     }

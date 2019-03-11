@@ -2,13 +2,15 @@ use crate::context::Context;
 use crate::R;
 use libc::c_int;
 use nix::unistd::{close, dup2, pipe, read};
+use std::io::{Cursor, Write};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 type RawFd = c_int;
 
 pub struct Redirector {
     stdout: Redirect,
-    stderr: Redirect,
+    pub stderr: Redirect,
 }
 
 impl Redirector {
@@ -42,11 +44,12 @@ enum StreamType {
     Stderr,
 }
 
-struct Redirect {
+pub struct Redirect {
     stream_type: StreamType,
     context: Context,
     read_end: RawFd,
     write_end: RawFd,
+    captured: Arc<Mutex<Cursor<Vec<u8>>>>,
 }
 
 impl Redirect {
@@ -57,6 +60,7 @@ impl Redirect {
             context: context.clone(),
             read_end,
             write_end,
+            captured: Arc::new(Mutex::new(Cursor::new(vec![]))),
         })
     }
 
@@ -76,6 +80,7 @@ impl Redirect {
         let read_end = self.read_end;
         let context = self.context.clone();
         let stream_type = self.stream_type;
+        let captured = self.captured.clone();
         Ok(thread::spawn(move || -> Result<(), String> {
             let mut buffer = [0; 1024];
             loop {
@@ -90,7 +95,17 @@ impl Redirect {
                 stdstream
                     .write_all(&buffer[..count])
                     .map_err(|error| error.to_string())?;
+                captured
+                    .lock()
+                    .unwrap()
+                    .write_all(&buffer[..count])
+                    .unwrap();
             }
         }))
+    }
+
+    pub fn captured(&self) -> R<Vec<u8>> {
+        let cursor = self.captured.lock().map_err(|error| error.to_string())?;
+        Ok(cursor.clone().into_inner())
     }
 }
