@@ -13,11 +13,19 @@ pub struct Redirector {
     pub stderr: Redirect,
 }
 
+pub enum CaptureStderr {
+    Capture,
+    NoCapture,
+}
+
 impl Redirector {
-    pub fn new(context: &Context) -> R<Redirector> {
+    pub fn new(context: &Context, capture_stderr: CaptureStderr) -> R<Redirector> {
         Ok(Redirector {
             stdout: Redirect::new(context, StreamType::Stdout)?,
-            stderr: Redirect::new_capturing(context, StreamType::Stderr)?,
+            stderr: match capture_stderr {
+                CaptureStderr::Capture => Redirect::new_capturing(context, StreamType::Stderr)?,
+                CaptureStderr::NoCapture => Redirect::new(context, StreamType::Stderr)?,
+            },
         })
     }
 
