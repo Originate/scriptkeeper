@@ -147,9 +147,7 @@ impl Tracer {
                 let mut tracer = Tracer::new(tracee_pid, mk_syscall_mock(tracee_pid));
                 let exitcode = tracer.trace()?;
                 join()?;
-                Ok(tracer
-                    .syscall_mock
-                    .handle_end(exitcode, redirector.stderr.captured()?))
+                tracer.syscall_mock.handle_end(exitcode, &redirector)
             },
         )
     }

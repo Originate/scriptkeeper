@@ -4,6 +4,7 @@ pub mod test_result;
 use crate::context::Context;
 use crate::protocol;
 use crate::protocol::Protocol;
+use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::syscall::Syscall;
 use crate::tracer::{tracee_memory, SyscallStop};
 use crate::utils::short_temp_files::ShortTempFile;
@@ -136,7 +137,7 @@ impl SyscallMock {
         Ok(path)
     }
 
-    pub fn handle_end(mut self, exitcode: i32, captured_stderr: Option<Vec<u8>>) -> TestResult {
+    pub fn handle_end(mut self, exitcode: i32, redirector: &Redirector) -> R<TestResult> {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_step_error(&expected_step.command.format(), "<script terminated>");
         }
@@ -147,21 +148,21 @@ impl SyscallMock {
             );
         }
         if let Some(expected_stderr) = &self.protocol.stderr {
-            match captured_stderr {
-                None => panic!("stderr expected, but not captured"),
+            match redirector.stderr.captured()? {
+                None => panic!("check-protocols bug: stderr expected, but not captured"),
                 Some(captured_stderr) => {
                     if &captured_stderr != expected_stderr {
                         self.register_error(format!(
                             "  expected output to stderr: {:?}\
                              \n  received output to stderr: {:?}\n",
-                            String::from_utf8_lossy(&expected_stderr.clone()).as_ref(),
-                            String::from_utf8_lossy(&captured_stderr.clone()).as_ref(),
+                            String::from_utf8_lossy(&expected_stderr).as_ref(),
+                            String::from_utf8_lossy(&captured_stderr).as_ref(),
                         ));
                     }
                 }
             }
         }
-        self.result
+        Ok(self.result)
     }
 
     fn register_step_error(&mut self, expected: &str, received: &str) {
