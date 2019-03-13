@@ -86,7 +86,9 @@ impl MapExt for LinkedHashMap<Yaml, Yaml> {
 }
 
 pub fn write_yaml(write: Box<io::Write>, yaml: &Yaml) -> R<()> {
-    YamlEmitter::new(&mut ToFmtWrite(write)).dump(yaml)?;
+    let mut write = ToFmtWrite(write);
+    YamlEmitter::new(&mut write).dump(yaml)?;
+    fmt::Write::write_str(&mut write, "\n")?;
     Ok(())
 }
 

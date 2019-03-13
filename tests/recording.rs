@@ -63,3 +63,17 @@ fn records_protocol_steps() -> R<()> {
         ",
     )
 }
+
+#[test]
+fn output_contains_trailing_newline() -> R<()> {
+    let context = Context::new_mock();
+    run_main(
+        &context,
+        &cli::Args::CheckProtocols {
+            script_path: TempFile::write_temp_script(b"#!/usr/bin/env bash")?.path(),
+            record: true,
+        },
+    )?;
+    assert!(context.get_captured_stdout().ends_with('\n'));
+    Ok(())
+}
