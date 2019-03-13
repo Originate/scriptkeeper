@@ -275,6 +275,12 @@ impl Protocol {
             array.push(step.serialize());
         }
         object.insert(Yaml::from_str("protocol"), Yaml::Array(array));
+        if self.exitcode != 0 {
+            object.insert(
+                Yaml::from_str("exitcode"),
+                Yaml::Integer(i64::from(self.exitcode)),
+            );
+        }
         Yaml::Hash(object)
     }
 }
@@ -875,6 +881,13 @@ mod serialize {
         roundtrip(Protocols::new(vec![Protocol::new(vec![
             Step::from_string("/usr/bin/cp")?,
         ])]))
+    }
+
+    #[test]
+    fn outputs_the_protocol_exitcode() -> R<()> {
+        let mut protocol = Protocol::new(vec![Step::from_string("/usr/bin/cp")?]);
+        protocol.exitcode = 42;
+        roundtrip(Protocols::new(vec![protocol]))
     }
 }
 

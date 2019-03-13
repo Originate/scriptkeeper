@@ -36,7 +36,8 @@ impl SyscallMock for Recorder {
         Ok(())
     }
 
-    fn handle_end(self, _exitcode: i32, _redirector: &Redirector) -> R<Yaml> {
+    fn handle_end(mut self, exitcode: i32, _redirector: &Redirector) -> R<Yaml> {
+        self.protocol.exitcode = exitcode;
         Ok(Protocols::new(vec![self.protocol]).serialize())
     }
 }
