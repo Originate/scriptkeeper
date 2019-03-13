@@ -27,10 +27,11 @@ impl SyscallMock for Recorder {
         _pid: Pid,
         _registers: &user_regs_struct,
         executable: Vec<u8>,
+        arguments: Vec<Vec<u8>>,
     ) -> R<()> {
         self.protocol.steps.push_back(Step::new(Command {
             executable,
-            arguments: vec![],
+            arguments,
         }));
         Ok(())
     }
