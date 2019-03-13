@@ -84,6 +84,10 @@ protocols:
     cwd?: string
       # Current working directory the tested script will be executed in.
       # Example: /test-dir, default: same directory that `check-protocols` is run in.
+    mockedFiles?: [string]
+      # List of files and folders that are going to be mocked to exist.
+      # Note that directories must include a trailing '/'.
+      # Example: ["/www/logs"], default: []
     stderr?: string
       # Output that the script is expected to write to stderr.
       # Example: "error message\n", default: stderr output is not checked.
@@ -101,10 +105,6 @@ protocols:
         exitcode?: number
           # Mocked exitcode of the command.
           # Default: 0
-        mockedFiles?: [string]
-          # List of files and folders that are going to be mocked to exist.
-          # Note that directories must include a trailing '/'.
-          # Example: ["/www/logs"], default: []
 interpreter?: string
     # The interpreter that should be used to run the tested script.
     # Example: "/bin/bash", default: The program itself will be executed
