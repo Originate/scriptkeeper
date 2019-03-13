@@ -246,7 +246,7 @@ fn print_recorded_protocol(context: &Context, program: &Path) -> R<ExitCode> {
         vec![],
         HashMap::new(),
         CaptureStderr::NoCapture,
-        Recorder::new(),
+        Recorder::default(),
     )?;
     write_yaml(context.stdout(), &yaml)?;
     Ok(ExitCode(0))
