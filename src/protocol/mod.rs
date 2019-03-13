@@ -172,7 +172,7 @@ pub struct Protocol {
     pub env: HashMap<String, String>,
     pub cwd: Option<Vec<u8>>,
     pub stderr: Option<Vec<u8>>,
-    pub exitcode: i32,
+    pub exitcode: Option<i32>,
     pub mocked_files: Vec<Vec<u8>>,
 }
 
@@ -188,7 +188,7 @@ impl Protocol {
             arguments: vec![],
             env: HashMap::new(),
             cwd: None,
-            exitcode: 0,
+            exitcode: None,
             mocked_files: vec![],
             stderr: None,
         }
@@ -242,7 +242,7 @@ impl Protocol {
 
     fn add_exitcode(&mut self, object: &Hash) -> R<()> {
         if let Ok(exitcode) = object.expect_field("exitcode") {
-            self.exitcode = exitcode.expect_integer()?;
+            self.exitcode = Some(exitcode.expect_integer()?);
         }
         Ok(())
     }
@@ -275,10 +275,10 @@ impl Protocol {
             array.push(step.serialize());
         }
         object.insert(Yaml::from_str("protocol"), Yaml::Array(array));
-        if self.exitcode != 0 {
+        if let Some(exitcode) = self.exitcode {
             object.insert(
                 Yaml::from_str("exitcode"),
-                Yaml::Integer(i64::from(self.exitcode)),
+                Yaml::Integer(i64::from(exitcode)),
             );
         }
         Yaml::Hash(object)
@@ -710,13 +710,13 @@ mod load {
                     "##
                 )?
                 .exitcode,
-                42
+                Some(42)
             );
             Ok(())
         }
 
         #[test]
-        fn uses_zero_as_the_default() -> R<()> {
+        fn uses_none_as_the_default() -> R<()> {
             assert_eq!(
                 test_parse_one(
                     r##"
@@ -725,7 +725,7 @@ mod load {
                     "##
                 )?
                 .exitcode,
-                0
+                None
             );
             Ok(())
         }
@@ -886,7 +886,7 @@ mod serialize {
     #[test]
     fn outputs_the_protocol_exitcode() -> R<()> {
         let mut protocol = Protocol::new(vec![Step::from_string("/usr/bin/cp")?]);
-        protocol.exitcode = 42;
+        protocol.exitcode = Some(42);
         roundtrip(Protocols::new(vec![protocol]))
     }
 }
