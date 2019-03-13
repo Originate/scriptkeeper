@@ -15,23 +15,14 @@ use yaml_rust::YamlLoader;
 fn assert_eq_yaml(result: &str, expected: &str) -> R<()> {
     let result =
         YamlLoader::load_from_str(result).map_err(|error| format!("{}\n({})", error, result))?;
-    let expected = trim_margin(expected)?;
-    let expected = YamlLoader::load_from_str(&expected)
+    let expected = YamlLoader::load_from_str(expected)
         .map_err(|error| format!("{}\n({})", error, expected))?;
     assert_eq!(result, expected);
     Ok(())
 }
 
-#[test]
-fn records_an_empty_protocol() -> R<()> {
-    let script = TempFile::write_temp_script(
-        trim_margin(
-            "
-                |#!/usr/bin/env bash
-            ",
-        )?
-        .as_bytes(),
-    )?;
+fn test_recording(script: &str, expected: &str) -> R<()> {
+    let script = TempFile::write_temp_script(trim_margin(script)?.as_bytes())?;
     let context = Context::new_mock();
     run_main(
         &context,
@@ -41,43 +32,34 @@ fn records_an_empty_protocol() -> R<()> {
         },
     )?;
     let output = context.get_captured_stdout();
-    assert_eq_yaml(
-        &output,
-        "
-            |protocols:
-            |  - protocol: []
-        ",
-    )?;
+    assert_eq_yaml(&output, &trim_margin(expected)?)?;
     Ok(())
 }
 
 #[test]
+fn records_an_empty_protocol() -> R<()> {
+    test_recording(
+        "
+            |#!/usr/bin/env bash
+        ",
+        "
+            |protocols:
+            |  - protocol: []
+        ",
+    )
+}
+
+#[test]
 fn records_protocol_steps() -> R<()> {
-    let script = TempFile::write_temp_script(
-        trim_margin(
-            "
-                |#!/usr/bin/env bash
-                |/bin/true
-            ",
-        )?
-        .as_bytes(),
-    )?;
-    let context = Context::new_mock();
-    run_main(
-        &context,
-        &cli::Args::CheckProtocols {
-            script_path: script.path(),
-            record: true,
-        },
-    )?;
-    let output = context.get_captured_stdout();
-    assert_eq_yaml(
-        &output,
+    test_recording(
+        "
+            |#!/usr/bin/env bash
+            |/bin/true
+        ",
         "
             |protocols:
             |  - protocol:
             |      - /bin/true
         ",
-    )?;
-    Ok(())
+    )
 }
