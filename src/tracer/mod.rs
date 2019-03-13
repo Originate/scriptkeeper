@@ -35,16 +35,14 @@ pub enum SyscallStop {
 
 pub struct Tracer {
     tracee_pid: Pid,
-    syscall_mock: SyscallMock,
     entered_syscalls: HashMap<Pid, Syscall>,
     debugger: Debugger,
 }
 
 impl Tracer {
-    fn new(tracee_pid: Pid, syscall_mock: SyscallMock) -> Self {
+    fn new(tracee_pid: Pid) -> Self {
         Tracer {
             tracee_pid,
-            syscall_mock,
             entered_syscalls: HashMap::new(),
             debugger: Debugger::new(),
         }
@@ -144,18 +142,19 @@ impl Tracer {
                         | Options::PTRACE_O_TRACEVFORK,
                 )?;
                 ptrace::syscall(tracee_pid)?;
-                let mut tracer = Tracer::new(tracee_pid, mk_syscall_mock(tracee_pid));
-                let exitcode = tracer.trace()?;
+                let mut syscall_mock = mk_syscall_mock(tracee_pid);
+                let mut tracer = Tracer::new(tracee_pid);
+                let exitcode = tracer.trace(&mut syscall_mock)?;
                 join()?;
-                tracer.syscall_mock.handle_end(exitcode, &redirector)
+                syscall_mock.handle_end(exitcode, &redirector)
             },
         )
     }
 
-    fn trace(&mut self) -> R<i32> {
+    fn trace(&mut self, syscall_mock: &mut SyscallMock) -> R<i32> {
         Ok(loop {
             let status = wait()?;
-            self.handle_wait_status(status)?;
+            self.handle_wait_status(syscall_mock, status)?;
             match status {
                 WaitStatus::Exited(pid, exitcode) => {
                     if self.tracee_pid == pid {
@@ -169,20 +168,15 @@ impl Tracer {
         })
     }
 
-    fn handle_wait_status(&mut self, status: WaitStatus) -> R<()> {
+    fn handle_wait_status(&mut self, syscall_mock: &mut SyscallMock, status: WaitStatus) -> R<()> {
         if let WaitStatus::PtraceSyscall(pid, ..) = status {
             let registers = ptrace::getregs(pid)?;
             let syscall = Syscall::from(registers);
             let syscall_stop = self.update_syscall_state(pid, &syscall)?;
-            let Tracer {
-                debugger,
-                syscall_mock,
-                ..
-            } = self;
-
-            debugger.log_syscall(pid, &syscall_stop, &syscall, || {
-                syscall_mock.handle_syscall(pid, &syscall_stop, &syscall, &registers)
-            })?;
+            self.debugger
+                .log_syscall(pid, &syscall_stop, &syscall, || {
+                    syscall_mock.handle_syscall(pid, &syscall_stop, &syscall, &registers)
+                })?;
         }
         Ok(())
     }
@@ -211,16 +205,10 @@ mod test_tracer {
 
     mod update_syscall_state {
         use super::*;
-        use crate::context::Context;
-        use crate::protocol::Protocol;
         use test_utils::assert_error;
 
         fn tracer() -> Tracer {
-            let pid = Pid::from_raw(1);
-            Tracer::new(
-                pid,
-                SyscallMock::new(&Context::new_mock(), pid, Protocol::empty(), &[]),
-            )
+            Tracer::new(Pid::from_raw(1))
         }
 
         #[test]
