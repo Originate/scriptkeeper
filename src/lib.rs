@@ -13,15 +13,19 @@ pub mod cli;
 pub mod context;
 mod protocol;
 mod protocol_checker;
+mod recorder;
 mod tracer;
 pub mod utils;
 
 use crate::context::Context;
+use crate::protocol::yaml::write_yaml;
 use crate::protocol::{Protocol, Protocols};
 use crate::protocol_checker::test_result::{TestResult, TestResults};
 use crate::protocol_checker::{executable_mock, ProtocolChecker};
+use crate::recorder::Recorder;
 use crate::tracer::stdio_redirecting::CaptureStderr;
 use crate::tracer::Tracer;
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
 
@@ -76,7 +80,16 @@ pub fn run_main(context: &Context, args: &cli::Args) -> R<ExitCode> {
         cli::Args::ExecutableMock {
             executable_mock_path,
         } => executable_mock::run(context, &executable_mock_path)?,
-        cli::Args::CheckProtocols { script_path } => run_check_protocols(context, &script_path)?,
+        cli::Args::CheckProtocols {
+            script_path,
+            record,
+        } => {
+            if *record {
+                print_recorded_protocol(context, script_path)?
+            } else {
+                run_check_protocols(context, &script_path)?
+            }
+        }
     })
 }
 
@@ -189,14 +202,10 @@ mod run_against_protocol {
                 &Context::new_mock(),
                 &None,
                 &script.path(),
-                Protocol::new(vec![protocol::Step {
-                    command: Command {
-                        executable: long_command.path().as_os_str().as_bytes().to_vec(),
-                        arguments: vec![],
-                    },
-                    stdout: vec![],
-                    exitcode: 0
-                }]),
+                Protocol::new(vec![protocol::Step::new(Command {
+                    executable: long_command.path().as_os_str().as_bytes().to_vec(),
+                    arguments: vec![],
+                })]),
                 &[]
             )?,
             TestResult::Pass
@@ -227,4 +236,18 @@ mod run_against_protocol {
         assert!(!testfile.path().exists(), "touch was executed");
         Ok(())
     }
+}
+
+fn print_recorded_protocol(context: &Context, program: &Path) -> R<ExitCode> {
+    let yaml = Tracer::run_against_mock(
+        context,
+        &None,
+        program,
+        vec![],
+        HashMap::new(),
+        CaptureStderr::NoCapture,
+        Recorder::new(),
+    )?;
+    write_yaml(context.stdout(), &yaml)?;
+    Ok(ExitCode(0))
 }

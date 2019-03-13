@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[derive(Debug, PartialEq)]
 pub enum Args {
     ExecutableMock { executable_mock_path: PathBuf },
-    CheckProtocols { script_path: PathBuf },
+    CheckProtocols { script_path: PathBuf, record: bool },
 }
 
 pub fn parse_args(args: impl Iterator<Item = String>) -> Args {
@@ -33,6 +33,7 @@ fn parse_args_safe(args: impl Iterator<Item = String>) -> Result<Args, Error> {
             .get_matches_from_safe(args)?;
         Ok(Args::CheckProtocols {
             script_path: PathBuf::from(matches.value_of("program").unwrap()),
+            record: false,
         })
     }
 }
@@ -45,12 +46,15 @@ mod parse_args_safe {
 
     #[test]
     fn returns_the_given_script() -> R<()> {
-        assert_eq!(
-            parse_args_safe(vec!["program", "file"].into_iter().map(String::from))?,
-            Args::CheckProtocols {
-                script_path: PathBuf::from("file")
+        let args = parse_args_safe(vec!["program", "file"].into_iter().map(String::from))?;
+        match args {
+            Args::CheckProtocols { script_path, .. } => {
+                assert_eq!(script_path, PathBuf::from("file"),);
             }
-        );
+            _ => {
+                panic!("expected: Args::CheckProtocols");
+            }
+        }
         Ok(())
     }
 

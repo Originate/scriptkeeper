@@ -2,13 +2,14 @@ extern crate yaml_rust;
 
 mod argument_parser;
 pub mod command;
-mod yaml;
+pub mod yaml;
 
 use self::argument_parser::Parser;
 use crate::protocol::yaml::*;
 use crate::utils::path_to_string;
 use crate::R;
 pub use command::Command;
+use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -22,12 +23,16 @@ pub struct Step {
 }
 
 impl Step {
-    fn from_string(string: &str) -> R<Step> {
-        Ok(Step {
-            command: Command::new(string)?,
+    pub fn new(command: Command) -> Step {
+        Step {
+            command,
             stdout: vec![],
             exitcode: 0,
-        })
+        }
+    }
+
+    fn from_string(string: &str) -> R<Step> {
+        Ok(Step::new(Command::new(string)?))
     }
 
     fn add_exitcode(&mut self, object: &Hash) -> R<()> {
@@ -56,6 +61,10 @@ impl Step {
             _ => Err(format!("expected: string or array, got: {:?}", yaml))?,
         }
     }
+
+    fn serialize(&self) -> Yaml {
+        Yaml::String(self.command.format())
+    }
 }
 
 #[cfg(test)]
@@ -75,14 +84,10 @@ mod parse_step {
     fn parses_strings_to_steps() -> R<()> {
         assert_eq!(
             test_parse_step(r#""foo""#)?,
-            Step {
-                command: Command {
-                    executable: b"foo".to_vec(),
-                    arguments: vec![],
-                },
-                stdout: vec![],
-                exitcode: 0,
-            },
+            Step::new(Command {
+                executable: b"foo".to_vec(),
+                arguments: vec![],
+            }),
         );
         Ok(())
     }
@@ -103,14 +108,10 @@ mod parse_step {
     fn parses_objects_to_steps() -> R<()> {
         assert_eq!(
             test_parse_step(r#"{command: "foo"}"#)?,
-            Step {
-                command: Command {
-                    executable: b"foo".to_vec(),
-                    arguments: vec![],
-                },
-                stdout: vec![],
-                exitcode: 0,
-            },
+            Step::new(Command {
+                executable: b"foo".to_vec(),
+                arguments: vec![],
+            }),
         );
         Ok(())
     }
@@ -164,7 +165,7 @@ mod parse_step {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Protocol {
     pub steps: VecDeque<Step>,
     pub arguments: Vec<String>,
@@ -266,6 +267,16 @@ impl Protocol {
         protocol.add_mocked_files(&object)?;
         Ok(protocol)
     }
+
+    fn serialize(&self) -> Yaml {
+        let mut object = LinkedHashMap::new();
+        let mut array = vec![];
+        for step in &self.steps {
+            array.push(step.serialize());
+        }
+        object.insert(Yaml::from_str("protocol"), Yaml::Array(array));
+        Yaml::Hash(object)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -276,16 +287,20 @@ pub struct Protocols {
 }
 
 impl Protocols {
+    pub fn new(protocols: Vec<Protocol>) -> Protocols {
+        Protocols {
+            protocols,
+            unmocked_commands: vec![],
+            interpreter: None,
+        }
+    }
+
     fn from_array(array: &[Yaml]) -> R<Protocols> {
         let mut result = vec![];
         for element in array.iter() {
             result.push(Protocol::from_object(element.expect_object()?)?);
         }
-        Ok(Protocols {
-            protocols: result,
-            unmocked_commands: vec![],
-            interpreter: None,
-        })
+        Ok(Protocols::new(result))
     }
 
     fn add_interpreter(&mut self, object: &Hash) -> R<()> {
@@ -318,11 +333,7 @@ impl Protocols {
                     protocols.add_interpreter(object)?;
                     protocols
                 }
-                (Err(_), Ok(_)) => Protocols {
-                    protocols: vec![Protocol::from_object(&object)?],
-                    unmocked_commands: vec![],
-                    interpreter: None,
-                },
+                (Err(_), Ok(_)) => Protocols::new(vec![Protocol::from_object(&object)?]),
                 (Err(_), Err(_)) => Err(format!(
                     "expected field \"protocol\" or \"protocols\", got: {:?}",
                     &yaml
@@ -364,6 +375,16 @@ impl Protocols {
             )
         })?)
     }
+
+    pub fn serialize(&self) -> Yaml {
+        let mut object = LinkedHashMap::new();
+        let mut array = vec![];
+        for protocol in self.protocols.iter() {
+            array.push(protocol.serialize());
+        }
+        object.insert(Yaml::from_str("protocols"), Yaml::Array(array));
+        Yaml::Hash(object)
+    }
 }
 
 #[cfg(test)]
@@ -397,14 +418,10 @@ mod load {
                     |  - /bin/true
                 "##,
             )?,
-            Protocol::new(vec![Step {
-                command: Command {
-                    executable: b"/bin/true".to_vec(),
-                    arguments: vec![],
-                },
-                stdout: vec![],
-                exitcode: 0,
-            }]),
+            Protocol::new(vec![Step::new(Command {
+                executable: b"/bin/true".to_vec(),
+                arguments: vec![],
+            })]),
         );
         Ok(())
     }
@@ -459,14 +476,10 @@ mod load {
                     |  - /bin/true
                 "##
             )?,
-            Protocol::new(vec![Step {
-                command: Command {
-                    executable: b"/bin/true".to_vec(),
-                    arguments: vec![],
-                },
-                stdout: vec![],
-                exitcode: 0,
-            }]),
+            Protocol::new(vec![Step::new(Command {
+                executable: b"/bin/true".to_vec(),
+                arguments: vec![],
+            })]),
         );
         Ok(())
     }
@@ -832,6 +845,36 @@ mod load {
             );
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod serialize {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    fn roundtrip(protocols: Protocols) -> R<()> {
+        let yaml = protocols.serialize();
+        let result = Protocols::parse(yaml)?;
+        assert_eq!(result, protocols);
+        Ok(())
+    }
+
+    #[test]
+    fn outputs_an_empty_protocols_object() -> R<()> {
+        roundtrip(Protocols::new(vec![]))
+    }
+
+    #[test]
+    fn outputs_a_single_protocol_with_no_steps() -> R<()> {
+        roundtrip(Protocols::new(vec![Protocol::empty()]))
+    }
+
+    #[test]
+    fn outputs_a_single_protocol_with_a_single_step() -> R<()> {
+        roundtrip(Protocols::new(vec![Protocol::new(vec![
+            Step::from_string("/usr/bin/cp")?,
+        ])]))
     }
 }
 
