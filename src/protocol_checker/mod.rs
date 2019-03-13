@@ -98,9 +98,9 @@ impl SyscallMock for ProtocolChecker {
         pid: Pid,
         registers: &user_regs_struct,
         executable: Vec<u8>,
+        arguments: Vec<Vec<u8>>,
     ) -> R<()> {
         if !self.unmocked_commands.contains(&executable) {
-            let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
             let mock_executable_path = self.handle_step(protocol::Command {
                 executable,
                 arguments,

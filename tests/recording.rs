@@ -12,6 +12,38 @@ use pretty_assertions::assert_eq;
 use test_utils::{trim_margin, TempFile};
 use yaml_rust::YamlLoader;
 
+mod yaml_formatting {
+    use super::*;
+
+    #[test]
+    fn output_contains_trailing_newline() -> R<()> {
+        let context = Context::new_mock();
+        run_main(
+            &context,
+            &cli::Args::CheckProtocols {
+                script_path: TempFile::write_temp_script(b"#!/usr/bin/env bash")?.path(),
+                record: true,
+            },
+        )?;
+        assert!(context.get_captured_stdout().ends_with('\n'));
+        Ok(())
+    }
+
+    #[test]
+    fn does_not_output_three_leading_dashes() -> R<()> {
+        let context = Context::new_mock();
+        run_main(
+            &context,
+            &cli::Args::CheckProtocols {
+                script_path: TempFile::write_temp_script(b"#!/usr/bin/env bash")?.path(),
+                record: true,
+            },
+        )?;
+        assert!(!context.get_captured_stdout().starts_with("---"));
+        Ok(())
+    }
+}
+
 fn assert_eq_yaml(result: &str, expected: &str) -> R<()> {
     let result =
         YamlLoader::load_from_str(result).map_err(|error| format!("{}\n({})", error, result))?;
@@ -64,34 +96,17 @@ fn records_protocol_steps() -> R<()> {
     )
 }
 
-mod yaml_formatting {
-    use super::*;
-
-    #[test]
-    fn output_contains_trailing_newline() -> R<()> {
-        let context = Context::new_mock();
-        run_main(
-            &context,
-            &cli::Args::CheckProtocols {
-                script_path: TempFile::write_temp_script(b"#!/usr/bin/env bash")?.path(),
-                record: true,
-            },
-        )?;
-        assert!(context.get_captured_stdout().ends_with('\n'));
-        Ok(())
-    }
-
-    #[test]
-    fn does_not_output_three_leading_dashes() -> R<()> {
-        let context = Context::new_mock();
-        run_main(
-            &context,
-            &cli::Args::CheckProtocols {
-                script_path: TempFile::write_temp_script(b"#!/usr/bin/env bash")?.path(),
-                record: true,
-            },
-        )?;
-        assert!(!context.get_captured_stdout().starts_with("---"));
-        Ok(())
-    }
+#[test]
+fn records_command_arguments() -> R<()> {
+    test_recording(
+        "
+            |#!/usr/bin/env bash
+            |/bin/true foo
+        ",
+        "
+            |protocols:
+            |  - protocol:
+            |      - /bin/true foo
+        ",
+    )
 }
