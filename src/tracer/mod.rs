@@ -30,13 +30,27 @@ use tempdir::TempDir;
 pub trait SyscallMock {
     type Result;
 
-    fn handle_syscall(
+    fn handle_execve_enter(
         &mut self,
-        pid: Pid,
-        syscall_stop: &SyscallStop,
-        syscall: &Syscall,
-        registers: &user_regs_struct,
-    ) -> R<()>;
+        _pid: Pid,
+        _registers: &user_regs_struct,
+        _executable: Vec<u8>,
+    ) -> R<()> {
+        Ok(())
+    }
+
+    fn handle_getcwd_exit(&self, _pid: Pid, _registers: &user_regs_struct) -> R<()> {
+        Ok(())
+    }
+
+    fn handle_stat_exit(
+        &self,
+        _pid: Pid,
+        _registers: &user_regs_struct,
+        _filename: Vec<u8>,
+    ) -> R<()> {
+        Ok(())
+    }
 
     fn handle_end(&mut self, exitcode: i32, redirector: &Redirector) -> R<Self::Result>;
 }
@@ -192,7 +206,7 @@ impl Tracer {
             let syscall = Syscall::from(registers);
             let syscall_stop = self.update_syscall_state(pid, &syscall)?;
             debugger.log_syscall(pid, &syscall_stop, &syscall, || -> R<()> {
-                syscall_mock.handle_syscall(pid, &syscall_stop, &syscall, &registers)
+                self.handle_syscall(syscall_mock, pid, &syscall_stop, &syscall, &registers)
             })?;
         }
         Ok(())
@@ -213,6 +227,33 @@ impl Tracer {
                 }
             }
         })
+    }
+
+    fn handle_syscall<MockResult>(
+        &mut self,
+        syscall_mock: &mut SyscallMock<Result = MockResult>,
+        pid: Pid,
+        syscall_stop: &SyscallStop,
+        syscall: &Syscall,
+        registers: &user_regs_struct,
+    ) -> R<()> {
+        match (&syscall, syscall_stop) {
+            (Syscall::Execve, SyscallStop::Enter) => {
+                if self.tracee_pid != pid {
+                    let executable = tracee_memory::peek_string(pid, registers.rdi)?;
+                    syscall_mock.handle_execve_enter(pid, registers, executable)?;
+                }
+            }
+            (Syscall::Getcwd, SyscallStop::Exit) => {
+                syscall_mock.handle_getcwd_exit(pid, registers)?
+            }
+            (Syscall::Stat, SyscallStop::Exit) => {
+                let filename = tracee_memory::peek_string(pid, registers.rdi)?;
+                syscall_mock.handle_stat_exit(pid, registers, filename)?
+            }
+            _ => {}
+        }
+        Ok(())
     }
 }
 
