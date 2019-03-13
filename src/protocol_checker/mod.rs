@@ -5,8 +5,7 @@ use crate::context::Context;
 use crate::protocol;
 use crate::protocol::Protocol;
 use crate::tracer::stdio_redirecting::Redirector;
-use crate::tracer::syscall::Syscall;
-use crate::tracer::{tracee_memory, SyscallMock, SyscallStop};
+use crate::tracer::{tracee_memory, SyscallMock};
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::R;
 use libc::{c_ulonglong, user_regs_struct};
@@ -97,62 +96,56 @@ impl ProtocolChecker {
 impl SyscallMock for ProtocolChecker {
     type Result = TestResult;
 
-    fn handle_syscall(
+    fn handle_execve_enter(
         &mut self,
         pid: Pid,
-        syscall_stop: &SyscallStop,
-        syscall: &Syscall,
         registers: &user_regs_struct,
+        executable: Vec<u8>,
     ) -> R<()> {
-        match (&syscall, syscall_stop) {
-            (Syscall::Execve, SyscallStop::Enter) => {
-                if self.tracee_pid != pid {
-                    let executable = tracee_memory::peek_string(pid, registers.rdi)?;
-                    if !self.unmocked_commands.contains(&executable) {
-                        let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
-                        let mock_executable_path = self.handle_step(protocol::Command {
-                            executable,
-                            arguments,
-                        })?;
-                        tracee_memory::poke_single_word_string(
-                            pid,
-                            registers.rdi,
-                            &mock_executable_path.as_os_str().as_bytes(),
-                        )?;
-                    }
-                }
-            }
-            (Syscall::Getcwd, SyscallStop::Exit) => {
-                if let Some(mock_cwd) = &self.protocol.cwd {
-                    let buffer_ptr = registers.rdi;
-                    let max_size = registers.rsi;
-                    tracee_memory::poke_string(pid, buffer_ptr, mock_cwd, max_size)?;
-                    let mut registers = *registers;
-                    registers.rax = mock_cwd.len() as c_ulonglong + 1;
-                    ptrace::setregs(pid, registers)?;
-                }
-            }
-            (Syscall::Stat, SyscallStop::Exit) => {
-                let filename = tracee_memory::peek_string(pid, registers.rdi)?;
-                if self.protocol.mocked_files.contains(&filename) {
-                    let statbuf_ptr = registers.rsi;
-                    let mock_mode = if filename.ends_with(b"/") {
-                        libc::S_IFDIR
-                    } else {
-                        libc::S_IFREG
-                    };
-                    #[allow(clippy::forget_copy)]
-                    tracee_memory::poke_four_bytes(
-                        pid,
-                        statbuf_ptr + (offset_of!(libc::stat, st_mode) as u64),
-                        mock_mode as u32,
-                    )?;
-                    let mut registers = *registers;
-                    registers.rax = 0;
-                    ptrace::setregs(pid, registers)?;
-                }
-            }
-            _ => {}
+        if !self.unmocked_commands.contains(&executable) {
+            let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
+            let mock_executable_path = self.handle_step(protocol::Command {
+                executable,
+                arguments,
+            })?;
+            tracee_memory::poke_single_word_string(
+                pid,
+                registers.rdi,
+                &mock_executable_path.as_os_str().as_bytes(),
+            )?;
+        }
+        Ok(())
+    }
+
+    fn handle_getcwd_exit(&self, pid: Pid, registers: &user_regs_struct) -> R<()> {
+        if let Some(mock_cwd) = &self.protocol.cwd {
+            let buffer_ptr = registers.rdi;
+            let max_size = registers.rsi;
+            tracee_memory::poke_string(pid, buffer_ptr, mock_cwd, max_size)?;
+            let mut registers = *registers;
+            registers.rax = mock_cwd.len() as c_ulonglong + 1;
+            ptrace::setregs(pid, registers)?;
+        }
+        Ok(())
+    }
+
+    fn handle_stat_exit(&self, pid: Pid, registers: &user_regs_struct, filename: Vec<u8>) -> R<()> {
+        if self.protocol.mocked_files.contains(&filename) {
+            let statbuf_ptr = registers.rsi;
+            let mock_mode = if filename.ends_with(b"/") {
+                libc::S_IFDIR
+            } else {
+                libc::S_IFREG
+            };
+            #[allow(clippy::forget_copy)]
+            tracee_memory::poke_four_bytes(
+                pid,
+                statbuf_ptr + (offset_of!(libc::stat, st_mode) as u64),
+                mock_mode as u32,
+            )?;
+            let mut registers = *registers;
+            registers.rax = 0;
+            ptrace::setregs(pid, registers)?;
         }
         Ok(())
     }
