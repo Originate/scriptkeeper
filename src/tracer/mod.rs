@@ -50,7 +50,6 @@ pub enum SyscallStop {
 pub struct Tracer {
     tracee_pid: Pid,
     entered_syscalls: HashMap<Pid, Syscall>,
-    debugger: Debugger,
 }
 
 impl Tracer {
@@ -58,7 +57,6 @@ impl Tracer {
         Tracer {
             tracee_pid,
             entered_syscalls: HashMap::new(),
-            debugger: Debugger::new(),
         }
     }
 
@@ -166,9 +164,10 @@ impl Tracer {
     }
 
     fn trace<MockResult>(&mut self, syscall_mock: &mut SyscallMock<Result = MockResult>) -> R<i32> {
+        let mut debugger = Debugger::new();
         Ok(loop {
             let status = wait()?;
-            self.handle_wait_status(syscall_mock, status)?;
+            self.handle_wait_status(&mut debugger, syscall_mock, status)?;
             match status {
                 WaitStatus::Exited(pid, exitcode) => {
                     if self.tracee_pid == pid {
@@ -184,6 +183,7 @@ impl Tracer {
 
     fn handle_wait_status<MockResult>(
         &mut self,
+        debugger: &mut Debugger,
         syscall_mock: &mut SyscallMock<Result = MockResult>,
         status: WaitStatus,
     ) -> R<()> {
@@ -191,10 +191,9 @@ impl Tracer {
             let registers = ptrace::getregs(pid)?;
             let syscall = Syscall::from(registers);
             let syscall_stop = self.update_syscall_state(pid, &syscall)?;
-            self.debugger
-                .log_syscall(pid, &syscall_stop, &syscall, || {
-                    syscall_mock.handle_syscall(pid, &syscall_stop, &syscall, &registers)
-                })?;
+            debugger.log_syscall(pid, &syscall_stop, &syscall, || -> R<()> {
+                syscall_mock.handle_syscall(pid, &syscall_stop, &syscall, &registers)
+            })?;
         }
         Ok(())
     }
