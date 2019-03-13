@@ -4,10 +4,10 @@ pub mod syscall;
 pub mod tracee_memory;
 
 use crate::context::Context;
-use crate::syscall_mock::{test_result::TestResult, SyscallMock};
 use crate::utils::parse_hashbang;
 use crate::R;
 use debugging::Debugger;
+use libc::user_regs_struct;
 use nix;
 use nix::sys::ptrace;
 use nix::sys::ptrace::Options;
@@ -26,6 +26,20 @@ use std::str;
 use stdio_redirecting::{CaptureStderr, Redirector};
 use syscall::Syscall;
 use tempdir::TempDir;
+
+pub trait SyscallMock {
+    type Result;
+
+    fn handle_syscall(
+        &mut self,
+        pid: Pid,
+        syscall_stop: &SyscallStop,
+        syscall: &Syscall,
+        registers: &user_regs_struct,
+    ) -> R<()>;
+
+    fn handle_end(&mut self, exitcode: i32, redirector: &Redirector) -> R<Self::Result>;
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SyscallStop {
@@ -111,17 +125,17 @@ impl Tracer {
         Ok(())
     }
 
-    pub fn run_against_mock<F>(
+    pub fn run_against_mock<MkSyscallMock, MockResult>(
         context: &Context,
         interpreter: &Option<Vec<u8>>,
         program: &Path,
         args: Vec<String>,
         env: HashMap<String, String>,
         capture_stderr: CaptureStderr,
-        mk_syscall_mock: F,
-    ) -> R<TestResult>
+        mk_syscall_mock: MkSyscallMock,
+    ) -> R<MockResult>
     where
-        F: FnOnce(Pid) -> SyscallMock,
+        MkSyscallMock: FnOnce(Pid) -> Box<SyscallMock<Result = MockResult>>,
     {
         let redirector = Redirector::new(context, capture_stderr)?;
         fork_with_child_errors(
@@ -132,7 +146,7 @@ impl Tracer {
                 Tracer::execve(interpreter, program, args, env)?;
                 Ok(())
             },
-            |tracee_pid: Pid| -> R<TestResult> {
+            |tracee_pid: Pid| -> R<MockResult> {
                 let join = redirector.parent_relay_streams()?;
                 waitpid(tracee_pid, None)?;
                 ptrace::setoptions(
@@ -144,14 +158,14 @@ impl Tracer {
                 ptrace::syscall(tracee_pid)?;
                 let mut syscall_mock = mk_syscall_mock(tracee_pid);
                 let mut tracer = Tracer::new(tracee_pid);
-                let exitcode = tracer.trace(&mut syscall_mock)?;
+                let exitcode = tracer.trace(&mut *syscall_mock)?;
                 join()?;
                 syscall_mock.handle_end(exitcode, &redirector)
             },
         )
     }
 
-    fn trace(&mut self, syscall_mock: &mut SyscallMock) -> R<i32> {
+    fn trace<MockResult>(&mut self, syscall_mock: &mut SyscallMock<Result = MockResult>) -> R<i32> {
         Ok(loop {
             let status = wait()?;
             self.handle_wait_status(syscall_mock, status)?;
@@ -168,7 +182,11 @@ impl Tracer {
         })
     }
 
-    fn handle_wait_status(&mut self, syscall_mock: &mut SyscallMock, status: WaitStatus) -> R<()> {
+    fn handle_wait_status<MockResult>(
+        &mut self,
+        syscall_mock: &mut SyscallMock<Result = MockResult>,
+        status: WaitStatus,
+    ) -> R<()> {
         if let WaitStatus::PtraceSyscall(pid, ..) = status {
             let registers = ptrace::getregs(pid)?;
             let syscall = Syscall::from(registers);
