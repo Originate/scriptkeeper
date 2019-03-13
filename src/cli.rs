@@ -24,6 +24,10 @@ fn parse_args_safe(args: impl Iterator<Item = String>) -> Result<Args, Error> {
         })
     } else {
         let matches = App::new("check-protocols")
+            .arg(Arg::with_name("record").short("r").long("record").help(
+                "[EXPERIMENTAL] Runs the script (without mocking out anything), \
+                 records a protocol and prints it to stdout",
+            ))
             .arg(
                 Arg::with_name("program")
                     .help("the program to test")
@@ -33,7 +37,7 @@ fn parse_args_safe(args: impl Iterator<Item = String>) -> Result<Args, Error> {
             .get_matches_from_safe(args)?;
         Ok(Args::CheckProtocols {
             script_path: PathBuf::from(matches.value_of("program").unwrap()),
-            record: false,
+            record: matches.is_present("record"),
         })
     }
 }
@@ -46,15 +50,13 @@ mod parse_args_safe {
 
     #[test]
     fn returns_the_given_script() -> R<()> {
-        let args = parse_args_safe(vec!["program", "file"].into_iter().map(String::from))?;
-        match args {
-            Args::CheckProtocols { script_path, .. } => {
-                assert_eq!(script_path, PathBuf::from("file"),);
+        assert_eq!(
+            parse_args_safe(vec!["program", "file"].into_iter().map(String::from))?,
+            Args::CheckProtocols {
+                script_path: PathBuf::from("file"),
+                record: false
             }
-            _ => {
-                panic!("expected: Args::CheckProtocols");
-            }
-        }
+        );
         Ok(())
     }
 
@@ -63,6 +65,22 @@ mod parse_args_safe {
         assert!(
             parse_args_safe(vec!["program", "file", "foo"].into_iter().map(String::from)).is_err(),
         );
+    }
+
+    #[test]
+    fn respects_the_record_flag() -> R<()> {
+        assert_eq!(
+            parse_args_safe(
+                vec!["program", "--record", "file"]
+                    .into_iter()
+                    .map(String::from),
+            )?,
+            Args::CheckProtocols {
+                script_path: PathBuf::from("file"),
+                record: true
+            }
+        );
+        Ok(())
     }
 
     mod executable_mock {
