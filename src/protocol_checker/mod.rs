@@ -151,9 +151,10 @@ impl SyscallMock for ProtocolChecker {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_step_error(&expected_step.command.format(), "<script terminated>");
         }
-        if exitcode != self.protocol.exitcode {
+        let expected_exitcode = self.protocol.exitcode.unwrap_or(0);
+        if exitcode != expected_exitcode {
             self.register_step_error(
-                &format!("<exitcode {}>", self.protocol.exitcode),
+                &format!("<exitcode {}>", expected_exitcode),
                 &format!("<exitcode {}>", exitcode),
             );
         }
