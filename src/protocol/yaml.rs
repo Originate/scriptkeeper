@@ -2,6 +2,7 @@ use crate::R;
 use linked_hash_map::LinkedHashMap;
 use std::fmt;
 use std::io;
+use std::io::Cursor;
 use yaml_rust::{Yaml, YamlEmitter};
 
 pub trait YamlExt {
@@ -85,17 +86,27 @@ impl MapExt for LinkedHashMap<Yaml, Yaml> {
     }
 }
 
-pub fn write_yaml(write: Box<io::Write>, yaml: &Yaml) -> R<()> {
-    let mut write = ToFmtWrite(write);
-    YamlEmitter::new(&mut write).dump(yaml)?;
-    fmt::Write::write_str(&mut write, "\n")?;
+fn adjust_yaml_output(input: Vec<u8>) -> Vec<u8> {
+    let mut result: Vec<u8> = input.into_iter().skip(4).collect();
+    result.push(b'\n');
+    result
+}
+
+pub fn write_yaml(mut output_stream: Box<io::Write>, yaml: &Yaml) -> R<()> {
+    let mut buffer = ToFmtWrite {
+        inner: Cursor::new(vec![]),
+    };
+    YamlEmitter::new(&mut buffer).dump(yaml)?;
+    output_stream.write_all(&adjust_yaml_output(buffer.inner.into_inner()))?;
     Ok(())
 }
 
-struct ToFmtWrite(Box<io::Write>);
+struct ToFmtWrite {
+    inner: Cursor<Vec<u8>>,
+}
 
 impl fmt::Write for ToFmtWrite {
     fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
-        self.0.write_all(s.as_bytes()).map_err(|_| fmt::Error)
+        io::Write::write_all(&mut self.inner, s.as_bytes()).map_err(|_| fmt::Error)
     }
 }
