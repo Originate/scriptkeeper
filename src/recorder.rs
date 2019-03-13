@@ -11,8 +11,8 @@ pub struct Recorder {
     protocol: Protocol,
 }
 
-impl Recorder {
-    pub fn new() -> Recorder {
+impl Default for Recorder {
+    fn default() -> Recorder {
         Recorder {
             protocol: Protocol::new(vec![]),
         }
