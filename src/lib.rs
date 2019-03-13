@@ -12,14 +12,14 @@ extern crate memoffset;
 pub mod cli;
 pub mod context;
 mod protocol;
-mod syscall_mock;
+mod protocol_checker;
 mod tracer;
 pub mod utils;
 
 use crate::context::Context;
 use crate::protocol::{Protocol, Protocols};
-use crate::syscall_mock::test_result::{TestResult, TestResults};
-use crate::syscall_mock::{executable_mock, SyscallMock};
+use crate::protocol_checker::test_result::{TestResult, TestResults};
+use crate::protocol_checker::{executable_mock, ProtocolChecker};
 use crate::tracer::stdio_redirecting::CaptureStderr;
 use crate::tracer::Tracer;
 use std::io::Write;
@@ -158,7 +158,14 @@ pub fn run_against_protocol(
         } else {
             CaptureStderr::NoCapture
         },
-        |tracee_pid| SyscallMock::new(context, tracee_pid, expected, unmocked_commands),
+        |tracee_pid| {
+            Box::new(ProtocolChecker::new(
+                context,
+                tracee_pid,
+                expected,
+                unmocked_commands,
+            ))
+        },
     )
 }
 

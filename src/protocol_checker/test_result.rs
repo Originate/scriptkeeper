@@ -1,6 +1,6 @@
 use crate::ExitCode;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TestResult {
     Pass,
     Failure(String),

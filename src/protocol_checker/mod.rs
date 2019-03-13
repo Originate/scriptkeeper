@@ -6,7 +6,7 @@ use crate::protocol;
 use crate::protocol::Protocol;
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::syscall::Syscall;
-use crate::tracer::{tracee_memory, SyscallStop};
+use crate::tracer::{tracee_memory, SyscallMock, SyscallStop};
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::R;
 use libc::{c_ulonglong, user_regs_struct};
@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use test_result::TestResult;
 
 #[derive(Debug)]
-pub struct SyscallMock {
+pub struct ProtocolChecker {
     context: Context,
     tracee_pid: Pid,
     protocol: Protocol,
@@ -26,14 +26,14 @@ pub struct SyscallMock {
     temporary_executables: Vec<ShortTempFile>,
 }
 
-impl SyscallMock {
+impl ProtocolChecker {
     pub fn new(
         context: &Context,
         tracee_pid: Pid,
         protocol: Protocol,
         unmocked_commands: &[Vec<u8>],
-    ) -> SyscallMock {
-        SyscallMock {
+    ) -> ProtocolChecker {
+        ProtocolChecker {
             context: context.clone(),
             tracee_pid,
             protocol,
@@ -43,7 +43,61 @@ impl SyscallMock {
         }
     }
 
-    pub fn handle_syscall(
+    fn allow_failing_scripts_to_continue() -> executable_mock::Config {
+        executable_mock::Config {
+            stdout: vec![],
+            exitcode: 0,
+        }
+    }
+
+    fn handle_step(&mut self, received: protocol::Command) -> R<PathBuf> {
+        let mock_config = match self.protocol.steps.pop_front() {
+            Some(next_protocol_step) => {
+                if next_protocol_step.command != received {
+                    self.register_step_error(
+                        &next_protocol_step.command.format(),
+                        &received.format(),
+                    );
+                }
+                executable_mock::Config {
+                    stdout: next_protocol_step.stdout,
+                    exitcode: next_protocol_step.exitcode,
+                }
+            }
+            None => {
+                self.register_step_error("<protocol end>", &received.format());
+                ProtocolChecker::allow_failing_scripts_to_continue()
+            }
+        };
+        let mock_executable_contents =
+            executable_mock::create_mock_executable(&self.context, mock_config)?;
+        let temp_executable = ShortTempFile::new(&mock_executable_contents)?;
+        let path = temp_executable.path();
+        self.temporary_executables.push(temp_executable);
+        Ok(path)
+    }
+
+    fn register_step_error(&mut self, expected: &str, received: &str) {
+        self.register_error(format!(
+            "  expected: {}\n  received: {}\n",
+            expected, received
+        ));
+    }
+
+    fn register_error(&mut self, message: String) {
+        match self.result {
+            TestResult::Pass => {
+                self.result = TestResult::Failure(message);
+            }
+            TestResult::Failure(_) => {}
+        }
+    }
+}
+
+impl SyscallMock for ProtocolChecker {
+    type Result = TestResult;
+
+    fn handle_syscall(
         &mut self,
         pid: Pid,
         syscall_stop: &SyscallStop,
@@ -103,41 +157,7 @@ impl SyscallMock {
         Ok(())
     }
 
-    fn allow_failing_scripts_to_continue() -> executable_mock::Config {
-        executable_mock::Config {
-            stdout: vec![],
-            exitcode: 0,
-        }
-    }
-
-    fn handle_step(&mut self, received: protocol::Command) -> R<PathBuf> {
-        let mock_config = match self.protocol.steps.pop_front() {
-            Some(next_protocol_step) => {
-                if next_protocol_step.command != received {
-                    self.register_step_error(
-                        &next_protocol_step.command.format(),
-                        &received.format(),
-                    );
-                }
-                executable_mock::Config {
-                    stdout: next_protocol_step.stdout,
-                    exitcode: next_protocol_step.exitcode,
-                }
-            }
-            None => {
-                self.register_step_error("<protocol end>", &received.format());
-                SyscallMock::allow_failing_scripts_to_continue()
-            }
-        };
-        let mock_executable_contents =
-            executable_mock::create_mock_executable(&self.context, mock_config)?;
-        let temp_executable = ShortTempFile::new(&mock_executable_contents)?;
-        let path = temp_executable.path();
-        self.temporary_executables.push(temp_executable);
-        Ok(path)
-    }
-
-    pub fn handle_end(mut self, exitcode: i32, redirector: &Redirector) -> R<TestResult> {
+    fn handle_end(&mut self, exitcode: i32, redirector: &Redirector) -> R<TestResult> {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_step_error(&expected_step.command.format(), "<script terminated>");
         }
@@ -162,22 +182,6 @@ impl SyscallMock {
                 }
             }
         }
-        Ok(self.result)
-    }
-
-    fn register_step_error(&mut self, expected: &str, received: &str) {
-        self.register_error(format!(
-            "  expected: {}\n  received: {}\n",
-            expected, received
-        ));
-    }
-
-    fn register_error(&mut self, message: String) {
-        match self.result {
-            TestResult::Pass => {
-                self.result = TestResult::Failure(message);
-            }
-            TestResult::Failure(_) => {}
-        }
+        Ok(self.result.clone())
     }
 }
