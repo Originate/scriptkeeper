@@ -1,4 +1,4 @@
-use crate::R;
+use clap::{App, Arg, Error};
 use std::path::PathBuf;
 
 #[derive(Debug, PartialEq)]
@@ -7,35 +7,58 @@ pub enum Args {
     CheckProtocols { script_path: PathBuf },
 }
 
-pub fn parse_args(mut args: impl Iterator<Item = String>) -> R<Args> {
-    args.next()
-        .ok_or("argv: expected program name as argument 0")?;
-    Ok(match args.next().ok_or("supply one argument")?.as_ref() {
-        "--executable-mock" => Args::ExecutableMock {
+pub fn parse_args(args: impl Iterator<Item = String>) -> Args {
+    match parse_args_safe(args) {
+        Ok(args) => args,
+        Err(error) => error.exit(),
+    }
+}
+
+fn parse_args_safe(args: impl Iterator<Item = String>) -> Result<Args, Error> {
+    let args: Vec<_> = args.collect();
+    if args.get(1) == Some(&"--executable-mock".to_string()) {
+        Ok(Args::ExecutableMock {
             executable_mock_path: PathBuf::from(
-                args.next().expect("expected executable file as argument 1"),
+                args.get(2).expect("missing argument: executable mock file"),
             ),
-        },
-        argument => Args::CheckProtocols {
-            script_path: PathBuf::from(argument),
-        },
-    })
+        })
+    } else {
+        let matches = App::new("check-protocols")
+            .arg(
+                Arg::with_name("program")
+                    .help("the program to test")
+                    .required(true)
+                    .index(1),
+            )
+            .get_matches_from_safe(args)?;
+        Ok(Args::CheckProtocols {
+            script_path: PathBuf::from(matches.value_of("program").unwrap()),
+        })
+    }
 }
 
 #[cfg(test)]
-mod parse_args {
+mod parse_args_safe {
     use super::*;
+    use crate::R;
     use pretty_assertions::assert_eq;
 
     #[test]
     fn returns_the_given_script() -> R<()> {
         assert_eq!(
-            parse_args(vec!["program", "file"].into_iter().map(String::from))?,
+            parse_args_safe(vec!["program", "file"].into_iter().map(String::from))?,
             Args::CheckProtocols {
                 script_path: PathBuf::from("file")
             }
         );
         Ok(())
+    }
+
+    #[test]
+    fn errors_on_additional_arguments() {
+        assert!(
+            parse_args_safe(vec!["program", "file", "foo"].into_iter().map(String::from)).is_err(),
+        );
     }
 
     mod executable_mock {
@@ -45,7 +68,7 @@ mod parse_args {
         #[test]
         fn returns_the_executable_mock_file() -> R<()> {
             assert_eq!(
-                parse_args(
+                parse_args_safe(
                     vec!["program", "--executable-mock", "file"]
                         .into_iter()
                         .map(String::from)
@@ -60,7 +83,7 @@ mod parse_args {
         #[test]
         fn allows_arbitrary_arguments() -> R<()> {
             assert_eq!(
-                parse_args(
+                parse_args_safe(
                     vec!["program", "--executable-mock", "file", "foo", "bar"]
                         .into_iter()
                         .map(String::from)

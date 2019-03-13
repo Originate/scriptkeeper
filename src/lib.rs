@@ -9,7 +9,7 @@ extern crate serde_derive;
 #[macro_use]
 extern crate memoffset;
 
-mod cli;
+pub mod cli;
 pub mod context;
 mod protocol;
 mod syscall_mock;
@@ -71,8 +71,8 @@ mod wrap_main {
     }
 }
 
-pub fn run_main(context: &Context, args: impl Iterator<Item = String>) -> R<ExitCode> {
-    Ok(match cli::parse_args(args)? {
+pub fn run_main(context: &Context, args: &cli::Args) -> R<ExitCode> {
+    Ok(match args {
         cli::Args::ExecutableMock {
             executable_mock_path,
         } => executable_mock::run(context, &executable_mock_path)?,
@@ -96,14 +96,13 @@ mod run_main {
                 exitcode: 0,
             },
         )?;
-        let file = TempFile::write_temp_script(&executable_contents)?;
-        let args = vec![
-            "executable-mock".to_string(),
-            "--executable-mock".to_string(),
-            file.path().to_string_lossy().into_owned(),
-        ]
-        .into_iter();
-        run_main(&context, args)?;
+        let executable_mock = TempFile::write_temp_script(&executable_contents)?;
+        run_main(
+            &context,
+            &cli::Args::ExecutableMock {
+                executable_mock_path: executable_mock.path(),
+            },
+        )?;
         assert_eq!(context.get_captured_stdout(), "foo");
         Ok(())
     }
