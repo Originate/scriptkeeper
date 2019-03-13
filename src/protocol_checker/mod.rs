@@ -18,7 +18,6 @@ use test_result::TestResult;
 #[derive(Debug)]
 pub struct ProtocolChecker {
     context: Context,
-    tracee_pid: Pid,
     protocol: Protocol,
     unmocked_commands: Vec<Vec<u8>>,
     pub result: TestResult,
@@ -28,13 +27,11 @@ pub struct ProtocolChecker {
 impl ProtocolChecker {
     pub fn new(
         context: &Context,
-        tracee_pid: Pid,
         protocol: Protocol,
         unmocked_commands: &[Vec<u8>],
     ) -> ProtocolChecker {
         ProtocolChecker {
             context: context.clone(),
-            tracee_pid,
             protocol,
             unmocked_commands: unmocked_commands.to_vec(),
             result: TestResult::Pass,
@@ -150,7 +147,7 @@ impl SyscallMock for ProtocolChecker {
         Ok(())
     }
 
-    fn handle_end(&mut self, exitcode: i32, redirector: &Redirector) -> R<TestResult> {
+    fn handle_end(mut self, exitcode: i32, redirector: &Redirector) -> R<TestResult> {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_step_error(&expected_step.command.format(), "<script terminated>");
         }
@@ -175,6 +172,6 @@ impl SyscallMock for ProtocolChecker {
                 }
             }
         }
-        Ok(self.result.clone())
+        Ok(self.result)
     }
 }
