@@ -110,3 +110,18 @@ fn records_command_arguments() -> R<()> {
         ",
     )
 }
+
+#[test]
+fn records_script_exitcode() -> R<()> {
+    test_recording(
+        "
+            |#!/usr/bin/env bash
+            |exit 42
+        ",
+        "
+            |protocols:
+            |  - protocol: []
+            |    exitcode: 42
+        ",
+    )
+}
