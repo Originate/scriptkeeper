@@ -158,14 +158,7 @@ pub fn run_against_protocol(
         } else {
             CaptureStderr::NoCapture
         },
-        |tracee_pid| {
-            Box::new(ProtocolChecker::new(
-                context,
-                tracee_pid,
-                expected,
-                unmocked_commands,
-            ))
-        },
+        ProtocolChecker::new(context, expected, unmocked_commands),
     )
 }
 

@@ -52,7 +52,7 @@ pub trait SyscallMock {
         Ok(())
     }
 
-    fn handle_end(&mut self, exitcode: i32, redirector: &Redirector) -> R<Self::Result>;
+    fn handle_end(self, exitcode: i32, redirector: &Redirector) -> R<Self::Result>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -137,18 +137,15 @@ impl Tracer {
         Ok(())
     }
 
-    pub fn run_against_mock<MkSyscallMock, MockResult>(
+    pub fn run_against_mock<MockResult>(
         context: &Context,
         interpreter: &Option<Vec<u8>>,
         program: &Path,
         args: Vec<String>,
         env: HashMap<String, String>,
         capture_stderr: CaptureStderr,
-        mk_syscall_mock: MkSyscallMock,
-    ) -> R<MockResult>
-    where
-        MkSyscallMock: FnOnce(Pid) -> Box<SyscallMock<Result = MockResult>>,
-    {
+        mut syscall_mock: impl SyscallMock<Result = MockResult>,
+    ) -> R<MockResult> {
         let redirector = Redirector::new(context, capture_stderr)?;
         fork_with_child_errors(
             || {
@@ -168,9 +165,8 @@ impl Tracer {
                         | Options::PTRACE_O_TRACEVFORK,
                 )?;
                 ptrace::syscall(tracee_pid)?;
-                let mut syscall_mock = mk_syscall_mock(tracee_pid);
                 let mut tracer = Tracer::new(tracee_pid);
-                let exitcode = tracer.trace(&mut *syscall_mock)?;
+                let exitcode = tracer.trace(&mut syscall_mock)?;
                 join()?;
                 syscall_mock.handle_end(exitcode, &redirector)
             },
