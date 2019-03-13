@@ -143,35 +143,38 @@ fn run_against_protocols(
         interpreter,
     }: Protocols,
 ) -> R<TestResults> {
-    Ok(TestResults(
-        protocols
-            .into_iter()
-            .map(|expected| {
-                run_against_protocol(context, &interpreter, program, expected, &unmocked_commands)
-            })
-            .collect::<R<Vec<TestResult>>>()?,
-    ))
+    let mut test_results = vec![];
+    for protocol in protocols.into_iter() {
+        test_results.push(run_against_protocol(
+            context,
+            &interpreter,
+            program,
+            protocol,
+            &unmocked_commands,
+        )?)
+    }
+    Ok(TestResults(test_results))
 }
 
 pub fn run_against_protocol(
     context: &Context,
     interpreter: &Option<Vec<u8>>,
     program: &Path,
-    expected: Protocol,
+    protocol: Protocol,
     unmocked_commands: &[Vec<u8>],
 ) -> R<TestResult> {
     Tracer::run_against_mock(
         context,
         interpreter,
         program,
-        expected.arguments.clone(),
-        expected.env.clone(),
-        if expected.stderr.is_some() {
+        protocol.arguments.clone(),
+        protocol.env.clone(),
+        if protocol.stderr.is_some() {
             CaptureStderr::Capture
         } else {
             CaptureStderr::NoCapture
         },
-        ProtocolChecker::new(context, expected, unmocked_commands),
+        ProtocolChecker::new(context, protocol, unmocked_commands),
     )
 }
 
