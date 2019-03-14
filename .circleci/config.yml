@@ -12,6 +12,8 @@ jobs:
             apt update
             apt install --yes ruby
       - checkout
+      - restore_cache:
+          key: v1-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: check formatting
           command: |
@@ -34,3 +36,8 @@ jobs:
             cp /bin/true /usr/bin/docker
             cargo run -- build-docker-image.sh
             cargo run -- check-protocols-in-docker.sh
+      - save_cache:
+          key: v1-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+          paths:
+            - /usr/local/cargo/registry
+            - target
