@@ -40,6 +40,10 @@ pub trait SyscallMock {
         Ok(())
     }
 
+    fn handle_exited(&mut self, _pid: Pid, _exitcode: i32) -> R<()> {
+        Ok(())
+    }
+
     fn handle_getcwd_exit(&self, _pid: Pid, _registers: &user_regs_struct) -> R<()> {
         Ok(())
     }
@@ -183,6 +187,8 @@ impl Tracer {
                 WaitStatus::Exited(pid, exitcode) => {
                     if self.tracee_pid == pid {
                         break exitcode;
+                    } else {
+                        syscall_mock.handle_exited(pid, exitcode)?;
                     }
                 }
                 _ => {

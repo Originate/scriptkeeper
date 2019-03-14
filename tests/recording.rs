@@ -5,9 +5,8 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
-use check_protocols::cli;
 use check_protocols::context::Context;
-use check_protocols::{run_main, R};
+use check_protocols::{cli, run_main, R};
 use pretty_assertions::assert_eq;
 use test_utils::{trim_margin, TempFile};
 use yaml_rust::YamlLoader;
@@ -140,5 +139,22 @@ fn records_script_exitcode() -> R<()> {
             |  - protocol: []
             |    exitcode: 42
         ",
+    )
+}
+
+#[test]
+fn records_command_exitcodes() -> R<()> {
+    test_recording(
+        r#"
+            |#!/usr/bin/env bash
+            |bash -c "exit 42"
+            |true
+        "#,
+        r#"
+            |protocols:
+            |  - protocol:
+            |      - command: /bin/bash -c "exit 42"
+            |        exitcode: 42
+        "#,
     )
 }

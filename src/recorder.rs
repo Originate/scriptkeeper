@@ -9,12 +9,14 @@ use yaml_rust::Yaml;
 
 pub struct Recorder {
     protocol: Protocol,
+    command: Option<Command>,
 }
 
 impl Default for Recorder {
     fn default() -> Recorder {
         Recorder {
             protocol: Protocol::new(vec![]),
+            command: None,
         }
     }
 }
@@ -29,10 +31,24 @@ impl SyscallMock for Recorder {
         executable: Vec<u8>,
         arguments: Vec<Vec<u8>>,
     ) -> R<()> {
-        self.protocol.steps.push_back(Step::new(Command {
+        self.command = Some(Command {
             executable,
             arguments,
-        }));
+        });
+        Ok(())
+    }
+
+    fn handle_exited(&mut self, _pid: Pid, exitcode: i32) -> R<()> {
+        let command = self
+            .command
+            .clone()
+            .ok_or("Recorder.handle_execve_exit: command not set")?;
+        self.command = None;
+        self.protocol.steps.push_back(Step {
+            command,
+            stdout: vec![],
+            exitcode,
+        });
         Ok(())
     }
 
