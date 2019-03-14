@@ -97,6 +97,23 @@ fn records_protocol_steps() -> R<()> {
 }
 
 #[test]
+fn records_multiple_steps() -> R<()> {
+    test_recording(
+        "
+            |#!/usr/bin/env bash
+            |/bin/true
+            |ls > /dev/null
+        ",
+        "
+            |protocols:
+            |  - protocol:
+            |      - /bin/true
+            |      - /bin/ls
+        ",
+    )
+}
+
+#[test]
 fn records_command_arguments() -> R<()> {
     test_recording(
         "
