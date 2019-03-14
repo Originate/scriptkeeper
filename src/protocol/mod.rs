@@ -63,7 +63,18 @@ impl Step {
     }
 
     fn serialize(&self) -> Yaml {
-        Yaml::String(self.command.format())
+        let command = Yaml::String(self.command.format());
+        if self.exitcode == 0 {
+            command
+        } else {
+            let mut step = LinkedHashMap::new();
+            step.insert(Yaml::from_str("command"), command);
+            step.insert(
+                Yaml::from_str("exitcode"),
+                Yaml::Integer(i64::from(self.exitcode)),
+            );
+            Yaml::Hash(step)
+        }
     }
 }
 
@@ -887,6 +898,16 @@ mod serialize {
     fn outputs_the_protocol_exitcode() -> R<()> {
         let mut protocol = Protocol::new(vec![Step::from_string("/usr/bin/cp")?]);
         protocol.exitcode = Some(42);
+        roundtrip(Protocols::new(vec![protocol]))
+    }
+
+    #[test]
+    fn includes_the_step_exitcodes() -> R<()> {
+        let protocol = Protocol::new(vec![Step {
+            command: Command::new("/usr/bin/cp")?,
+            stdout: vec![],
+            exitcode: 42,
+        }]);
         roundtrip(Protocols::new(vec![protocol]))
     }
 }
