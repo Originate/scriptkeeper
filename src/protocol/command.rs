@@ -97,6 +97,18 @@ mod command {
         }
 
         #[test]
+        fn honors_regular_expressions() -> R<()> {
+            assert_eq!(
+                Command::new(r#"foo $`bar`"#)?,
+                Command {
+                    executable: b"foo".to_vec(),
+                    arguments: vec![Argument::Regex(r"bar".to_string())]
+                }
+            );
+            Ok(())
+        }
+
+        #[test]
         fn honors_escaped_quotes_outside_quotes() -> R<()> {
             assert_eq!(
                 Command::new(r#"foo\" bar baz"#)?,

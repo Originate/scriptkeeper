@@ -76,6 +76,17 @@ impl Parser {
         self.skip_spaces();
         Ok(match self.input.get(0) {
             None => None,
+            Some('$') if self.input.get(1) == Some(&'`') => {
+                self.skip_char('$', "shouldn't happen")?;
+                self.skip_char('`', "shouldn't happen")?;
+                let regexp = self.collect_chars_until(&['`'])?;
+                self.skip_char('`', "unclosed regular expression")?;
+                self.peek_chars(
+                    vec![Some(' '), None],
+                    "closing backtick must be followed by a space",
+                )?;
+                Some(Argument::Regex(regexp))
+            }
             Some('"') => {
                 self.skip_char('"', "shouldn't happen")?;
                 let word = self.collect_chars_until(&['"'])?;
