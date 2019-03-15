@@ -20,6 +20,7 @@ scripts:
   cargo run -- check-protocols-in-docker.sh
 
 dev:
+  clear ; printf "\e[3J"
   cargo test --all --color=always --features 'dev test' -- --test-threads=1 --quiet
 
 run_bigger:
