@@ -102,7 +102,19 @@ mod command {
                 Command::new(r#"foo $`bar`"#)?,
                 Command {
                     executable: b"foo".to_vec(),
-                    arguments: vec![Argument::Regex(r"bar".to_string())]
+                    arguments: vec![Argument::Regex("bar".to_string())]
+                }
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn honors_regular_expressions_with_escape_characters() -> R<()> {
+            assert_eq!(
+                Command::new(r#"foo $`\d`"#)?,
+                Command {
+                    executable: b"foo".to_vec(),
+                    arguments: vec![Argument::Regex(r"\d".to_string())]
                 }
             );
             Ok(())

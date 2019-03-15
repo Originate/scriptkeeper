@@ -42,15 +42,18 @@ impl Parser {
         Ok(())
     }
 
-    fn parse_char(&mut self, excluded: &[char]) -> R<Option<char>> {
+    fn parse_char(&mut self, excluded: &[char], is_regex: bool) -> R<Option<char>> {
         Ok(match self.input.pop_front() {
             None => None,
-            Some('\\') => Some(match self.input.pop_front() {
+            Some('\\') if is_regex && self.input.get(0) == Some(&'`') => Some('`'),
+            Some('\\') if !is_regex => Some(match self.input.pop_front() {
                 None => self.parse_error("a backslash must be followed by a character")?,
                 Some('"') => '"',
                 Some('n') => '\n',
                 Some(' ') => ' ',
                 Some('\\') => '\\',
+                // Some('$') => '$',
+                // Some('`') => '`',
                 Some(char) => self.parse_error(&format!("unknown escaped character {}", char))?,
             }),
             Some(char) => {
@@ -64,12 +67,28 @@ impl Parser {
         })
     }
 
-    fn collect_chars_until(&mut self, excluded: &[char]) -> R<String> {
+    fn collect_chars_until(&mut self, excluded: &[char], is_regex: bool) -> R<String> {
         let mut result = "".to_string();
-        while let Some(char) = self.parse_char(excluded)? {
+        while let Some(char) = self.parse_char(excluded, is_regex)? {
             result.push(char);
         }
         Ok(result)
+    }
+
+    fn parse_balanced_chars(
+        &mut self,
+        character: char,
+        is_regex: bool,
+        unclosed_error: &str,
+    ) -> R<Option<String>> {
+        self.skip_char(character, "shouldn't happen")?;
+        let argument = self.collect_chars_until(&[character], is_regex)?;
+        self.skip_char(character, unclosed_error)?;
+        self.peek_chars(
+            vec![Some(' '), None],
+            &format!("closing '{:?}' must be followed by a space", character),
+        )?;
+        Ok(Some(argument))
     }
 
     fn parse_word(&mut self) -> R<Option<Argument>> {
@@ -78,27 +97,14 @@ impl Parser {
             None => None,
             Some('$') if self.input.get(1) == Some(&'`') => {
                 self.skip_char('$', "shouldn't happen")?;
-                self.skip_char('`', "shouldn't happen")?;
-                let regexp = self.collect_chars_until(&['`'])?;
-                self.skip_char('`', "unclosed regular expression")?;
-                self.peek_chars(
-                    vec![Some(' '), None],
-                    "closing backtick must be followed by a space",
-                )?;
-                Some(Argument::Regex(regexp))
+                self.parse_balanced_chars('`', true, "unclosed regular expression")?
+                    .map(|regexp| Argument::Regex(regexp))
             }
-            Some('"') => {
-                self.skip_char('"', "shouldn't happen")?;
-                let word = self.collect_chars_until(&['"'])?;
-                self.skip_char('"', "unmatched quotes")?;
-                self.peek_chars(
-                    vec![Some(' '), None],
-                    "closing quotes must be followed by a space",
-                )?;
-                Some(Argument::Word(word))
-            }
+            Some('"') => self
+                .parse_balanced_chars('"', false, "unmatched quotes")?
+                .map(|word| Argument::Word(word)),
             Some(_) => {
-                let result = self.collect_chars_until(&[' ', '"'])?;
+                let result = self.collect_chars_until(&[' ', '"'], false)?;
                 self.peek_chars(
                     vec![Some(' '), None],
                     "opening quotes must be preceeded by a space",
