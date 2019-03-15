@@ -55,7 +55,7 @@ impl Command {
                 executable: executable.into_bytes(),
                 arguments: words.collect(),
             }),
-            None => Err(format!(
+            _ => Err(format!(
                 "expected: space-separated command and arguments ({:?})",
                 command.to_string()
             ))?,

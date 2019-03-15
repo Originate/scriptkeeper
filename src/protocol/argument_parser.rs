@@ -100,9 +100,7 @@ impl Parser {
     pub fn parse_argument_strings(arguments: &str) -> R<Vec<String>> {
         Ok(Parser::parse_arguments(arguments)?
             .into_iter()
-            .map(|argument| match argument {
-                Argument::Word(word) => word,
-            })
+            .map(|argument| argument.inner_string().clone())
             .collect())
     }
 
