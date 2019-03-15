@@ -1,5 +1,6 @@
 extern crate yaml_rust;
 
+pub mod argument;
 mod argument_parser;
 pub mod command;
 pub mod yaml;
@@ -80,6 +81,7 @@ impl Step {
 
 #[cfg(test)]
 mod parse_step {
+    use self::argument::Argument;
     use super::*;
     use test_utils::assert_error;
     use yaml_rust::Yaml;
@@ -109,7 +111,7 @@ mod parse_step {
             test_parse_step(r#""foo bar""#)?.command,
             Command {
                 executable: b"foo".to_vec(),
-                arguments: vec![b"bar".to_vec()],
+                arguments: Argument::wrap_words(vec![b"bar".to_vec()]),
             },
         );
         Ok(())
@@ -133,7 +135,7 @@ mod parse_step {
             test_parse_step(r#"{command: "foo bar"}"#)?.command,
             Command {
                 executable: b"foo".to_vec(),
-                arguments: vec![b"bar".to_vec()],
+                arguments: Argument::wrap_words(vec![b"bar".to_vec()]),
             },
         );
         Ok(())
@@ -213,7 +215,7 @@ impl Protocol {
 
     fn add_arguments(&mut self, object: &Hash) -> R<()> {
         if let Ok(arguments) = object.expect_field("arguments") {
-            self.arguments = Parser::parse_arguments(arguments.expect_str()?)?;
+            self.arguments = Parser::parse_argument_strings(arguments.expect_str()?)?;
         }
         Ok(())
     }
@@ -406,6 +408,7 @@ impl Protocols {
 
 #[cfg(test)]
 mod load {
+    use self::argument::Argument;
     use super::*;
     use crate::R;
     use pretty_assertions::assert_eq;
@@ -479,7 +482,7 @@ mod load {
             )?
             .steps
             .map(|step| step.command.arguments),
-            vec![vec![b"foo".to_vec(), b"bar".to_vec()]],
+            vec![Argument::wrap_words(vec![b"foo".to_vec(), b"bar".to_vec()])],
         );
         Ok(())
     }

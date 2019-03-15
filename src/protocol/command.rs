@@ -1,10 +1,11 @@
+use super::argument::Argument;
 use super::argument_parser::Parser;
 use crate::R;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Command {
     pub executable: Vec<u8>,
-    pub arguments: Vec<Vec<u8>>,
+    pub arguments: Vec<Argument>,
 }
 
 impl Command {
@@ -35,7 +36,12 @@ impl Command {
                 .arguments
                 .clone()
                 .into_iter()
-                .map(|argument| Command::escape(String::from_utf8_lossy(&argument).to_string()))
+                .map(|argument| {
+                    Command::escape(
+                        String::from_utf8_lossy(&argument.inner_string().as_str().as_bytes())
+                            .to_string(),
+                    )
+                })
                 .map(Command::add_quotes_if_needed)
                 .collect(),
         );
@@ -43,12 +49,10 @@ impl Command {
     }
 
     pub fn new(command: &str) -> R<Command> {
-        let mut words = Parser::parse_arguments(command)?
-            .into_iter()
-            .map(|word| word.into_bytes());
+        let mut words = Parser::parse_arguments(command)?.into_iter();
         match words.next() {
-            Some(executable) => Ok(Command {
-                executable,
+            Some(Argument::Word(executable)) => Ok(Command {
+                executable: executable.into_bytes(),
                 arguments: words.collect(),
             }),
             None => Err(format!(
@@ -74,7 +78,7 @@ mod command {
                 Command::new("foo bar")?,
                 Command {
                     executable: b"foo".to_vec(),
-                    arguments: vec![b"bar".to_vec()]
+                    arguments: Argument::wrap_words(vec![b"bar".to_vec()])
                 }
             );
             Ok(())
@@ -86,7 +90,7 @@ mod command {
                 Command::new(r#"foo "bar baz""#)?,
                 Command {
                     executable: b"foo".to_vec(),
-                    arguments: vec![b"bar baz".to_vec()]
+                    arguments: Argument::wrap_words(vec![b"bar baz".to_vec()])
                 }
             );
             Ok(())
@@ -98,14 +102,14 @@ mod command {
                 Command::new(r#"foo\" bar baz"#)?,
                 Command {
                     executable: b"foo\"".to_vec(),
-                    arguments: vec![b"bar", b"baz"].map(|arg| arg.to_vec())
+                    arguments: Argument::wrap_words(vec![b"bar", b"baz"].map(|arg| arg.to_vec()))
                 }
             );
             assert_eq!(
                 Command::new(r#"foo\" "bar baz""#)?,
                 Command {
                     executable: b"foo\"".to_vec(),
-                    arguments: vec![b"bar baz".to_vec()]
+                    arguments: Argument::wrap_words(vec![b"bar baz".to_vec()])
                 }
             );
             Ok(())
@@ -117,7 +121,7 @@ mod command {
                 Command::new(r#"foo "bar\" baz""#)?,
                 Command {
                     executable: b"foo".to_vec(),
-                    arguments: vec![b"bar\" baz".to_vec()]
+                    arguments: Argument::wrap_words(vec![b"bar\" baz".to_vec()])
                 }
             );
             Ok(())
@@ -156,7 +160,7 @@ mod command {
                 Command::new("foo  bar")?,
                 Command {
                     executable: b"foo".to_vec(),
-                    arguments: vec![b"bar".to_vec()]
+                    arguments: Argument::wrap_words(vec![b"bar".to_vec()])
                 }
             );
             Ok(())
@@ -168,7 +172,7 @@ mod command {
                 Command::new(" foo bar")?,
                 Command {
                     executable: b"foo".to_vec(),
-                    arguments: vec![b"bar".to_vec()]
+                    arguments: Argument::wrap_words(vec![b"bar".to_vec()])
                 }
             );
             Ok(())
@@ -180,7 +184,7 @@ mod command {
                 Command::new("foo bar ")?,
                 Command {
                     executable: b"foo".to_vec(),
-                    arguments: vec![b"bar".to_vec()]
+                    arguments: Argument::wrap_words(vec![b"bar".to_vec()])
                 }
             );
             Ok(())
@@ -195,7 +199,7 @@ mod command {
                     Command::new(r#"foo "bar\nbaz""#)?,
                     Command {
                         executable: b"foo".to_vec(),
-                        arguments: vec![b"bar\nbaz".to_vec()]
+                        arguments: Argument::wrap_words(vec![b"bar\nbaz".to_vec()])
                     }
                 );
                 Ok(())
@@ -207,7 +211,7 @@ mod command {
                     Command::new(r#"foo bar\ baz"#)?,
                     Command {
                         executable: b"foo".to_vec(),
-                        arguments: vec![b"bar baz".to_vec()]
+                        arguments: Argument::wrap_words(vec![b"bar baz".to_vec()])
                     }
                 );
                 Ok(())
@@ -219,7 +223,7 @@ mod command {
                     Command::new(r#"foo bar\\baz"#)?,
                     Command {
                         executable: b"foo".to_vec(),
-                        arguments: vec![br#"bar\baz"#.to_vec()]
+                        arguments: Argument::wrap_words(vec![br#"bar\baz"#.to_vec()])
                     }
                 );
                 Ok(())

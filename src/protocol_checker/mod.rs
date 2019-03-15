@@ -3,6 +3,7 @@ pub mod test_result;
 
 use crate::context::Context;
 use crate::protocol;
+use crate::protocol::argument::Argument;
 use crate::protocol::Protocol;
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::{tracee_memory, SyscallMock};
@@ -103,7 +104,7 @@ impl SyscallMock for ProtocolChecker {
         if !self.unmocked_commands.contains(&executable) {
             let mock_executable_path = self.handle_step(protocol::Command {
                 executable,
-                arguments,
+                arguments: Argument::wrap_words(arguments),
             })?;
             tracee_memory::poke_single_word_string(
                 pid,

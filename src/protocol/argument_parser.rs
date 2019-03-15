@@ -1,3 +1,4 @@
+use super::argument::Argument;
 use crate::R;
 use std::collections::VecDeque;
 
@@ -71,7 +72,7 @@ impl Parser {
         Ok(result)
     }
 
-    fn parse_word(&mut self) -> R<Option<String>> {
+    fn parse_word(&mut self) -> R<Option<Argument>> {
         self.skip_spaces();
         Ok(match self.input.get(0) {
             None => None,
@@ -83,7 +84,7 @@ impl Parser {
                     vec![Some(' '), None],
                     "closing quotes must be followed by a space",
                 )?;
-                Some(word)
+                Some(Argument::Word(word))
             }
             Some(_) => {
                 let result = self.collect_chars_until(&[' ', '"'])?;
@@ -91,12 +92,21 @@ impl Parser {
                     vec![Some(' '), None],
                     "opening quotes must be preceeded by a space",
                 )?;
-                Some(result)
+                Some(Argument::Word(result))
             }
         })
     }
 
-    pub fn parse_arguments(arguments: &str) -> R<Vec<String>> {
+    pub fn parse_argument_strings(arguments: &str) -> R<Vec<String>> {
+        Ok(Parser::parse_arguments(arguments)?
+            .into_iter()
+            .map(|argument| match argument {
+                Argument::Word(word) => word,
+            })
+            .collect())
+    }
+
+    pub fn parse_arguments(arguments: &str) -> R<Vec<Argument>> {
         Self {
             original: arguments.to_owned(),
             input: arguments.chars().collect(),
@@ -106,7 +116,7 @@ impl Parser {
 }
 
 impl Iterator for Parser {
-    type Item = R<String>;
+    type Item = R<Argument>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.parse_word() {

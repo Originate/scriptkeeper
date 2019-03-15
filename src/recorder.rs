@@ -1,3 +1,4 @@
+use crate::protocol::argument::Argument;
 use crate::protocol::command::Command;
 use crate::protocol::{Protocol, Protocols, Step};
 use crate::tracer::stdio_redirecting::Redirector;
@@ -33,7 +34,7 @@ impl SyscallMock for Recorder {
     ) -> R<()> {
         self.command = Some(Command {
             executable,
-            arguments,
+            arguments: Argument::wrap_words(arguments),
         });
         Ok(())
     }
