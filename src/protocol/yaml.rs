@@ -93,20 +93,19 @@ fn adjust_yaml_output(input: Vec<u8>) -> Vec<u8> {
 }
 
 pub fn write_yaml(mut output_stream: Box<io::Write>, yaml: &Yaml) -> R<()> {
+    struct ToFmtWrite {
+        inner: Cursor<Vec<u8>>,
+    }
+
+    impl fmt::Write for ToFmtWrite {
+        fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
+            io::Write::write_all(&mut self.inner, s.as_bytes()).map_err(|_| fmt::Error)
+        }
+    }
     let mut buffer = ToFmtWrite {
         inner: Cursor::new(vec![]),
     };
     YamlEmitter::new(&mut buffer).dump(yaml)?;
     output_stream.write_all(&adjust_yaml_output(buffer.inner.into_inner()))?;
     Ok(())
-}
-
-struct ToFmtWrite {
-    inner: Cursor<Vec<u8>>,
-}
-
-impl fmt::Write for ToFmtWrite {
-    fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
-        io::Write::write_all(&mut self.inner, s.as_bytes()).map_err(|_| fmt::Error)
-    }
 }
