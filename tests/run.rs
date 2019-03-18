@@ -669,7 +669,7 @@ mod environment {
 
     #[test]
     fn does_not_inherit_the_parent_env() -> R<()> {
-        std::env::set_var("FOO", "BAR");
+        std::env::set_var("FOO", "bar");
         test_run(
             r##"
                 |#!/usr/bin/env bash

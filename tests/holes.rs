@@ -304,3 +304,31 @@ fn removes_hole_when_script_does_not_execute_more_steps() -> R<()> {
         ",
     )
 }
+
+mod environment {
+    use super::*;
+
+    #[test]
+    fn allows_to_specify_a_script_environment() -> R<()> {
+        test_holes(
+            "
+                |#!/usr/bin/env bash
+                |ls $FOO
+            ",
+            "
+                |protocols:
+                |  - env:
+                |      FOO: /tmp
+                |    protocol:
+                |      - _
+            ",
+            "
+                |protocols:
+                |  - env:
+                |      FOO: /tmp
+                |    protocol:
+                |      - ls /tmp
+            ",
+        )
+    }
+}
