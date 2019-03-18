@@ -6,10 +6,13 @@
 #![deny(clippy::all)]
 #![allow(dead_code)]
 
+use check_protocols::utils::path_to_string;
 use check_protocols::{context::Context, run_check_protocols, ExitCode, R};
 use pretty_assertions::assert_eq;
 use std::fs;
+use std::path::PathBuf;
 use test_utils::{trim_margin, TempFile};
+use yaml_rust::YamlLoader;
 
 fn compare_results(result: (ExitCode, String), expected: Result<(), &str>) {
     let expected_output = match expected {
@@ -17,6 +20,13 @@ fn compare_results(result: (ExitCode, String), expected: Result<(), &str>) {
         Ok(()) => (ExitCode(0), "All tests passed.\n".to_string()),
     };
     assert_eq!(result, expected_output);
+}
+
+pub fn prepare_script(script_code: &str, protocol: &str) -> R<(TempFile, PathBuf)> {
+    let script = TempFile::write_temp_script(trim_margin(script_code)?.as_bytes())?;
+    let protocols_file = format!("{}.protocols.yaml", path_to_string(&script.path())?);
+    fs::write(&protocols_file, trim_margin(protocol)?)?;
+    Ok((script, PathBuf::from(protocols_file)))
 }
 
 pub fn test_run_with_tempfile(
@@ -46,4 +56,13 @@ pub fn test_run_with_context(
 
 pub fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -> R<()> {
     test_run_with_context(&Context::new_mock(), script_code, protocol, expected)
+}
+
+pub fn assert_eq_yaml(result: &str, expected: &str) -> R<()> {
+    let result =
+        YamlLoader::load_from_str(result).map_err(|error| format!("{}\n({})", error, result))?;
+    let expected = YamlLoader::load_from_str(expected)
+        .map_err(|error| format!("{}\n({})", error, expected))?;
+    assert_eq!(result, expected);
+    Ok(())
 }

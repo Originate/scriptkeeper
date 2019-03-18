@@ -1,11 +1,13 @@
+pub mod hole_recorder;
+mod protocol_result;
+
 use crate::protocol::command::Command;
-use crate::protocol::{Protocol, Protocols, Step};
+use crate::protocol::{Protocol, Step};
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::SyscallMock;
 use crate::R;
 use libc::user_regs_struct;
 use nix::unistd::Pid;
-use yaml_rust::Yaml;
 
 pub struct Recorder {
     protocol: Protocol,
@@ -22,7 +24,7 @@ impl Default for Recorder {
 }
 
 impl SyscallMock for Recorder {
-    type Result = Yaml;
+    type Result = Protocol;
 
     fn handle_execve_enter(
         &mut self,
@@ -52,10 +54,10 @@ impl SyscallMock for Recorder {
         Ok(())
     }
 
-    fn handle_end(mut self, exitcode: i32, _redirector: &Redirector) -> R<Yaml> {
+    fn handle_end(mut self, exitcode: i32, _redirector: &Redirector) -> R<Protocol> {
         if exitcode != 0 {
             self.protocol.exitcode = Some(exitcode);
         }
-        Ok(Protocols::new(vec![self.protocol]).serialize())
+        Ok(self.protocol)
     }
 }
