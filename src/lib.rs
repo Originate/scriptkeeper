@@ -1,7 +1,7 @@
 #![cfg_attr(feature = "dev", allow(dead_code, unused_variables, unused_imports))]
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
-#![allow(clippy::needless_range_loop)]
+#![allow(clippy::needless_range_loop, clippy::large_enum_variant)]
 #![cfg_attr(test, allow(clippy::module_inception))]
 
 #[macro_use]
@@ -19,7 +19,7 @@ pub mod utils;
 
 use crate::context::Context;
 use crate::protocol::yaml::write_yaml;
-use crate::protocol::Protocols;
+use crate::protocol::{Protocol, Protocols};
 use crate::protocol_checker::executable_mock;
 use crate::recorder::{hole_recorder::run_against_protocols, Recorder};
 use crate::tracer::stdio_redirecting::CaptureStderr;
@@ -138,7 +138,7 @@ fn print_recorded_protocol(context: &Context, program: &Path) -> R<ExitCode> {
         vec![],
         HashMap::new(),
         CaptureStderr::NoCapture,
-        Recorder::new(vec![]),
+        Recorder::new(Protocol::new(vec![])),
     )?;
     write_yaml(
         context.stdout(),
