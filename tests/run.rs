@@ -960,3 +960,35 @@ mod file_mocking {
         Ok(())
     }
 }
+
+#[test]
+fn pipes() -> R<()> {
+    for i in 0..5 {
+        let source = TempFile::write_temp_script(b"foo")?;
+        let target = TempFile::new()?;
+        test_run(
+            &format!(
+                "
+                    |#!/usr/bin/env bash
+                    |env cat {} | tee {}
+                ",
+                path_to_string(&source.path())?,
+                path_to_string(&target.path())?
+            ),
+            &format!(
+                "
+                    |unmockedCommands:
+                    |  - env
+                    |protocols:
+                    |  - protocol:
+                    |      - cat {}
+                    |      - tee {}
+                ",
+                path_to_string(&source.path())?,
+                path_to_string(&target.path())?
+            ),
+            Ok(()),
+        )?;
+    }
+    Ok(())
+}
