@@ -128,12 +128,12 @@ fn run_against_protocol(
             )
         };
     }
-    Ok(if protocol.ends_with_hole {
-        ProtocolResult::Recorded(run_against_mock!(HoleRecorder::new(protocol.arguments))?)
+    if protocol.ends_with_hole {
+        run_against_mock!(HoleRecorder::new(context, unmocked_commands, protocol))
     } else {
-        ProtocolResult::Checked(
+        Ok(ProtocolResult::Checked(
             protocol.clone(),
             run_against_mock!(ProtocolChecker::new(context, protocol, unmocked_commands))?,
-        )
-    })
+        ))
+    }
 }

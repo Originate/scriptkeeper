@@ -198,7 +198,7 @@ fn preserves_script_arguments() -> R<()> {
         "
             |#!/usr/bin/env bash
             |if [ $1 == foo ] ; then
-            |  ls
+            |  ls > /dev/null
             |fi
         ",
         "
@@ -214,4 +214,35 @@ fn preserves_script_arguments() -> R<()> {
             |      - ls
         ",
     )
+}
+
+#[test]
+fn errors_in_protocol_with_hole() -> R<()> {
+    let (script, _) = prepare_script(
+        "
+            |#!/usr/bin/env bash
+            |ls > /dev/null
+            |ls > /dev/null
+        ",
+        "
+            |protocols:
+            |  - arguments: foo
+            |    protocol:
+            |      - ls -la
+            |      - _
+        ",
+    )?;
+    let context = Context::new_mock();
+    run_main(
+        &context,
+        &cli::Args::CheckProtocols {
+            script_path: script.path(),
+            record: false,
+        },
+    )?;
+    assert_eq!(
+        context.get_captured_stdout(),
+        "error:\n  expected: ls -la\n  received: ls\n"
+    );
+    Ok(())
 }
