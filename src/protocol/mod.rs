@@ -312,19 +312,32 @@ impl Protocol {
     }
 
     fn serialize(&self) -> Yaml {
-        let mut object = LinkedHashMap::new();
-        let mut array = vec![];
-        for step in &self.steps {
-            array.push(step.serialize());
+        let mut protocol = LinkedHashMap::new();
+        if !self.arguments.is_empty() {
+            let arguments = self
+                .arguments
+                .iter()
+                .map(|arg| arg.as_bytes().to_vec())
+                .collect();
+            protocol.insert(
+                Yaml::from_str("arguments"),
+                Yaml::String(Command::format_arguments(arguments)),
+            );
         }
-        object.insert(Yaml::from_str("protocol"), Yaml::Array(array));
+        {
+            let mut steps = vec![];
+            for step in &self.steps {
+                steps.push(step.serialize());
+            }
+            protocol.insert(Yaml::from_str("protocol"), Yaml::Array(steps));
+        }
         if let Some(exitcode) = self.exitcode {
-            object.insert(
+            protocol.insert(
                 Yaml::from_str("exitcode"),
                 Yaml::Integer(i64::from(exitcode)),
             );
         }
-        Yaml::Hash(object)
+        Yaml::Hash(protocol)
     }
 }
 
@@ -427,11 +440,11 @@ impl Protocols {
 
     pub fn serialize(&self) -> Yaml {
         let mut object = LinkedHashMap::new();
-        let mut array = vec![];
+        let mut protocols = vec![];
         for protocol in self.protocols.iter() {
-            array.push(protocol.serialize());
+            protocols.push(protocol.serialize());
         }
-        object.insert(Yaml::from_str("protocols"), Yaml::Array(array));
+        object.insert(Yaml::from_str("protocols"), Yaml::Array(protocols));
         Yaml::Hash(object)
     }
 }
@@ -983,6 +996,24 @@ mod serialize {
         roundtrip(Protocols::new(vec![Protocol::new(vec![
             Step::from_string("cp")?,
         ])]))
+    }
+
+    mod arguments {
+        use super::*;
+
+        #[test]
+        fn outputs_the_protocol_arguments() -> R<()> {
+            let mut protocol = Protocol::new(vec![Step::from_string("cp")?]);
+            protocol.arguments = vec!["foo".to_string()];
+            roundtrip(Protocols::new(vec![protocol]))
+        }
+
+        #[test]
+        fn works_for_arguments_with_special_characters() -> R<()> {
+            let mut protocol = Protocol::new(vec![Step::from_string("cp")?]);
+            protocol.arguments = vec!["foo bar".to_string()];
+            roundtrip(Protocols::new(vec![protocol]))
+        }
     }
 
     #[test]

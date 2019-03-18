@@ -35,22 +35,27 @@ impl Command {
         word.chars().map(escape_char).collect::<Vec<_>>().join("")
     }
 
+    pub fn format_arguments(arguments: Vec<Vec<u8>>) -> String {
+        arguments
+            .into_iter()
+            .map(|argument| Command::escape(String::from_utf8_lossy(&argument).to_string()))
+            .map(Command::add_quotes_if_needed)
+            .collect::<Vec<String>>()
+            .join(" ")
+    }
+
     pub fn format(&self) -> String {
-        let mut words =
-            vec![
-                String::from_utf8_lossy(&executable_path::canonicalize(&self.executable))
-                    .into_owned(),
-            ];
-        words.append(
-            &mut self
-                .arguments
-                .clone()
-                .into_iter()
-                .map(|argument| Command::escape(String::from_utf8_lossy(&argument).to_string()))
-                .map(Command::add_quotes_if_needed)
-                .collect(),
-        );
-        words.join(" ")
+        let executable =
+            String::from_utf8_lossy(&executable_path::canonicalize(&self.executable)).into_owned();
+        if self.arguments.is_empty() {
+            executable.to_string()
+        } else {
+            format!(
+                "{} {}",
+                executable,
+                Command::format_arguments(self.arguments.clone())
+            )
+        }
     }
 
     pub fn new(command: &str) -> R<Command> {
