@@ -8,7 +8,7 @@ pub mod yaml;
 use self::argument_parser::Parser;
 pub use self::executable_path::compare_executables;
 use crate::protocol::yaml::*;
-use crate::utils::path_to_string;
+use crate::utils::{path_to_string, with_has_more};
 use crate::R;
 pub use command::Command;
 use linked_hash_map::LinkedHashMap;
@@ -179,8 +179,15 @@ mod parse_step {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+enum HasHole {
+    True,
+    False,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct Protocol {
     pub steps: VecDeque<Step>,
+    has_hole: HasHole,
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
     pub cwd: Option<Vec<u8>>,
@@ -198,6 +205,7 @@ impl Protocol {
     pub fn new(steps: Vec<Step>) -> Protocol {
         Protocol {
             steps: steps.into(),
+            has_hole: HasHole::False,
             arguments: vec![],
             env: HashMap::new(),
             cwd: None,
@@ -208,9 +216,31 @@ impl Protocol {
     }
 
     fn from_array(array: &[Yaml]) -> R<Protocol> {
-        Ok(Protocol::new(
-            array.iter().map(Step::parse).collect::<R<Vec<Step>>>()?,
-        ))
+        enum StepOrHole {
+            Step(Step),
+            Hole,
+        }
+        fn parse_step_or_hole(yaml: &Yaml) -> R<StepOrHole> {
+            Ok(match yaml {
+                Yaml::String(step) if step == "_" => StepOrHole::Hole,
+                yaml => StepOrHole::Step(Step::parse(yaml)?),
+            })
+        }
+        let mut protocol = Protocol::empty();
+        for (yaml, has_more) in with_has_more(array) {
+            match parse_step_or_hole(yaml)? {
+                StepOrHole::Step(step) => {
+                    protocol.steps.push_back(step);
+                }
+                StepOrHole::Hole => {
+                    protocol.has_hole = HasHole::True;
+                    if has_more {
+                        Err("holes ('_') are only allowed as the last step")?;
+                    }
+                }
+            }
+        }
+        Ok(protocol)
     }
 
     fn add_arguments(&mut self, object: &Hash) -> R<()> {
@@ -864,6 +894,65 @@ mod load {
             );
             Ok(())
         }
+    }
+
+    mod holes {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn parses_underscores_as_holes() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r##"
+                        |protocols:
+                        |  - protocol:
+                        |      - _
+                    "##
+                )?
+                .has_hole,
+                HasHole::True
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn false_is_the_default() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r##"
+                        |protocols:
+                        |  - protocol:
+                        |      - /bin/foo
+                    "##
+                )?
+                .has_hole,
+                HasHole::False
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn disallows_underscores_followed_by_more_steps() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_error!(
+                test_parse(
+                    &tempfile,
+                    r##"
+                        |protocols:
+                        |  - protocol:
+                        |      - _
+                        |      - /bin/foo
+                    "##
+                ),
+                format!(
+                    "unexpected type in {}.protocols.yaml: holes ('_') are only allowed as the last step",
+                    path_to_string(&tempfile.path())?
+                )
+            );
+            Ok(())
+        }
+
     }
 }
 
