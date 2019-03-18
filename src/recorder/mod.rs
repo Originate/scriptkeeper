@@ -15,9 +15,7 @@ pub struct Recorder {
 }
 
 impl Recorder {
-    pub fn new(arguments: Vec<String>) -> Recorder {
-        let mut protocol = Protocol::new(vec![]);
-        protocol.arguments = arguments;
+    pub fn new(protocol: Protocol) -> Recorder {
         Recorder {
             protocol,
             command: None,
