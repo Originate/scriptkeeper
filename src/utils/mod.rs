@@ -2,6 +2,7 @@ pub mod short_temp_files;
 
 use crate::R;
 use std::fs;
+use std::iter::Peekable;
 use std::path::Path;
 
 pub fn path_to_string(path: &Path) -> R<&str> {
@@ -21,4 +22,24 @@ pub fn parse_hashbang(program: &Path) -> Option<String> {
     } else {
         None
     }
+}
+
+pub fn with_has_more<Element>(
+    input: impl IntoIterator<Item = Element>,
+) -> impl Iterator<Item = (Element, bool)> {
+    struct Iter<Element, I: Iterator<Item = Element>>(Peekable<I>);
+
+    impl<Element, I: Iterator<Item = Element>> Iterator for Iter<Element, I> {
+        type Item = (Element, bool);
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let result = self.0.next();
+            match result {
+                None => None,
+                Some(current) => Some((current, self.0.peek().is_some())),
+            }
+        }
+    }
+
+    Iter(input.into_iter().peekable())
 }
