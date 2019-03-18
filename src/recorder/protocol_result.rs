@@ -62,6 +62,7 @@ impl ProtocolResult {
     pub fn handle_results(
         context: &Context,
         protocols_file: &Path,
+        unmocked_commands: Vec<Vec<u8>>,
         results: &[ProtocolResult],
     ) -> R<ExitCode> {
         let checker_results = CheckerResults(
@@ -70,7 +71,13 @@ impl ProtocolResult {
                 .filter_map(|result| result.get_test_result())
                 .collect(),
         );
-        ProtocolResult::handle_recorded(context, protocols_file, &results, &checker_results)?;
+        ProtocolResult::handle_recorded(
+            context,
+            protocols_file,
+            unmocked_commands,
+            &results,
+            &checker_results,
+        )?;
         write!(context.stdout(), "{}", checker_results.format())?;
         Ok(checker_results.exitcode())
     }
@@ -78,6 +85,7 @@ impl ProtocolResult {
     fn handle_recorded(
         context: &Context,
         protocols_file: &Path,
+        unmocked_commands: Vec<Vec<u8>>,
         results: &[ProtocolResult],
         checker_results: &CheckerResults,
     ) -> R<()> {
@@ -88,8 +96,12 @@ impl ProtocolResult {
                 .open(protocols_file)?;
             write_yaml(
                 Box::new(file),
-                &Protocols::new(results.iter().map(|result| result.get_protocol()).collect())
-                    .serialize(),
+                &Protocols {
+                    protocols: results.iter().map(|result| result.get_protocol()).collect(),
+                    unmocked_commands,
+                    interpreter: None,
+                }
+                .serialize()?,
             )?;
             writeln!(
                 context.stdout(),

@@ -332,3 +332,29 @@ mod environment {
         )
     }
 }
+
+mod unmocked_commands {
+    use super::*;
+
+    #[test]
+    fn preserves_unmocked_commands() -> R<()> {
+        test_holes(
+            "
+                |#!/usr/bin/env bash
+            ",
+            "
+                |unmockedCommands:
+                |  - sed
+                |protocols:
+                |  - protocol:
+                |      - _
+            ",
+            "
+                |unmockedCommands:
+                |  - sed
+                |protocols:
+                |  - protocol: []
+            ",
+        )
+    }
+}

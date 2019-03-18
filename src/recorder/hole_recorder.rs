@@ -117,5 +117,5 @@ pub fn run_against_protocols(
         protocols,
         &unmocked_commands,
     )?;
-    ProtocolResult::handle_results(context, protocols_file, &results)
+    ProtocolResult::handle_results(context, protocols_file, unmocked_commands, &results)
 }

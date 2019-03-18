@@ -446,14 +446,34 @@ impl Protocols {
         ))
     }
 
-    pub fn serialize(&self) -> Yaml {
-        let mut object = LinkedHashMap::new();
-        let mut protocols = vec![];
-        for protocol in self.protocols.iter() {
-            protocols.push(protocol.serialize());
+    fn serialize_unmocked_commands(&self, object: &mut Hash) -> R<()> {
+        if !self.unmocked_commands.is_empty() {
+            object.insert(
+                Yaml::from_str("unmockedCommands"),
+                Yaml::Array(
+                    self.unmocked_commands
+                        .iter()
+                        .map(|unmocked_command| {
+                            Ok(Yaml::String(String::from_utf8(unmocked_command.to_vec())?))
+                        })
+                        .collect::<R<Vec<Yaml>>>()?,
+                ),
+            );
         }
-        object.insert(Yaml::from_str("protocols"), Yaml::Array(protocols));
-        Yaml::Hash(object)
+        Ok(())
+    }
+
+    pub fn serialize(&self) -> R<Yaml> {
+        let mut object = LinkedHashMap::new();
+        self.serialize_unmocked_commands(&mut object)?;
+        {
+            let mut protocols = vec![];
+            for protocol in self.protocols.iter() {
+                protocols.push(protocol.serialize());
+            }
+            object.insert(Yaml::from_str("protocols"), Yaml::Array(protocols));
+        }
+        Ok(Yaml::Hash(object))
     }
 }
 
@@ -983,7 +1003,7 @@ mod serialize {
     use pretty_assertions::assert_eq;
 
     fn roundtrip(protocols: Protocols) -> R<()> {
-        let yaml = protocols.serialize();
+        let yaml = protocols.serialize()?;
         let result = Protocols::parse(yaml)?;
         assert_eq!(result, protocols);
         Ok(())
@@ -1046,6 +1066,13 @@ mod serialize {
         let mut protocol = Protocol::empty();
         protocol.env.insert("FOO".to_string(), "bar".to_string());
         roundtrip(Protocols::new(vec![protocol]))
+    }
+
+    #[test]
+    fn includes_unmocked_commands() -> R<()> {
+        let mut protocols = Protocols::new(vec![Protocol::new(vec![])]);
+        protocols.unmocked_commands = vec![b"sed".to_vec()];
+        roundtrip(protocols)
     }
 }
 
