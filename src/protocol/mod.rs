@@ -305,6 +305,16 @@ impl Protocol {
         Ok(protocol)
     }
 
+    fn serialize_env(&self, object: &mut Hash) {
+        if !self.env.is_empty() {
+            let mut env = LinkedHashMap::new();
+            for (key, value) in &self.env {
+                env.insert(Yaml::from_str(key), Yaml::from_str(value));
+            }
+            object.insert(Yaml::from_str("env"), Yaml::Hash(env));
+        }
+    }
+
     fn serialize(&self) -> Yaml {
         let mut protocol = LinkedHashMap::new();
         if !self.arguments.is_empty() {
@@ -318,6 +328,7 @@ impl Protocol {
                 Yaml::String(Command::format_arguments(arguments)),
             );
         }
+        self.serialize_env(&mut protocol);
         {
             let mut steps = vec![];
             for step in &self.steps {
@@ -1027,6 +1038,13 @@ mod serialize {
             stdout: vec![],
             exitcode: 42,
         }]);
+        roundtrip(Protocols::new(vec![protocol]))
+    }
+
+    #[test]
+    fn includes_the_environment() -> R<()> {
+        let mut protocol = Protocol::empty();
+        protocol.env.insert("FOO".to_string(), "bar".to_string());
         roundtrip(Protocols::new(vec![protocol]))
     }
 }
