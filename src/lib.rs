@@ -138,7 +138,7 @@ fn print_recorded_protocol(context: &Context, program: &Path) -> R<ExitCode> {
         vec![],
         HashMap::new(),
         CaptureStderr::NoCapture,
-        Recorder::default(),
+        Recorder::new(vec![]),
     )?;
     write_yaml(
         context.stdout(),

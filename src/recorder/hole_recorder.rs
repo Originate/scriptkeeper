@@ -14,9 +14,9 @@ pub struct HoleRecorder {
 }
 
 impl HoleRecorder {
-    pub fn new() -> HoleRecorder {
+    pub fn new(arguments: Vec<String>) -> HoleRecorder {
         HoleRecorder {
-            recorder: Recorder::default(),
+            recorder: Recorder::new(arguments),
         }
     }
 }

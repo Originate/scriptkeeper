@@ -14,10 +14,12 @@ pub struct Recorder {
     command: Option<Command>,
 }
 
-impl Default for Recorder {
-    fn default() -> Recorder {
+impl Recorder {
+    pub fn new(arguments: Vec<String>) -> Recorder {
+        let mut protocol = Protocol::new(vec![]);
+        protocol.arguments = arguments;
         Recorder {
-            protocol: Protocol::new(vec![]),
+            protocol,
             command: None,
         }
     }

@@ -161,3 +161,57 @@ fn works_in_conjunction_with_protocols_without_hole() -> R<()> {
         ",
     )
 }
+
+#[test]
+fn works_for_multiple_protocols_with_holes() -> R<()> {
+    test_holes(
+        "
+            |#!/usr/bin/env bash
+            |if [ $1 == foo ] ; then
+            |  ls
+            |else
+            |  ls -la
+            |fi
+        ",
+        "
+            |protocols:
+            |  - arguments: foo
+            |    protocol:
+            |      - _
+            |  - protocol:
+            |      - _
+        ",
+        "
+            |protocols:
+            |  - arguments: foo
+            |    protocol:
+            |      - ls
+            |  - protocol:
+            |      - ls -la
+        ",
+    )
+}
+
+#[test]
+fn preserves_script_arguments() -> R<()> {
+    test_holes(
+        "
+            |#!/usr/bin/env bash
+            |if [ $1 == foo ] ; then
+            |  ls
+            |fi
+        ",
+        "
+            |protocols:
+            |  - arguments: foo
+            |    protocol:
+            |      - _
+        ",
+        "
+            |protocols:
+            |  - arguments: foo
+            |    protocol:
+            |      - ls
+        ",
+    )
+}
