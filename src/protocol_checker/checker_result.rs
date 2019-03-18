@@ -51,7 +51,7 @@ impl CheckerResults {
         }
     }
 
-    fn is_pass(&self) -> bool {
+    pub fn is_pass(&self) -> bool {
         self.0.iter().all(|result| result.is_pass())
     }
 

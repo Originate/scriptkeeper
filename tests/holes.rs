@@ -26,8 +26,8 @@ fn test_holes(script_code: &str, existing: &str, expected: &str) -> R<()> {
         },
     )?;
     assert_eq_yaml(
-        &trim_margin(expected)?,
         &String::from_utf8(fs::read(&protocols_file)?)?,
+        &trim_margin(expected)?,
     )?;
     Ok(())
 }
@@ -133,7 +133,7 @@ fn works_for_holes_following_specified_steps() -> R<()> {
 }
 
 #[test]
-fn works_in_conjunction_with_protocols_without_hole() -> R<()> {
+fn works_in_conjunction_with_protocols_without_holes() -> R<()> {
     test_holes(
         "
             |#!/usr/bin/env bash
@@ -192,14 +192,82 @@ fn works_for_multiple_protocols_with_holes() -> R<()> {
     )
 }
 
+mod errors_in_protocols {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn errors_in_protocol_with_hole() -> R<()> {
+        let (script, _) = prepare_script(
+            "
+                |#!/usr/bin/env bash
+                |ls > /dev/null
+                |ls > /dev/null
+            ",
+            "
+                |protocols:
+                |  - protocol:
+                |      - ls -la
+                |      - _
+            ",
+        )?;
+        let context = Context::new_mock();
+        run_main(
+            &context,
+            &cli::Args::CheckProtocols {
+                script_path: script.path(),
+                record: false,
+            },
+        )?;
+        assert_eq!(
+            context.get_captured_stdout(),
+            "error:\n  expected: ls -la\n  received: ls\n"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn errors_in_protocol_without_hole() -> R<()> {
+        let (script, _) = prepare_script(
+            "
+                |#!/usr/bin/env bash
+                |if [ $1 == foo ] ; then
+                |  ls > /dev/null
+                |else
+                |  ls -la > /dev/null
+                |fi
+            ",
+            "
+                |protocols:
+                |  - arguments: foo
+                |    protocol:
+                |      - ls -foo
+                |  - protocol:
+                |      - _
+            ",
+        )?;
+        let context = Context::new_mock();
+        run_main(
+            &context,
+            &cli::Args::CheckProtocols {
+                script_path: script.path(),
+                record: false,
+            },
+        )?;
+        assert_eq!(
+            context.get_captured_stdout(),
+            "error:\n  expected: ls -foo\n  received: ls\n"
+        );
+        Ok(())
+    }
+}
+
 #[test]
 fn preserves_script_arguments() -> R<()> {
     test_holes(
         "
             |#!/usr/bin/env bash
-            |if [ $1 == foo ] ; then
-            |  ls > /dev/null
-            |fi
+            |ls > /dev/null
         ",
         "
             |protocols:
@@ -217,32 +285,22 @@ fn preserves_script_arguments() -> R<()> {
 }
 
 #[test]
-fn errors_in_protocol_with_hole() -> R<()> {
-    let (script, _) = prepare_script(
+fn removes_hole_when_script_does_not_execute_more_steps() -> R<()> {
+    test_holes(
         "
             |#!/usr/bin/env bash
-            |ls > /dev/null
             |ls > /dev/null
         ",
         "
             |protocols:
-            |  - arguments: foo
-            |    protocol:
-            |      - ls -la
+            |  - protocol:
+            |      - ls
             |      - _
         ",
-    )?;
-    let context = Context::new_mock();
-    run_main(
-        &context,
-        &cli::Args::CheckProtocols {
-            script_path: script.path(),
-            record: false,
-        },
-    )?;
-    assert_eq!(
-        context.get_captured_stdout(),
-        "error:\n  expected: ls -la\n  received: ls\n"
-    );
-    Ok(())
+        "
+            |protocols:
+            |  - protocol:
+            |      - ls
+        ",
+    )
 }
