@@ -11,9 +11,10 @@ mod utils;
 use check_protocols::utils::path_to_string;
 use check_protocols::{context::Context, run_check_protocols, R};
 use std::env;
+use std::fs;
 use std::path::PathBuf;
 use test_utils::{assert_error, trim_margin, TempFile};
-use utils::{test_run, test_run_with_tempfile};
+use utils::{prepare_script, test_run, test_run_with_tempfile};
 
 #[test]
 fn simple() -> R<()> {
@@ -28,6 +29,61 @@ fn simple() -> R<()> {
         "##,
         Ok(()),
     )?;
+    Ok(())
+}
+
+#[test]
+fn does_not_execute_the_commands() -> R<()> {
+    let testfile = TempFile::new()?;
+    let (script, _) = prepare_script(
+        &format!(
+            "
+                |#!/usr/bin/env bash
+                |touch {}
+            ",
+            testfile.path().to_string_lossy()
+        ),
+        &format!(
+            "
+                |protocols:
+                |  - protocol:
+                |      - /usr/bin/touch {}
+            ",
+            path_to_string(&testfile.path())?,
+        ),
+    )?;
+    let context = Context::new_mock();
+    run_check_protocols(&context, &script.path())?;
+    assert_eq!(context.get_captured_stdout(), "All tests passed.\n");
+    assert!(!testfile.path().exists(), "touch was executed");
+    Ok(())
+}
+
+#[test]
+fn works_for_longer_file_names() -> R<()> {
+    let long_command = TempFile::new()?;
+    let long_command_path = long_command.path().to_string_lossy().to_string();
+    fs::copy("/bin/true", &long_command_path)?;
+    let (script, _) = prepare_script(
+        &format!(
+            r##"
+                |#!/usr/bin/env bash
+                |{}
+            "##,
+            &long_command_path
+        ),
+        &format!(
+            "
+                |protocols:
+                |  - protocol:
+                |      - {}
+            ",
+            &long_command_path
+        ),
+    )?;
+    let context = Context::new_mock();
+    run_check_protocols(&context, &script.path())?;
+    assert_eq!(context.get_captured_stdout(), "All tests passed.\n");
     Ok(())
 }
 
