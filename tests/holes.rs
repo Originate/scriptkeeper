@@ -304,3 +304,30 @@ fn removes_hole_when_script_does_not_execute_more_steps() -> R<()> {
         ",
     )
 }
+
+#[test]
+#[ignore]
+fn preserves_unmocked_commands() -> R<()> {
+    test_holes(
+        "
+            |#!/usr/bin/env bash
+            |ls | sed s/foo/bar/g
+        ",
+        "
+            |unmockedCommands:
+            |  - sed
+            |protocols:
+            |  - arguments: foo
+            |    protocol:
+            |      - _
+        ",
+        "
+            |unmockedCommands:
+            |  - sed
+            |protocols:
+            |  - arguments: foo
+            |    protocol:
+            |      - ls
+        ",
+    )
+}
