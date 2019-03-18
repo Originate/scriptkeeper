@@ -64,16 +64,24 @@ impl ProtocolResult {
         protocols_file: &Path,
         results: &[ProtocolResult],
     ) -> R<ExitCode> {
-        ProtocolResult::handle_recorded(context, protocols_file, &results)?;
-        ProtocolResult::handle_test_results(context, results)
+        let checker_results = CheckerResults(
+            results
+                .iter()
+                .filter_map(|result| result.get_test_result())
+                .collect(),
+        );
+        ProtocolResult::handle_recorded(context, protocols_file, &results, &checker_results)?;
+        write!(context.stdout(), "{}", checker_results.format())?;
+        Ok(checker_results.exitcode())
     }
 
     fn handle_recorded(
         context: &Context,
         protocols_file: &Path,
         results: &[ProtocolResult],
+        checker_results: &CheckerResults,
     ) -> R<()> {
-        if results.iter().any(|result| result.is_recorded()) {
+        if checker_results.is_pass() && results.iter().any(|result| result.is_recorded()) {
             let file = OpenOptions::new()
                 .write(true)
                 .truncate(true)
@@ -90,17 +98,6 @@ impl ProtocolResult {
             )?;
         }
         Ok(())
-    }
-
-    fn handle_test_results(context: &Context, results: &[ProtocolResult]) -> R<ExitCode> {
-        let test_results = CheckerResults(
-            results
-                .iter()
-                .filter_map(|result| result.get_test_result())
-                .collect(),
-        );
-        write!(context.stdout(), "{}", test_results.format())?;
-        Ok(test_results.exitcode())
     }
 }
 
