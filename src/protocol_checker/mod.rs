@@ -19,7 +19,7 @@ use std::path::PathBuf;
 pub struct ProtocolChecker {
     context: Context,
     pub protocol: Protocol,
-    unmocked_commands: Vec<Vec<u8>>,
+    pub unmocked_commands: Vec<Vec<u8>>,
     pub result: CheckerResult,
     temporary_executables: Vec<ShortTempFile>,
 }
