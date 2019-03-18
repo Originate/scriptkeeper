@@ -19,14 +19,12 @@ pub mod utils;
 
 use crate::context::Context;
 use crate::protocol::yaml::write_yaml;
-use crate::protocol::{Protocol, Protocols};
-use crate::protocol_checker::test_result::{TestResult, TestResults};
-use crate::protocol_checker::{executable_mock, ProtocolChecker};
-use crate::recorder::Recorder;
+use crate::protocol::Protocols;
+use crate::protocol_checker::executable_mock;
+use crate::recorder::{hole_recorder::run_against_protocols, Recorder};
 use crate::tracer::stdio_redirecting::CaptureStderr;
 use crate::tracer::Tracer;
 use std::collections::HashMap;
-use std::io::Write;
 use std::path::Path;
 
 pub type R<A> = Result<A, Box<std::error::Error>>;
@@ -128,121 +126,12 @@ pub fn run_check_protocols(context: &Context, script: &Path) -> R<ExitCode> {
             script.to_string_lossy()
         ))?
     }
-    let expected_protocols = Protocols::load(script)?;
-    let results = run_against_protocols(&context, script, expected_protocols)?;
-    write!(context.stdout(), "{}", results.format_test_results())?;
-    Ok(results.exitcode())
-}
-
-fn run_against_protocols(
-    context: &Context,
-    program: &Path,
-    Protocols {
-        protocols,
-        unmocked_commands,
-        interpreter,
-    }: Protocols,
-) -> R<TestResults> {
-    let mut test_results = vec![];
-    for protocol in protocols.into_iter() {
-        test_results.push(run_against_protocol(
-            context,
-            &interpreter,
-            program,
-            protocol,
-            &unmocked_commands,
-        )?)
-    }
-    Ok(TestResults(test_results))
-}
-
-pub fn run_against_protocol(
-    context: &Context,
-    interpreter: &Option<Vec<u8>>,
-    program: &Path,
-    protocol: Protocol,
-    unmocked_commands: &[Vec<u8>],
-) -> R<TestResult> {
-    Tracer::run_against_mock(
-        context,
-        interpreter,
-        program,
-        protocol.arguments.clone(),
-        protocol.env.clone(),
-        if protocol.stderr.is_some() {
-            CaptureStderr::Capture
-        } else {
-            CaptureStderr::NoCapture
-        },
-        ProtocolChecker::new(context, protocol, unmocked_commands),
-    )
-}
-
-#[cfg(test)]
-mod run_against_protocol {
-    use super::*;
-    use crate::protocol::command::Command;
-    use std::fs;
-    use std::os::unix::ffi::OsStrExt;
-    use test_utils::{trim_margin, TempFile};
-
-    #[test]
-    fn works_for_longer_file_names() -> R<()> {
-        let long_command = TempFile::new()?;
-        fs::copy("/bin/true", long_command.path())?;
-        let script = TempFile::write_temp_script(
-            trim_margin(&format!(
-                r##"
-                    |#!/usr/bin/env bash
-                    |{}
-                "##,
-                long_command.path().to_string_lossy()
-            ))?
-            .as_bytes(),
-        )?;
-        assert_eq!(
-            run_against_protocol(
-                &Context::new_mock(),
-                &None,
-                &script.path(),
-                Protocol::new(vec![protocol::Step::new(Command {
-                    executable: long_command.path().as_os_str().as_bytes().to_vec(),
-                    arguments: vec![],
-                })]),
-                &[]
-            )?,
-            TestResult::Pass
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn does_not_execute_the_commands() -> R<()> {
-        let testfile = TempFile::new()?;
-        let script = TempFile::write_temp_script(
-            trim_margin(&format!(
-                r##"
-                    |#!/usr/bin/env bash
-                    |touch {}
-                "##,
-                testfile.path().to_string_lossy()
-            ))?
-            .as_bytes(),
-        )?;
-        let _ = run_against_protocol(
-            &Context::new_mock(),
-            &None,
-            &script.path(),
-            Protocol::empty(),
-            &[],
-        )?;
-        assert!(!testfile.path().exists(), "touch was executed");
-        Ok(())
-    }
+    let (protocols_file, expected_protocols) = Protocols::load(script)?;
+    run_against_protocols(&context, script, &protocols_file, expected_protocols)
 }
 
 fn print_recorded_protocol(context: &Context, program: &Path) -> R<ExitCode> {
-    let yaml = Tracer::run_against_mock(
+    let protocol = Tracer::run_against_mock(
         context,
         &None,
         program,
@@ -251,6 +140,9 @@ fn print_recorded_protocol(context: &Context, program: &Path) -> R<ExitCode> {
         CaptureStderr::NoCapture,
         Recorder::default(),
     )?;
-    write_yaml(context.stdout(), &yaml)?;
+    write_yaml(
+        context.stdout(),
+        &Protocols::new(vec![protocol]).serialize(),
+    )?;
     Ok(ExitCode(0))
 }

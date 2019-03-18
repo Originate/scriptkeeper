@@ -179,15 +179,9 @@ mod parse_step {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-enum HasHole {
-    True,
-    False,
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub struct Protocol {
     pub steps: VecDeque<Step>,
-    has_hole: HasHole,
+    pub ends_with_hole: bool,
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
     pub cwd: Option<Vec<u8>>,
@@ -205,7 +199,7 @@ impl Protocol {
     pub fn new(steps: Vec<Step>) -> Protocol {
         Protocol {
             steps: steps.into(),
-            has_hole: HasHole::False,
+            ends_with_hole: false,
             arguments: vec![],
             env: HashMap::new(),
             cwd: None,
@@ -233,7 +227,7 @@ impl Protocol {
                     protocol.steps.push_back(step);
                 }
                 StepOrHole::Hole => {
-                    protocol.has_hole = HasHole::True;
+                    protocol.ends_with_hole = true;
                     if has_more {
                         Err("holes ('_') are only allowed as the last step")?;
                     }
@@ -405,7 +399,7 @@ impl Protocols {
         })
     }
 
-    pub fn load(executable_path: &Path) -> R<Protocols> {
+    pub fn load(executable_path: &Path) -> R<(PathBuf, Protocols)> {
         let protocols_file = find_protocol_file(executable_path);
         let file_contents = read_protocols_file(&protocols_file)?;
         let yaml: Vec<Yaml> = YamlLoader::load_from_str(&file_contents).map_err(|error| {
@@ -429,13 +423,16 @@ impl Protocols {
                 )
             })?
         };
-        Ok(Protocols::parse(yaml).map_err(|error| {
-            format!(
-                "unexpected type in {}: {}",
-                protocols_file.to_string_lossy(),
-                error
-            )
-        })?)
+        Ok((
+            protocols_file.clone(),
+            Protocols::parse(yaml).map_err(|error| {
+                format!(
+                    "unexpected type in {}: {}",
+                    protocols_file.to_string_lossy(),
+                    error
+                )
+            })?,
+        ))
     }
 
     pub fn serialize(&self) -> Yaml {
@@ -461,7 +458,7 @@ mod load {
     fn test_parse(tempfile: &TempFile, protocol_string: &str) -> R<Protocols> {
         let protocols_file = tempfile.path().with_extension("protocols.yaml");
         fs::write(&protocols_file, trim_margin(protocol_string)?)?;
-        Protocols::load(&tempfile.path())
+        Ok(Protocols::load(&tempfile.path())?.1)
     }
 
     fn test_parse_one(protocol_string: &str) -> R<Protocol> {
@@ -923,8 +920,8 @@ mod load {
                         |      - _
                     "##
                 )?
-                .has_hole,
-                HasHole::True
+                .ends_with_hole,
+                true
             );
             Ok(())
         }
@@ -939,8 +936,8 @@ mod load {
                         |      - /bin/foo
                     "##
                 )?
-                .has_hole,
-                HasHole::False
+                .ends_with_hole,
+                false
             );
             Ok(())
         }

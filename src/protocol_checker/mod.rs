@@ -1,5 +1,5 @@
+pub mod checker_result;
 pub mod executable_mock;
-pub mod test_result;
 
 use crate::context::Context;
 use crate::protocol;
@@ -8,19 +8,19 @@ use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::{tracee_memory, SyscallMock};
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::R;
+use checker_result::CheckerResult;
 use libc::{c_ulonglong, user_regs_struct};
 use nix::sys::ptrace;
 use nix::unistd::Pid;
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
-use test_result::TestResult;
 
 #[derive(Debug)]
 pub struct ProtocolChecker {
     context: Context,
     protocol: Protocol,
     unmocked_commands: Vec<Vec<u8>>,
-    pub result: TestResult,
+    pub result: CheckerResult,
     temporary_executables: Vec<ShortTempFile>,
 }
 
@@ -34,7 +34,7 @@ impl ProtocolChecker {
             context: context.clone(),
             protocol,
             unmocked_commands: unmocked_commands.to_vec(),
-            result: TestResult::Pass,
+            result: CheckerResult::Pass,
             temporary_executables: vec![],
         }
     }
@@ -82,16 +82,16 @@ impl ProtocolChecker {
 
     fn register_error(&mut self, message: String) {
         match self.result {
-            TestResult::Pass => {
-                self.result = TestResult::Failure(message);
+            CheckerResult::Pass => {
+                self.result = CheckerResult::Failure(message);
             }
-            TestResult::Failure(_) => {}
+            CheckerResult::Failure(_) => {}
         }
     }
 }
 
 impl SyscallMock for ProtocolChecker {
-    type Result = TestResult;
+    type Result = CheckerResult;
 
     fn handle_execve_enter(
         &mut self,
@@ -151,7 +151,7 @@ impl SyscallMock for ProtocolChecker {
         Ok(())
     }
 
-    fn handle_end(mut self, exitcode: i32, redirector: &Redirector) -> R<TestResult> {
+    fn handle_end(mut self, exitcode: i32, redirector: &Redirector) -> R<CheckerResult> {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_step_error(&expected_step.command.format(), "<script terminated>");
         }

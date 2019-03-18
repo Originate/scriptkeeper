@@ -1,43 +1,43 @@
 use crate::ExitCode;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum TestResult {
+pub enum CheckerResult {
     Pass,
     Failure(String),
 }
 
-impl TestResult {
+impl CheckerResult {
     fn is_pass(&self) -> bool {
         match self {
-            TestResult::Pass => true,
-            TestResult::Failure(_) => false,
+            CheckerResult::Pass => true,
+            CheckerResult::Failure(_) => false,
         }
     }
 
     fn format(&self, number: Option<usize>) -> String {
         match self {
-            TestResult::Failure(error) => {
+            CheckerResult::Failure(error) => {
                 let header = number.map_or("error".to_string(), |number| {
                     format!("error in protocol {}", number)
                 });
                 format!("{}:\n{}", header, error)
             }
-            TestResult::Pass => match number {
-                None => panic!("TestResult.format: shouldn't happen"),
+            CheckerResult::Pass => match number {
+                None => panic!("CheckerResult.format: shouldn't happen"),
                 Some(number) => format!("protocol {}:\n  Tests passed.\n", number),
             },
         }
     }
 }
 
-pub struct TestResults(pub Vec<TestResult>);
+pub struct CheckerResults(pub Vec<CheckerResult>);
 
-impl TestResults {
-    pub fn format_test_results(&self) -> String {
+impl CheckerResults {
+    pub fn format(&self) -> String {
         if self.is_pass() {
             "All tests passed.\n".to_string()
         } else {
-            let TestResults(results) = &self;
+            let CheckerResults(results) = &self;
             if results.len() == 1 {
                 results.iter().next().unwrap().format(None)
             } else {

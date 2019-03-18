@@ -5,11 +5,13 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
+#[path = "./utils.rs"]
+mod utils;
+
 use check_protocols::context::Context;
 use check_protocols::{cli, run_main, R};
-use pretty_assertions::assert_eq;
 use test_utils::{trim_margin, TempFile};
-use yaml_rust::YamlLoader;
+use utils::assert_eq_yaml;
 
 mod yaml_formatting {
     use super::*;
@@ -41,15 +43,6 @@ mod yaml_formatting {
         assert!(!context.get_captured_stdout().starts_with("---"));
         Ok(())
     }
-}
-
-fn assert_eq_yaml(result: &str, expected: &str) -> R<()> {
-    let result =
-        YamlLoader::load_from_str(result).map_err(|error| format!("{}\n({})", error, result))?;
-    let expected = YamlLoader::load_from_str(expected)
-        .map_err(|error| format!("{}\n({})", error, expected))?;
-    assert_eq!(result, expected);
-    Ok(())
 }
 
 fn test_recording(script: &str, expected: &str) -> R<()> {
