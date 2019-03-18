@@ -223,6 +223,7 @@ impl Tracer {
             }
             Some(old) => {
                 if old != syscall {
+                    println!("pid: {}, {:?}, {:?}", pid, syscall, self.entered_syscalls);
                     Err("update_syscall_state: exiting with the wrong syscall")?
                 } else {
                     self.entered_syscalls.remove(&pid);
@@ -242,6 +243,7 @@ impl Tracer {
     ) -> R<()> {
         match (&syscall, syscall_stop) {
             (Syscall::Execve, SyscallStop::Enter) => {
+                println!("execve: {:?}", pid);
                 if self.tracee_pid != pid {
                     let executable = tracee_memory::peek_string(pid, registers.rdi)?;
                     let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;

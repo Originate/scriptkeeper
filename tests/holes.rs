@@ -305,9 +305,57 @@ fn removes_hole_when_script_does_not_execute_more_steps() -> R<()> {
     )
 }
 
+#[macro_export]
+macro_rules! foo {
+    ($name:ident, $test:expr) => {
+        #[test]
+        fn $name() -> R<()> {
+            use nix::sys::wait;
+            let foo = std::panic::catch_unwind(|| $test);
+            println!("cleanup: {:?}", foo);
+            loop {
+                let status = wait::waitpid(None, Some(wait::WaitPidFlag::WNOHANG))?;
+                if status == wait::WaitStatus::StillAlive {
+                    break;
+                }
+            }
+            let result = match foo {
+                Err(panic_error) => panic!(panic_error),
+                Ok(result) => result,
+            };
+            result
+        }
+    };
+}
+
+foo!(preserves_unmocked_commands, {
+    test_holes(
+        "
+            |#!/usr/bin/env bash
+            |ls | sed s/foo/bar/g
+        ",
+        "
+            |unmockedCommands:
+            |  - sed
+            |protocols:
+            |  - arguments: foo
+            |    protocol:
+            |      - _
+        ",
+        "
+            |unmockedCommands:
+            |  - sed
+            |protocols:
+            |  - arguments: foo
+            |    protocol:
+            |      - ls
+        ",
+    )
+});
+
 #[test]
 #[ignore]
-fn preserves_unmocked_commands() -> R<()> {
+fn preserves_unmocked_commands_original() -> R<()> {
     test_holes(
         "
             |#!/usr/bin/env bash
