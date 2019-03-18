@@ -79,15 +79,24 @@ impl SyscallMock for HoleRecorder {
     }
 
     fn handle_end(self, exitcode: i32, redirector: &Redirector) -> R<ProtocolResult> {
-        match self {
+        Ok(match self {
             HoleRecorder::Checker {
                 checker,
-                original_protocol,
-            } => Ok(ProtocolResult::Checked(original_protocol, checker.result)),
-            HoleRecorder::Recorder { recorder } => Ok(ProtocolResult::Recorded(
-                recorder.handle_end(exitcode, redirector)?,
-            )),
-        }
+                mut original_protocol,
+            } => match checker.result {
+                CheckerResult::Pass => {
+                    original_protocol.ends_with_hole = false;
+                    let recorder = Recorder::new(original_protocol);
+                    ProtocolResult::Recorded(recorder.handle_end(exitcode, redirector)?)
+                }
+                failure @ CheckerResult::Failure(_) => {
+                    ProtocolResult::Checked(original_protocol, failure)
+                }
+            },
+            HoleRecorder::Recorder { recorder } => {
+                ProtocolResult::Recorded(recorder.handle_end(exitcode, redirector)?)
+            }
+        })
     }
 }
 
