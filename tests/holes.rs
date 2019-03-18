@@ -357,4 +357,27 @@ mod unmocked_commands {
             ",
         )
     }
+
+    #[test]
+    fn excludes_unmocked_commands_from_recorded_protocols() -> R<()> {
+        test_holes(
+            "
+                |#!/usr/bin/env bash
+                |ls
+            ",
+            "
+                |unmockedCommands:
+                |  - ls
+                |protocols:
+                |  - protocol:
+                |      - _
+            ",
+            "
+                |unmockedCommands:
+                |  - ls
+                |protocols:
+                |  - protocol: []
+            ",
+        )
+    }
 }

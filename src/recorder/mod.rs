@@ -2,7 +2,7 @@ pub mod hole_recorder;
 mod protocol_result;
 
 use crate::protocol::command::Command;
-use crate::protocol::{Protocol, Step};
+use crate::protocol::{compare_executables, Protocol, Step};
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::SyscallMock;
 use crate::R;
@@ -12,20 +12,23 @@ use nix::unistd::Pid;
 pub struct Recorder {
     protocol: Protocol,
     command: Option<Command>,
+    unmocked_commands: Vec<Vec<u8>>,
 }
 
 impl Recorder {
-    pub fn new() -> Recorder {
+    pub fn empty() -> Recorder {
         Recorder {
             protocol: Protocol::new(vec![]),
             command: None,
+            unmocked_commands: vec![],
         }
     }
 
-    pub fn new_with_protocol(protocol: Protocol) -> Recorder {
+    pub fn new(protocol: Protocol, unmocked_commands: &[Vec<u8>]) -> Recorder {
         Recorder {
             protocol,
             command: None,
+            unmocked_commands: unmocked_commands.to_vec(),
         }
     }
 }
@@ -40,24 +43,28 @@ impl SyscallMock for Recorder {
         executable: Vec<u8>,
         arguments: Vec<Vec<u8>>,
     ) -> R<()> {
-        self.command = Some(Command {
-            executable,
-            arguments,
-        });
+        if !self
+            .unmocked_commands
+            .iter()
+            .any(|unmocked_command| compare_executables(&unmocked_command, &executable))
+        {
+            self.command = Some(Command {
+                executable,
+                arguments,
+            });
+        }
         Ok(())
     }
 
     fn handle_exited(&mut self, _pid: Pid, exitcode: i32) -> R<()> {
-        let command = self
-            .command
-            .clone()
-            .ok_or("Recorder.handle_execve_exit: command not set")?;
-        self.command = None;
-        self.protocol.steps.push_back(Step {
-            command,
-            stdout: vec![],
-            exitcode,
-        });
+        if let Some(command) = self.command.clone() {
+            self.command = None;
+            self.protocol.steps.push_back(Step {
+                command,
+                stdout: vec![],
+                exitcode,
+            });
+        }
         Ok(())
     }
 
