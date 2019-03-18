@@ -85,12 +85,12 @@ fn records_protocol_steps() -> R<()> {
     test_recording(
         "
             |#!/usr/bin/env bash
-            |/bin/true
+            |ls >/dev/null
         ",
         "
             |protocols:
             |  - protocol:
-            |      - /bin/true
+            |      - ls
         ",
     )
 }
@@ -100,14 +100,14 @@ fn records_multiple_steps() -> R<()> {
     test_recording(
         "
             |#!/usr/bin/env bash
-            |/bin/true
+            |date > /dev/null
             |ls > /dev/null
         ",
         "
             |protocols:
             |  - protocol:
-            |      - /bin/true
-            |      - /bin/ls
+            |      - date
+            |      - ls
         ",
     )
 }
@@ -117,12 +117,12 @@ fn records_command_arguments() -> R<()> {
     test_recording(
         "
             |#!/usr/bin/env bash
-            |/bin/true foo
+            |mkdir -p foo
         ",
         "
             |protocols:
             |  - protocol:
-            |      - /bin/true foo
+            |      - mkdir -p foo
         ",
     )
 }
@@ -153,7 +153,7 @@ fn records_command_exitcodes() -> R<()> {
         r#"
             |protocols:
             |  - protocol:
-            |      - command: /bin/bash -c "exit 42"
+            |      - command: bash -c "exit 42"
             |        exitcode: 42
         "#,
     )

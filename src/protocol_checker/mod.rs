@@ -49,7 +49,7 @@ impl ProtocolChecker {
     fn handle_step(&mut self, received: protocol::Command) -> R<PathBuf> {
         let mock_config = match self.protocol.steps.pop_front() {
             Some(next_protocol_step) => {
-                if next_protocol_step.command != received {
+                if !next_protocol_step.command.compare(&received) {
                     self.register_step_error(
                         &next_protocol_step.command.format(),
                         &received.format(),
@@ -100,7 +100,11 @@ impl SyscallMock for ProtocolChecker {
         executable: Vec<u8>,
         arguments: Vec<Vec<u8>>,
     ) -> R<()> {
-        if !self.unmocked_commands.contains(&executable) {
+        if !self
+            .unmocked_commands
+            .iter()
+            .any(|c| protocol::compare_executables(&c, &executable))
+        {
             let mock_executable_path = self.handle_step(protocol::Command {
                 executable,
                 arguments,
