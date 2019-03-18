@@ -165,6 +165,33 @@ protocols:
       - git pull
 ```
 
+## Recording protocols
+
+There is **experimental** support for recording protocols. You can either record
+protocols by passing in the `--record` command line flag, or you can put
+so-called holes into your protocols:
+
+``` yaml
+protocols:
+  - protocol:
+      - _
+```
+
+This will actually execute the sub-commands that your script performs, without
+mocking them out. And it will overwrite your protocols file with the recorded
+version.
+
+You can also start with a partial protocol and have `check-protocols` fill in
+the specified holes:
+
+``` yaml
+protocols:
+  - arguments: foo
+    protocol:
+      - git add .
+      - _
+```
+
 ## Running inside `docker` (for OSX)
 
 You can run the tool inside docker, for example like this:
