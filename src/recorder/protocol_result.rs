@@ -129,7 +129,7 @@ fn run_against_protocol(
         };
     }
     Ok(if protocol.ends_with_hole {
-        ProtocolResult::Recorded(run_against_mock!(HoleRecorder::new())?)
+        ProtocolResult::Recorded(run_against_mock!(HoleRecorder::new(protocol.arguments))?)
     } else {
         ProtocolResult::Checked(
             protocol.clone(),
