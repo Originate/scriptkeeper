@@ -2,9 +2,11 @@ extern crate yaml_rust;
 
 mod argument_parser;
 pub mod command;
+mod executable_path;
 pub mod yaml;
 
 use self::argument_parser::Parser;
+pub use self::executable_path::compare_executables;
 use crate::protocol::yaml::*;
 use crate::utils::path_to_string;
 use crate::R;
@@ -890,13 +892,13 @@ mod serialize {
     #[test]
     fn outputs_a_single_protocol_with_a_single_step() -> R<()> {
         roundtrip(Protocols::new(vec![Protocol::new(vec![
-            Step::from_string("/usr/bin/cp")?,
+            Step::from_string("cp")?,
         ])]))
     }
 
     #[test]
     fn outputs_the_protocol_exitcode() -> R<()> {
-        let mut protocol = Protocol::new(vec![Step::from_string("/usr/bin/cp")?]);
+        let mut protocol = Protocol::new(vec![Step::from_string("cp")?]);
         protocol.exitcode = Some(42);
         roundtrip(Protocols::new(vec![protocol]))
     }
@@ -904,7 +906,7 @@ mod serialize {
     #[test]
     fn includes_the_step_exitcodes() -> R<()> {
         let protocol = Protocol::new(vec![Step {
-            command: Command::new("/usr/bin/cp")?,
+            command: Command::new("cp")?,
             stdout: vec![],
             exitcode: 42,
         }]);

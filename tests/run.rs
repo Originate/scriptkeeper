@@ -20,11 +20,11 @@ fn simple() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |/bin/true
+            |cp
         "##,
         r##"
             |protocol:
-            |  - /bin/true
+            |  - cp
         "##,
         Ok(()),
     )?;
@@ -40,7 +40,7 @@ fn can_specify_interpreter() -> R<()> {
         r##"
             |protocols:
             |  - protocol:
-            |    - /bin/true
+            |    - "true"
             |interpreter: /usr/bin/ruby
         "##,
         Ok(()),
@@ -101,13 +101,13 @@ fn multiple() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |/bin/true
-            |/bin/ls > /dev/null
+            |cp
+            |ls > /dev/null
         "##,
         r##"
             |protocol:
-            |  - /bin/true
-            |  - /bin/ls
+            |  - cp
+            |  - ls
         "##,
         Ok(()),
     )?;
@@ -119,17 +119,17 @@ fn failing() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |/bin/false
+            |mv
         "##,
         r##"
             |protocol:
-            |  - /bin/true
+            |  - cp
         "##,
         Err(&trim_margin(
             "
                 |error:
-                |  expected: /bin/true
-                |  received: /bin/false
+                |  expected: cp
+                |  received: mv
             ",
         )?),
     )?;
@@ -141,19 +141,19 @@ fn failing_later() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |/bin/ls
-            |/bin/false
+            |ls
+            |mv
         "##,
         r##"
             |protocol:
-            |  - /bin/ls
-            |  - /bin/true
+            |  - ls
+            |  - cp
         "##,
         Err(&trim_margin(
             "
                 |error:
-                |  expected: /bin/true
-                |  received: /bin/false
+                |  expected: cp
+                |  received: mv
             ",
         )?),
     )?;
@@ -178,7 +178,7 @@ mod nice_user_errors {
             trim_margin(
                 r##"
                     |#!/usr/bin/foo
-                    |/bin/true
+                    |cp
                 "##,
             )?
             .as_bytes(),
@@ -188,7 +188,7 @@ mod nice_user_errors {
             &script,
             r##"
                 |protocol:
-                |  - /bin/true
+                |  - cp
             "##,
         );
         assert_error!(
@@ -213,7 +213,7 @@ mod nice_user_errors {
         let script = TempFile::write_temp_script(
             trim_margin(
                 r##"
-                    |/bin/true
+                    |cp
                 "##,
             )?
             .as_bytes(),
@@ -223,7 +223,7 @@ mod nice_user_errors {
             &script,
             r##"
                 |protocol:
-                |  - /bin/true
+                |  - cp
             "##,
         );
         assert_error!(
@@ -259,7 +259,7 @@ mod nice_user_errors {
             r##"
                 |protocols:
                 |  - protocol:
-                |    - /bin/true
+                |    - cp
                 |interpreter: /usr/bin/foo
             "##,
         );
@@ -289,11 +289,11 @@ mod arguments {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |/bin/true foo
+                |cp foo
             "##,
             r##"
                 |protocol:
-                |  - /bin/true foo
+                |  - cp foo
             "##,
             Ok(()),
         )?;
@@ -305,17 +305,17 @@ mod arguments {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |/bin/true bar
+                |cp bar
             "##,
             r##"
                 |protocol:
-                |  - /bin/true foo
+                |  - cp foo
             "##,
             Err(&trim_margin(
                 "
                     |error:
-                    |  expected: /bin/true foo
-                    |  received: /bin/true bar
+                    |  expected: cp foo
+                    |  received: cp bar
                 ",
             )?),
         )?;
@@ -327,11 +327,11 @@ mod arguments {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |/bin/true "foo bar"
+                |cp "foo bar"
             "##,
             r##"
                 |protocol:
-                |  - /bin/true "foo bar"
+                |  - cp "foo bar"
             "##,
             Ok(()),
         )?;
@@ -343,17 +343,17 @@ mod arguments {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |/bin/true foo bar
+                |cp foo bar
             "##,
             r##"
                 |protocol:
-                |  - /bin/true "foo bar"
+                |  - cp "foo bar"
             "##,
             Err(&trim_margin(
                 r##"
                     |error:
-                    |  expected: /bin/true "foo bar"
-                    |  received: /bin/true foo bar
+                    |  expected: cp "foo bar"
+                    |  received: cp foo bar
                 "##,
             )?),
         )?;
@@ -366,19 +366,19 @@ fn reports_the_first_error() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |/bin/false first
-            |/bin/false second
+            |mv first
+            |mv second
         "##,
         r##"
             |protocol:
-            |  - /bin/true first
-            |  - /bin/true second
+            |  - cp first
+            |  - cp second
         "##,
         Err(&trim_margin(
             "
                 |error:
-                |  expected: /bin/true first
-                |  received: /bin/false first
+                |  expected: cp first
+                |  received: mv first
             ",
         )?),
     )?;
@@ -393,17 +393,17 @@ mod mismatch_in_number_of_commands {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |/bin/ls
+                |ls
             "##,
             r##"
                 |protocol:
-                |  - /bin/ls
-                |  - /bin/true
+                |  - ls
+                |  - cp
             "##,
             Err(&trim_margin(
                 "
                     |error:
-                    |  expected: /bin/true
+                    |  expected: cp
                     |  received: <script terminated>
                 ",
             )?),
@@ -416,18 +416,18 @@ mod mismatch_in_number_of_commands {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |/bin/ls
-                |/bin/true
+                |ls
+                |cp
             "##,
             r##"
                 |protocol:
-                |  - /bin/ls
+                |  - ls
             "##,
             Err(&trim_margin(
                 "
                     |error:
                     |  expected: <protocol end>
-                    |  received: /bin/true
+                    |  received: cp
                 ",
             )?),
         )?;
@@ -443,14 +443,14 @@ mod stdout {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |output=$(/bin/true)
-                |/bin/true $output
+                |output=$(cp)
+                |cp $output
             "##,
             r##"
                 |protocol:
-                |  - command: /bin/true
+                |  - command: cp
                 |    stdout: test_output
-                |  - /bin/true test_output
+                |  - cp test_output
             "##,
             Ok(()),
         )?;
@@ -462,14 +462,14 @@ mod stdout {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |output=$(/bin/true)
-                |/bin/true $output
+                |output=$(cp)
+                |cp $output
             "##,
             r##"
                 |protocol:
-                |  - command: /bin/true
+                |  - command: cp
                 |    stdout: 'foo"'
-                |  - '/bin/true foo\"'
+                |  - 'cp foo\"'
             "##,
             Ok(()),
         )?;
@@ -481,14 +481,14 @@ mod stdout {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |output=$(/bin/true)
-                |/bin/true "$output"
+                |output=$(cp)
+                |cp "$output"
             "##,
             r##"
                 |protocol:
-                |  - command: /bin/true
+                |  - command: cp
                 |    stdout: "foo\nbar"
-                |  - '/bin/true foo\nbar'
+                |  - 'cp foo\nbar'
             "##,
             Ok(()),
         )?;
@@ -501,12 +501,12 @@ fn pass_arguments_into_tested_script() -> R<()> {
     test_run(
         r##"
             |#!/usr/bin/env bash
-            |/bin/true $1
+            |cp $1
         "##,
         r##"
             |arguments: foo
             |protocol:
-            |  - /bin/true foo
+            |  - cp foo
         "##,
         Ok(()),
     )?;
@@ -521,15 +521,15 @@ mod multiple_protocols {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |/bin/true $1
+                |cp $1
             "##,
             r##"
                 |- arguments: foo
                 |  protocol:
-                |    - /bin/true foo
+                |    - cp foo
                 |- arguments: bar
                 |  protocol:
-                |    - /bin/true bar
+                |    - cp bar
             "##,
             Ok(()),
         )?;
@@ -541,22 +541,22 @@ mod multiple_protocols {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |/bin/false
+                |mv
             "##,
             r##"
                 |- protocol:
-                |    - /bin/true
+                |    - cp
                 |- protocol:
-                |    - /bin/true
+                |    - cp
             "##,
             Err(&trim_margin(
                 "
                     |error in protocol 1:
-                    |  expected: /bin/true
-                    |  received: /bin/false
+                    |  expected: cp
+                    |  received: mv
                     |error in protocol 2:
-                    |  expected: /bin/true
-                    |  received: /bin/false
+                    |  expected: cp
+                    |  received: mv
                 ",
             )?),
         )?;
@@ -568,21 +568,21 @@ mod multiple_protocols {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |/bin/false
+                |mv
             "##,
             r##"
                 |- protocol:
-                |    - /bin/false
+                |    - mv
                 |- protocol:
-                |    - /bin/true
+                |    - cp
             "##,
             Err(&trim_margin(
                 "
                     |protocol 1:
                     |  Tests passed.
                     |error in protocol 2:
-                    |  expected: /bin/true
-                    |  received: /bin/false
+                    |  expected: cp
+                    |  received: mv
                 ",
             )?),
         )?;
@@ -598,13 +598,13 @@ mod environment {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |/bin/true $FOO
+                |cp $FOO
             "##,
             r##"
                 |env:
                 |  FOO: test-env-var
                 |protocol:
-                |  - /bin/true test-env-var
+                |  - cp test-env-var
             "##,
             Ok(()),
         )?;
@@ -617,11 +617,11 @@ mod environment {
         test_run(
             r##"
                 |#!/usr/bin/env bash
-                |/bin/true $FOO
+                |cp $FOO
             "##,
             r##"
                 |protocol:
-                |  - /bin/true
+                |  - cp
             "##,
             Ok(()),
         )?;
@@ -638,7 +638,7 @@ fn detects_running_commands_from_ruby_scripts() -> R<()> {
         "##,
         r##"
             |protocol:
-            |  - /bin/ls
+            |  - ls
         "##,
         Ok(()),
     )?;
@@ -659,9 +659,9 @@ mod mocked_exitcodes {
             "##,
             r##"
                 |protocol:
-                |  - command: /bin/grep foo
+                |  - command: grep foo
                 |    exitcode: 1
-                |  - /bin/ls
+                |  - ls
             "##,
             Ok(()),
         )?;
@@ -679,9 +679,9 @@ mod mocked_exitcodes {
             "##,
             r##"
                 |protocol:
-                |  - command: /bin/grep foo
+                |  - command: grep foo
                 |    exitcode: 0
-                |  - /bin/ls
+                |  - ls
             "##,
             Ok(()),
         )?;
@@ -699,8 +699,8 @@ mod mocked_exitcodes {
             "##,
             r##"
                 |protocol:
-                |  - /bin/grep foo
-                |  - /bin/ls
+                |  - grep foo
+                |  - ls
             "##,
             Ok(()),
         )?;
@@ -717,9 +717,9 @@ mod mocked_exitcodes {
             "##,
             r##"
                 |protocol:
-                |  - command: /bin/grep foo
+                |  - command: grep foo
                 |    exitcode: 42
-                |  - /bin/ls 42
+                |  - ls 42
             "##,
             Ok(()),
         )?;
@@ -740,7 +740,7 @@ mod working_directory {
             r##"
                 |cwd: /foo
                 |protocol:
-                |  - /bin/ls /foo/file
+                |  - ls /foo/file
             "##,
             Ok(()),
         )?;
@@ -757,7 +757,7 @@ mod working_directory {
             r##"
                 |cwd: /foo/bar/baz/foo/bar/baz/foo/bar/baz/foo
                 |protocol:
-                |  - /bin/ls /foo/bar/baz/foo/bar/baz/foo/bar/baz/foo/file
+                |  - ls /foo/bar/baz/foo/bar/baz/foo/bar/baz/foo/file
             "##,
             Ok(()),
         )?;
@@ -775,7 +775,7 @@ mod working_directory {
             &format!(
                 r##"
                     |protocol:
-                    |  - /bin/ls {}/foo
+                    |  - ls {}/foo
                 "##,
                 path_to_string(&cwd)?
             ),
@@ -861,9 +861,9 @@ mod unmocked_commands {
             r##"
                 |protocols:
                 |  - protocol:
-                |    - /bin/ls dir
+                |    - ls dir
                 |unmockedCommands:
-                |  - /usr/bin/dirname
+                |  - dirname
             "##,
             Ok(()),
         )?;
@@ -880,16 +880,16 @@ mod unmocked_commands {
             r##"
                 |protocols:
                 |  - protocol:
-                |    - /usr/bin/dirname dir/file
-                |    - /bin/ls dir
+                |    - dirname dir/file
+                |    - ls dir
                 |unmockedCommands:
-                |  - /usr/bin/dirname
+                |  - dirname
             "##,
             Err(&trim_margin(
                 "
                     |error:
-                    |  expected: /usr/bin/dirname dir/file
-                    |  received: /bin/ls dir
+                    |  expected: dirname dir/file
+                    |  received: ls dir
                 ",
             )?),
         )?;
@@ -906,13 +906,13 @@ mod file_mocking {
             r##"
                 |#!/usr/bin/env bash
                 |if [ -f /foo ]; then
-                |  /bin/true
+                |  cp
                 |fi
             "##,
             r##"
                 |protocols:
                 |  - protocol:
-                |      - /bin/true
+                |      - cp
                 |    mockedFiles:
                 |      - /foo
             "##,
@@ -927,13 +927,13 @@ mod file_mocking {
             r##"
                 |#!/usr/bin/env bash
                 |if [ -d /foo/ ]; then
-                |  /bin/true
+                |  cp
                 |fi
             "##,
             r##"
                 |protocols:
                 |  - protocol:
-                |      - command: /bin/true
+                |      - command: cp
                 |    mockedFiles:
                 |      - /foo/
             "##,
@@ -948,7 +948,7 @@ mod file_mocking {
             r##"
                 |#!/usr/bin/env bash
                 |if [ -f /foo ]; then
-                |  /bin/true
+                |  cp
                 |fi
             "##,
             r##"

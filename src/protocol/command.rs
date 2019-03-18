@@ -1,5 +1,7 @@
 use super::argument_parser::Parser;
+use super::executable_path;
 use crate::R;
+use std::str;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Command {
@@ -16,6 +18,11 @@ impl Command {
         }
     }
 
+    pub fn compare(&self, other: &Command) -> bool {
+        executable_path::compare_executables(&self.executable, &other.executable)
+            && self.arguments == other.arguments
+    }
+
     fn escape(word: String) -> String {
         fn escape_char(char: char) -> String {
             match char {
@@ -29,7 +36,11 @@ impl Command {
     }
 
     pub fn format(&self) -> String {
-        let mut words = vec![String::from_utf8_lossy(&self.executable).to_string()];
+        let mut words =
+            vec![
+                String::from_utf8_lossy(&executable_path::canonicalize(&self.executable))
+                    .into_owned(),
+            ];
         words.append(
             &mut self
                 .arguments
