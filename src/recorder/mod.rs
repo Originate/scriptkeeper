@@ -9,7 +9,6 @@ use crate::R;
 use libc::user_regs_struct;
 use nix::unistd::Pid;
 use std::ffi::OsString;
-use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 
 pub struct Recorder {
@@ -46,12 +45,10 @@ impl SyscallMock for Recorder {
         executable: PathBuf,
         arguments: Vec<OsString>,
     ) -> R<()> {
-        let is_unmocked_command = self.unmocked_commands.iter().any(|unmocked_command| {
-            compare_executables(
-                unmocked_command.as_os_str().as_bytes(),
-                executable.as_os_str().as_bytes(),
-            )
-        });
+        let is_unmocked_command = self
+            .unmocked_commands
+            .iter()
+            .any(|unmocked_command| compare_executables(unmocked_command, &executable));
         if !is_unmocked_command {
             self.command = Some(Command {
                 executable,

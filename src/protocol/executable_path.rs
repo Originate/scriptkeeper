@@ -1,9 +1,7 @@
 use quale::which;
-use std::ffi::OsStr;
-use std::os::unix::ffi::OsStrExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-pub fn compare_executables(a: &[u8], b: &[u8]) -> bool {
+pub fn compare_executables(a: &Path, b: &Path) -> bool {
     canonicalize(a) == canonicalize(b)
 }
 
@@ -14,15 +12,15 @@ mod compare_executables {
 
     #[test]
     fn returns_true_if_executables_are_identical() -> R<()> {
-        let executable = b"./bin/myexec";
+        let executable = Path::new("./bin/myexec");
         assert!(compare_executables(executable, executable));
         Ok(())
     }
 
     #[test]
     fn returns_false_if_executables_are_distinct() -> R<()> {
-        let a = b"./bin/myexec";
-        let b = b"./bin/myotherexec";
+        let a = Path::new("./bin/myexec");
+        let b = Path::new("./bin/myotherexec");
         assert!(!compare_executables(a, b));
         Ok(())
     }
@@ -30,30 +28,28 @@ mod compare_executables {
     #[test]
     fn returns_true_if_executables_match_after_lookup_in_path() -> R<()> {
         let path = which("cp").unwrap();
-        let cp_long = path.as_os_str().as_bytes();
-        let cp_short = b"cp";
-        assert!(compare_executables(cp_long, cp_short));
+        let cp_long = path;
+        let cp_short = Path::new("cp");
+        assert!(compare_executables(&cp_long, cp_short));
         Ok(())
     }
 }
 
-pub fn canonicalize(executable: &[u8]) -> Vec<u8> {
-    let path = PathBuf::from(OsStr::from_bytes(executable));
-    let file_name = match path.file_name() {
-        None => return executable.to_vec(),
+pub fn canonicalize(executable: &Path) -> PathBuf {
+    let file_name = match executable.file_name() {
+        None => return executable.into(),
         Some(f) => f,
     };
     match which(file_name) {
         Some(resolved) => {
-            if resolved == path {
-                file_name.as_bytes()
+            if resolved == executable {
+                PathBuf::from(file_name)
             } else {
-                executable
+                executable.into()
             }
         }
-        None => executable,
+        None => executable.into(),
     }
-    .to_vec()
 }
 
 #[cfg(test)]
@@ -66,40 +62,40 @@ mod canonicalize {
     fn shortens_absolute_executable_paths_if_found_in_path() -> R<()> {
         let executable = "cp";
         let resolved = which(executable).unwrap();
-        let file_name = canonicalize(resolved.as_os_str().as_bytes());
-        assert_eq!(String::from_utf8(file_name)?, "cp");
+        let file_name = canonicalize(&resolved);
+        assert_eq!(file_name, PathBuf::from("cp"));
         Ok(())
     }
 
     #[test]
     fn does_not_shorten_executable_that_is_not_in_path() -> R<()> {
-        let executable = b"/foo/doesnotexist";
+        let executable = Path::new("/foo/doesnotexist");
         let file_name = canonicalize(executable);
-        assert_eq!(String::from_utf8(file_name)?, "/foo/doesnotexist");
+        assert_eq!(file_name, PathBuf::from("/foo/doesnotexist"));
         Ok(())
     }
 
     #[test]
     fn does_not_shorten_executable_that_is_not_in_path_but_has_same_name_as_one_that_is() -> R<()> {
-        let executable = b"/not/in/path/ls";
+        let executable = Path::new("/not/in/path/ls");
         let file_name = canonicalize(executable);
-        assert_eq!(String::from_utf8(file_name)?, "/not/in/path/ls");
+        assert_eq!(file_name, PathBuf::from("/not/in/path/ls"));
         Ok(())
     }
 
     #[test]
     fn does_not_shorten_relative_path() -> R<()> {
-        let executable = b"./foo";
+        let executable = Path::new("./foo");
         let file_name = canonicalize(executable);
-        assert_eq!(String::from_utf8(file_name)?, "./foo");
+        assert_eq!(file_name, PathBuf::from("./foo"));
         Ok(())
     }
 
     #[test]
     fn does_not_modify_short_forms_if_found_in_path() -> R<()> {
-        let executable = b"ls";
+        let executable = Path::new("ls");
         let file_name = canonicalize(executable);
-        assert_eq!(String::from_utf8(file_name)?, "ls");
+        assert_eq!(file_name, PathBuf::from("ls"));
         Ok(())
     }
 }
