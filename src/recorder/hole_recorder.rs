@@ -41,7 +41,7 @@ impl SyscallMock for HoleRecorder {
         &mut self,
         pid: Pid,
         registers: &user_regs_struct,
-        executable: Vec<u8>,
+        executable: PathBuf,
         arguments: Vec<Vec<u8>>,
     ) -> R<()> {
         match self {
