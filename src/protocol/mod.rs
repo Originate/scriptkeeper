@@ -187,7 +187,7 @@ pub struct Protocol {
     pub cwd: Option<Vec<u8>>,
     pub stderr: Option<Vec<u8>>,
     pub exitcode: Option<i32>,
-    pub mocked_files: Vec<Vec<u8>>,
+    pub mocked_files: Vec<PathBuf>,
 }
 
 impl Protocol {
@@ -287,8 +287,7 @@ impl Protocol {
     fn add_mocked_files(&mut self, object: &Hash) -> R<()> {
         if let Ok(paths) = object.expect_field("mockedFiles") {
             for path in paths.expect_array()?.iter() {
-                self.mocked_files
-                    .push(path.expect_str()?.as_bytes().to_owned());
+                self.mocked_files.push(PathBuf::from(path.expect_str()?));
             }
         }
         Ok(())
@@ -897,7 +896,7 @@ mod load {
                 "
             )?
             .mocked_files
-            .map(|path| String::from_utf8_lossy(&path).into_owned()),
+            .map(|path| path.to_string_lossy().to_string()),
             vec![("/foo")]
         );
         Ok(())
