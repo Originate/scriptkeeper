@@ -15,7 +15,14 @@ pub struct Recorder {
 }
 
 impl Recorder {
-    pub fn new(protocol: Protocol) -> Recorder {
+    pub fn new() -> Recorder {
+        Recorder {
+            protocol: Protocol::new(vec![]),
+            command: None,
+        }
+    }
+
+    pub fn new_with_protocol(protocol: Protocol) -> Recorder {
         Recorder {
             protocol,
             command: None,

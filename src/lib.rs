@@ -19,7 +19,7 @@ pub mod utils;
 
 use crate::context::Context;
 use crate::protocol::yaml::write_yaml;
-use crate::protocol::{Protocol, Protocols};
+use crate::protocol::Protocols;
 use crate::protocol_checker::executable_mock;
 use crate::recorder::{hole_recorder::run_against_protocols, Recorder};
 use crate::tracer::stdio_redirecting::CaptureStderr;
@@ -138,7 +138,7 @@ fn print_recorded_protocol(context: &Context, program: &Path) -> R<ExitCode> {
         vec![],
         HashMap::new(),
         CaptureStderr::NoCapture,
-        Recorder::new(Protocol::new(vec![])),
+        Recorder::new(),
     )?;
     write_yaml(
         context.stdout(),
