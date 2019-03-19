@@ -12,6 +12,7 @@ use checker_result::CheckerResult;
 use libc::{c_ulonglong, user_regs_struct};
 use nix::sys::ptrace;
 use nix::unistd::Pid;
+use std::ffi::OsString;
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 
@@ -98,7 +99,7 @@ impl SyscallMock for ProtocolChecker {
         pid: Pid,
         registers: &user_regs_struct,
         executable: PathBuf,
-        arguments: Vec<Vec<u8>>,
+        arguments: Vec<OsString>,
     ) -> R<()> {
         let is_unmocked_command = self.unmocked_commands.iter().any(|unmocked_command| {
             protocol::compare_executables(

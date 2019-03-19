@@ -1,6 +1,7 @@
 use super::argument_parser::Parser;
 use super::executable_path;
 use crate::R;
+use std::ffi::OsString;
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 use std::str;
@@ -8,7 +9,7 @@ use std::str;
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Command {
     pub executable: PathBuf,
-    pub arguments: Vec<Vec<u8>>,
+    pub arguments: Vec<OsString>,
 }
 
 impl Command {
@@ -39,10 +40,10 @@ impl Command {
         word.chars().map(escape_char).collect::<Vec<_>>().join("")
     }
 
-    pub fn format_arguments(arguments: Vec<Vec<u8>>) -> String {
+    pub fn format_arguments(arguments: Vec<OsString>) -> String {
         arguments
             .into_iter()
-            .map(|argument| Command::escape(String::from_utf8_lossy(&argument).to_string()))
+            .map(|argument| Command::escape(argument.to_string_lossy().into_owned()))
             .map(Command::add_quotes_if_needed)
             .collect::<Vec<String>>()
             .join(" ")
@@ -69,7 +70,7 @@ impl Command {
         match words.next() {
             Some(executable) => Ok(Command {
                 executable: PathBuf::from(executable),
-                arguments: words.map(|word| word.into_bytes()).collect(),
+                arguments: words.map(OsString::from).collect(),
             }),
             None => Err(format!(
                 "expected: space-separated command and arguments ({:?})",
@@ -94,7 +95,7 @@ mod command {
                 Command::new("foo bar")?,
                 Command {
                     executable: PathBuf::from("foo"),
-                    arguments: vec![b"bar".to_vec()]
+                    arguments: vec![OsString::from("bar")]
                 }
             );
             Ok(())
@@ -106,7 +107,7 @@ mod command {
                 Command::new(r#"foo "bar baz""#)?,
                 Command {
                     executable: PathBuf::from("foo"),
-                    arguments: vec![b"bar baz".to_vec()]
+                    arguments: vec![OsString::from("bar baz")]
                 }
             );
             Ok(())
@@ -118,14 +119,14 @@ mod command {
                 Command::new(r#"foo\" bar baz"#)?,
                 Command {
                     executable: PathBuf::from("foo\""),
-                    arguments: vec![b"bar", b"baz"].map(|arg| arg.to_vec())
+                    arguments: vec!["bar", "baz"].map(OsString::from)
                 }
             );
             assert_eq!(
                 Command::new(r#"foo\" "bar baz""#)?,
                 Command {
                     executable: PathBuf::from("foo\""),
-                    arguments: vec![b"bar baz".to_vec()]
+                    arguments: vec![OsString::from("bar baz")]
                 }
             );
             Ok(())
@@ -137,7 +138,7 @@ mod command {
                 Command::new(r#"foo "bar\" baz""#)?,
                 Command {
                     executable: PathBuf::from("foo"),
-                    arguments: vec![b"bar\" baz".to_vec()]
+                    arguments: vec![OsString::from("bar\" baz")]
                 }
             );
             Ok(())
@@ -176,7 +177,7 @@ mod command {
                 Command::new("foo  bar")?,
                 Command {
                     executable: PathBuf::from("foo"),
-                    arguments: vec![b"bar".to_vec()]
+                    arguments: vec![OsString::from("bar")]
                 }
             );
             Ok(())
@@ -188,7 +189,7 @@ mod command {
                 Command::new(" foo bar")?,
                 Command {
                     executable: PathBuf::from("foo"),
-                    arguments: vec![b"bar".to_vec()]
+                    arguments: vec![OsString::from("bar")]
                 }
             );
             Ok(())
@@ -200,7 +201,7 @@ mod command {
                 Command::new("foo bar ")?,
                 Command {
                     executable: PathBuf::from("foo"),
-                    arguments: vec![b"bar".to_vec()]
+                    arguments: vec![OsString::from("bar")]
                 }
             );
             Ok(())
@@ -215,7 +216,7 @@ mod command {
                     Command::new(r#"foo "bar\nbaz""#)?,
                     Command {
                         executable: PathBuf::from("foo"),
-                        arguments: vec![b"bar\nbaz".to_vec()]
+                        arguments: vec![OsString::from("bar\nbaz")]
                     }
                 );
                 Ok(())
@@ -227,7 +228,7 @@ mod command {
                     Command::new(r#"foo bar\ baz"#)?,
                     Command {
                         executable: PathBuf::from("foo"),
-                        arguments: vec![b"bar baz".to_vec()]
+                        arguments: vec![OsString::from("bar baz")]
                     }
                 );
                 Ok(())
@@ -239,7 +240,7 @@ mod command {
                     Command::new(r#"foo bar\\baz"#)?,
                     Command {
                         executable: PathBuf::from("foo"),
-                        arguments: vec![br"bar\baz".to_vec()]
+                        arguments: vec![OsString::from(r"bar\baz")]
                     }
                 );
                 Ok(())
