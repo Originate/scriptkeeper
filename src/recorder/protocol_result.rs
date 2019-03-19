@@ -9,7 +9,7 @@ use crate::tracer::stdio_redirecting::CaptureStderr;
 use crate::tracer::Tracer;
 use crate::{ExitCode, R};
 use std::fs::OpenOptions;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, PartialEq)]
 pub enum ProtocolResult {
@@ -44,7 +44,7 @@ impl ProtocolResult {
         interpreter: &Option<Vec<u8>>,
         program: &Path,
         protocols: Vec<Protocol>,
-        unmocked_commands: &[Vec<u8>],
+        unmocked_commands: &[PathBuf],
     ) -> R<Vec<ProtocolResult>> {
         let mut results = vec![];
         for protocol in protocols.into_iter() {
@@ -52,7 +52,7 @@ impl ProtocolResult {
                 context,
                 &interpreter,
                 program,
-                &unmocked_commands,
+                unmocked_commands,
                 protocol,
             )?);
         }
@@ -62,7 +62,7 @@ impl ProtocolResult {
     pub fn handle_results(
         context: &Context,
         protocols_file: &Path,
-        unmocked_commands: Vec<Vec<u8>>,
+        unmocked_commands: Vec<PathBuf>,
         results: &[ProtocolResult],
     ) -> R<ExitCode> {
         let checker_results = CheckerResults(
@@ -85,7 +85,7 @@ impl ProtocolResult {
     fn handle_recorded(
         context: &Context,
         protocols_file: &Path,
-        unmocked_commands: Vec<Vec<u8>>,
+        unmocked_commands: Vec<PathBuf>,
         results: &[ProtocolResult],
         checker_results: &CheckerResults,
     ) -> R<()> {
@@ -117,7 +117,7 @@ fn run_against_protocol(
     context: &Context,
     interpreter: &Option<Vec<u8>>,
     program: &Path,
-    unmocked_commands: &[Vec<u8>],
+    unmocked_commands: &[PathBuf],
     protocol: Protocol,
 ) -> R<ProtocolResult> {
     macro_rules! run_against_mock {

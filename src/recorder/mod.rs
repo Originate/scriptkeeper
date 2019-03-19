@@ -8,11 +8,13 @@ use crate::tracer::SyscallMock;
 use crate::R;
 use libc::user_regs_struct;
 use nix::unistd::Pid;
+use std::os::unix::ffi::OsStrExt;
+use std::path::PathBuf;
 
 pub struct Recorder {
     protocol: Protocol,
     command: Option<Command>,
-    unmocked_commands: Vec<Vec<u8>>,
+    unmocked_commands: Vec<PathBuf>,
 }
 
 impl Recorder {
@@ -24,7 +26,7 @@ impl Recorder {
         }
     }
 
-    pub fn new(protocol: Protocol, unmocked_commands: &[Vec<u8>]) -> Recorder {
+    pub fn new(protocol: Protocol, unmocked_commands: &[PathBuf]) -> Recorder {
         Recorder {
             protocol,
             command: None,
@@ -43,11 +45,10 @@ impl SyscallMock for Recorder {
         executable: Vec<u8>,
         arguments: Vec<Vec<u8>>,
     ) -> R<()> {
-        if !self
-            .unmocked_commands
-            .iter()
-            .any(|unmocked_command| compare_executables(&unmocked_command, &executable))
-        {
+        let is_unmocked_command = self.unmocked_commands.iter().any(|unmocked_command| {
+            compare_executables(unmocked_command.as_os_str().as_bytes(), &executable)
+        });
+        if !is_unmocked_command {
             self.command = Some(Command {
                 executable,
                 arguments,
