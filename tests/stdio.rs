@@ -17,20 +17,20 @@ fn relays_stdout_from_the_tested_script_to_the_user() -> R<()> {
     let context = Context::new_mock();
     let script = TempFile::write_temp_script(
         trim_margin(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |echo foo
-            "##,
+            ",
         )?
         .as_bytes(),
     )?;
     test_run_with_tempfile(
         &context,
         &script,
-        r##"
+        r"
             |protocols:
             |  - protocol: []
-        "##,
+        ",
     )?;
     assert_eq!(context.get_captured_stdout(), "foo\nAll tests passed.\n");
     Ok(())
@@ -41,14 +41,14 @@ fn relays_stderr_from_the_tested_script_to_the_user() -> R<()> {
     let context = Context::new_mock();
     test_run_with_context(
         &context,
-        r##"
+        r"
             |#!/usr/bin/env bash
             |echo foo 1>&2
-        "##,
-        r##"
+        ",
+        r"
             |protocols:
             |  - protocol: []
-        "##,
+        ",
         Ok(()),
     )?;
     assert_eq!(context.get_captured_stderr(), "foo\n");
@@ -61,21 +61,21 @@ mod expected_stderr {
     #[test]
     fn fails_when_not_matching() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |echo bar 1>&2
-            "##,
-            r##"
+            ",
+            r#"
                 |protocols:
                 |  - protocol: []
                 |    stderr: "foo\n"
-            "##,
+            "#,
             Err(&trim_margin(
-                r##"
+                r#"
                     |error:
                     |  expected output to stderr: "foo\n"
                     |  received output to stderr: "bar\n"
-                "##,
+                "#,
             )?),
         )?;
         Ok(())
@@ -84,15 +84,15 @@ mod expected_stderr {
     #[test]
     fn passes_when_matching() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |echo foo 1>&2
-            "##,
-            r##"
+            ",
+            r#"
                 |protocols:
                 |  - protocol: []
                 |    stderr: "foo\n"
-            "##,
+            "#,
             Ok(()),
         )?;
         Ok(())
@@ -101,20 +101,20 @@ mod expected_stderr {
     #[test]
     fn fails_when_expecting_stderr_but_none_printed() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
-            "##,
-            r##"
+            ",
+            r#"
                 |protocols:
                 |  - protocol: []
                 |    stderr: "foo\n"
-            "##,
+            "#,
             Err(&trim_margin(
-                r##"
+                r#"
                     |error:
                     |  expected output to stderr: "foo\n"
                     |  received output to stderr: ""
-                "##,
+                "#,
             )?),
         )?;
         Ok(())

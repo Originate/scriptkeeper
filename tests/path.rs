@@ -14,14 +14,14 @@ use utils::test_run;
 #[test]
 fn looks_up_step_executable_in_path() -> R<()> {
     test_run(
-        r##"
+        r"
             |#!/usr/bin/env bash
             |cp
-        "##,
-        r##"
+        ",
+        r"
             |protocol:
             |  - cp
-        "##,
+        ",
         Ok(()),
     )?;
     Ok(())
@@ -30,16 +30,16 @@ fn looks_up_step_executable_in_path() -> R<()> {
 #[test]
 fn looks_up_unmocked_command_executable_in_path() -> R<()> {
     test_run(
-        r##"
+        r"
             |#!/usr/bin/env bash
             |ls > /dev/null
-        "##,
-        r##"
+        ",
+        r"
             |protocols:
             |  - protocol: []
             |unmockedCommands:
             |  - ls
-        "##,
+        ",
         Ok(()),
     )?;
     Ok(())
@@ -48,14 +48,14 @@ fn looks_up_unmocked_command_executable_in_path() -> R<()> {
 #[test]
 fn shortens_received_executable_to_file_name_when_reporting_step_error() -> R<()> {
     test_run(
-        r##"
+        r"
             |#!/usr/bin/env bash
             |mv
-        "##,
-        r##"
+        ",
+        r"
             |protocol:
             |  - cp
-        "##,
+        ",
         Err(&trim_margin(
             "
                 |error:
@@ -70,14 +70,14 @@ fn shortens_received_executable_to_file_name_when_reporting_step_error() -> R<()
 #[test]
 fn runs_step_executable_that_is_not_in_path() -> R<()> {
     test_run(
-        r##"
+        r"
             |#!/usr/bin/env bash
             |/not/in/path
-        "##,
-        r##"
+        ",
+        r"
             |protocol:
             |  - /not/in/path
-        "##,
+        ",
         Ok(()),
     )?;
     Ok(())
