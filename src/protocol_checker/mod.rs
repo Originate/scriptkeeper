@@ -130,10 +130,10 @@ impl SyscallMock for ProtocolChecker {
         Ok(())
     }
 
-    fn handle_stat_exit(&self, pid: Pid, registers: &user_regs_struct, filename: Vec<u8>) -> R<()> {
+    fn handle_stat_exit(&self, pid: Pid, registers: &user_regs_struct, filename: PathBuf) -> R<()> {
         if self.protocol.mocked_files.contains(&filename) {
             let statbuf_ptr = registers.rsi;
-            let mock_mode = if filename.ends_with(b"/") {
+            let mock_mode = if filename.as_os_str().as_bytes().ends_with(b"/") {
                 libc::S_IFDIR
             } else {
                 libc::S_IFREG

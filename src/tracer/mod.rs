@@ -18,8 +18,10 @@ use nix::unistd::{execve, fork, getpid, ForkResult, Pid};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::ffi::CString;
+use std::ffi::OsString;
 use std::fs;
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::OsStringExt;
 use std::panic;
 use std::path::{Path, PathBuf};
 use std::str;
@@ -52,7 +54,7 @@ pub trait SyscallMock {
         &self,
         _pid: Pid,
         _registers: &user_regs_struct,
-        _filename: Vec<u8>,
+        _filename: PathBuf,
     ) -> R<()> {
         Ok(())
     }
@@ -249,7 +251,10 @@ impl Tracer {
                 syscall_mock.handle_getcwd_exit(pid, registers)?
             }
             (Syscall::Stat, SyscallStop::Exit) => {
-                let filename = tracee_memory::peek_string(pid, registers.rdi)?;
+                let filename = PathBuf::from(OsString::from_vec(tracee_memory::peek_string(
+                    pid,
+                    registers.rdi,
+                )?));
                 syscall_mock.handle_stat_exit(pid, registers, filename)?
             }
             _ => {}
