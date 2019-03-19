@@ -41,7 +41,7 @@ impl ProtocolResult {
 
     pub fn collect_results(
         context: &Context,
-        interpreter: &Option<Vec<u8>>,
+        interpreter: &Option<PathBuf>,
         program: &Path,
         protocols: Vec<Protocol>,
         unmocked_commands: &[PathBuf],
@@ -115,7 +115,7 @@ impl ProtocolResult {
 
 fn run_against_protocol(
     context: &Context,
-    interpreter: &Option<Vec<u8>>,
+    interpreter: &Option<PathBuf>,
     program: &Path,
     unmocked_commands: &[PathBuf],
     protocol: Protocol,
