@@ -349,7 +349,7 @@ impl Protocol {
 #[derive(Debug, PartialEq)]
 pub struct Protocols {
     pub protocols: Vec<Protocol>,
-    pub unmocked_commands: Vec<Vec<u8>>,
+    pub unmocked_commands: Vec<PathBuf>,
     pub interpreter: Option<Vec<u8>>,
 }
 
@@ -381,7 +381,7 @@ impl Protocols {
         if let Ok(unmocked_commands) = object.expect_field("unmockedCommands") {
             for unmocked_command in unmocked_commands.expect_array()? {
                 self.unmocked_commands
-                    .push(unmocked_command.expect_str()?.as_bytes().to_vec());
+                    .push(PathBuf::from(unmocked_command.expect_str()?));
             }
         }
         Ok(())
@@ -454,7 +454,7 @@ impl Protocols {
                     self.unmocked_commands
                         .iter()
                         .map(|unmocked_command| {
-                            Ok(Yaml::String(String::from_utf8(unmocked_command.to_vec())?))
+                            Ok(Yaml::String(path_to_string(unmocked_command)?.to_string()))
                         })
                         .collect::<R<Vec<Yaml>>>()?,
                 ),
@@ -833,7 +833,7 @@ mod load {
                     "
                 )?
                 .unmocked_commands
-                .map(|command| String::from_utf8(command).unwrap()),
+                .map(|path| path.to_string_lossy().to_string()),
                 vec!["foo"]
             );
             Ok(())
@@ -1071,7 +1071,7 @@ mod serialize {
     #[test]
     fn includes_unmocked_commands() -> R<()> {
         let mut protocols = Protocols::new(vec![Protocol::new(vec![])]);
-        protocols.unmocked_commands = vec![b"sed".to_vec()];
+        protocols.unmocked_commands = vec![PathBuf::from("sed")];
         roundtrip(protocols)
     }
 }

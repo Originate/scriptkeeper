@@ -9,7 +9,7 @@ use crate::tracer::SyscallMock;
 use crate::{ExitCode, R};
 use libc::user_regs_struct;
 use nix::unistd::Pid;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub enum HoleRecorder {
     Checker {
@@ -24,7 +24,7 @@ pub enum HoleRecorder {
 impl HoleRecorder {
     pub fn new(
         context: &Context,
-        unmocked_commands: &[Vec<u8>],
+        unmocked_commands: &[PathBuf],
         protocol: Protocol,
     ) -> HoleRecorder {
         HoleRecorder::Checker {

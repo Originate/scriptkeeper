@@ -19,7 +19,7 @@ use std::path::PathBuf;
 pub struct ProtocolChecker {
     context: Context,
     pub protocol: Protocol,
-    pub unmocked_commands: Vec<Vec<u8>>,
+    pub unmocked_commands: Vec<PathBuf>,
     pub result: CheckerResult,
     temporary_executables: Vec<ShortTempFile>,
 }
@@ -28,7 +28,7 @@ impl ProtocolChecker {
     pub fn new(
         context: &Context,
         protocol: Protocol,
-        unmocked_commands: &[Vec<u8>],
+        unmocked_commands: &[PathBuf],
     ) -> ProtocolChecker {
         ProtocolChecker {
             context: context.clone(),
@@ -103,7 +103,7 @@ impl SyscallMock for ProtocolChecker {
         if !self
             .unmocked_commands
             .iter()
-            .any(|c| protocol::compare_executables(&c, &executable))
+            .any(|c| protocol::compare_executables(&c.as_os_str().as_bytes(), &executable))
         {
             let mock_executable_path = self.handle_step(protocol::Command {
                 executable,
