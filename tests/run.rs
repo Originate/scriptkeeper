@@ -19,14 +19,14 @@ use utils::{prepare_script, test_run, test_run_with_tempfile};
 #[test]
 fn simple() -> R<()> {
     test_run(
-        r##"
+        r"
             |#!/usr/bin/env bash
             |cp
-        "##,
-        r##"
+        ",
+        r"
             |protocol:
             |  - cp
-        "##,
+        ",
         Ok(()),
     )?;
     Ok(())
@@ -66,10 +66,10 @@ fn works_for_longer_file_names() -> R<()> {
     fs::copy("/bin/true", &long_command_path)?;
     let (script, _) = prepare_script(
         &format!(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |{}
-            "##,
+            ",
             &long_command_path
         ),
         &format!(
@@ -90,15 +90,15 @@ fn works_for_longer_file_names() -> R<()> {
 #[test]
 fn can_specify_interpreter() -> R<()> {
     test_run(
-        r##"
+        r"
             |`true`
-        "##,
-        r##"
+        ",
+        r#"
             |protocols:
             |  - protocol:
             |    - "true"
             |interpreter: /usr/bin/ruby
-        "##,
+        "#,
         Ok(()),
     )?;
     Ok(())
@@ -114,9 +114,9 @@ mod yaml_parse_errors {
         let result = test_run_with_tempfile(
             &Context::new_mock(),
             &script,
-            r##"
+            r"
                 |protocol: 42
-            "##,
+            ",
         );
         assert_error!(
             result,
@@ -135,9 +135,9 @@ mod yaml_parse_errors {
         let result = test_run_with_tempfile(
             &Context::new_mock(),
             &script,
-            r##"
+            r"
                 |protocol: - boo
-            "##,
+            ",
         );
         assert_error!(
             result,
@@ -155,16 +155,16 @@ mod yaml_parse_errors {
 #[test]
 fn multiple() -> R<()> {
     test_run(
-        r##"
+        r"
             |#!/usr/bin/env bash
             |cp
             |ls > /dev/null
-        "##,
-        r##"
+        ",
+        r"
             |protocol:
             |  - cp
             |  - ls
-        "##,
+        ",
         Ok(()),
     )?;
     Ok(())
@@ -173,14 +173,14 @@ fn multiple() -> R<()> {
 #[test]
 fn failing() -> R<()> {
     test_run(
-        r##"
+        r"
             |#!/usr/bin/env bash
             |mv
-        "##,
-        r##"
+        ",
+        r"
             |protocol:
             |  - cp
-        "##,
+        ",
         Err(&trim_margin(
             "
                 |error:
@@ -195,16 +195,16 @@ fn failing() -> R<()> {
 #[test]
 fn failing_later() -> R<()> {
     test_run(
-        r##"
+        r"
             |#!/usr/bin/env bash
             |ls
             |mv
-        "##,
-        r##"
+        ",
+        r"
             |protocol:
             |  - ls
             |  - cp
-        "##,
+        ",
         Err(&trim_margin(
             "
                 |error:
@@ -232,29 +232,29 @@ mod nice_user_errors {
     fn nice_error_when_hashbang_refers_to_missing_interpreter() -> R<()> {
         let script = TempFile::write_temp_script(
             trim_margin(
-                r##"
+                r"
                     |#!/usr/bin/foo
                     |cp
-                "##,
+                ",
             )?
             .as_bytes(),
         )?;
         let result = test_run_with_tempfile(
             &Context::new_mock(),
             &script,
-            r##"
+            r"
                 |protocol:
                 |  - cp
-            "##,
+            ",
         );
         assert_error!(
             result,
             trim_margin(
                 format!(
-                    r##"
+                    r"
                         |execve'ing {} failed with error: ENOENT: No such file or directory
                         |Does #!/usr/bin/foo exist?
-                    "##,
+                    ",
                     path_to_string(script.path().as_ref())?
                 )
                 .as_str(),
@@ -268,28 +268,28 @@ mod nice_user_errors {
     fn nice_error_when_hashbang_missing() -> R<()> {
         let script = TempFile::write_temp_script(
             trim_margin(
-                r##"
+                r"
                     |cp
-                "##,
+                ",
             )?
             .as_bytes(),
         )?;
         let result = test_run_with_tempfile(
             &Context::new_mock(),
             &script,
-            r##"
+            r"
                 |protocol:
                 |  - cp
-            "##,
+            ",
         );
         assert_error!(
             result,
             trim_margin(
                 format!(
-                    r##"
+                    r"
                         |execve'ing {} failed with error: ENOEXEC: Exec format error
                         |Does your interpreter exist?
-                    "##,
+                    ",
                     path_to_string(script.path().as_ref())?
                 )
                 .as_str(),
@@ -303,30 +303,30 @@ mod nice_user_errors {
     fn nice_error_when_yaml_refers_to_missing_interpreter() -> R<()> {
         let script = TempFile::write_temp_script(
             trim_margin(
-                r##"
+                r"
                     |`true`
-                "##,
+                ",
             )?
             .as_bytes(),
         )?;
         let result = test_run_with_tempfile(
             &Context::new_mock(),
             &script,
-            r##"
+            r"
                 |protocols:
                 |  - protocol:
                 |    - cp
                 |interpreter: /usr/bin/foo
-            "##,
+            ",
         );
         assert_error!(
             result,
             trim_margin(
                 format!(
-                    r##"
+                    r"
                         |execve'ing {} failed with error: ENOENT: No such file or directory
                         |Does /usr/bin/foo exist?
-                    "##,
+                    ",
                     path_to_string(script.path().as_ref())?
                 )
                 .as_str(),
@@ -343,14 +343,14 @@ mod arguments {
     #[test]
     fn arguments() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |cp foo
-            "##,
-            r##"
+            ",
+            r"
                 |protocol:
                 |  - cp foo
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -359,14 +359,14 @@ mod arguments {
     #[test]
     fn failing_arguments() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |cp bar
-            "##,
-            r##"
+            ",
+            r"
                 |protocol:
                 |  - cp foo
-            "##,
+            ",
             Err(&trim_margin(
                 "
                     |error:
@@ -381,14 +381,14 @@ mod arguments {
     #[test]
     fn arguments_with_spaces() -> R<()> {
         test_run(
-            r##"
+            r#"
                 |#!/usr/bin/env bash
                 |cp "foo bar"
-            "##,
-            r##"
+            "#,
+            r#"
                 |protocol:
                 |  - cp "foo bar"
-            "##,
+            "#,
             Ok(()),
         )?;
         Ok(())
@@ -397,20 +397,20 @@ mod arguments {
     #[test]
     fn error_messages_maintain_quotes() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |cp foo bar
-            "##,
-            r##"
+            ",
+            r#"
                 |protocol:
                 |  - cp "foo bar"
-            "##,
+            "#,
             Err(&trim_margin(
-                r##"
+                r#"
                     |error:
                     |  expected: cp "foo bar"
                     |  received: cp foo bar
-                "##,
+                "#,
             )?),
         )?;
         Ok(())
@@ -420,16 +420,16 @@ mod arguments {
 #[test]
 fn reports_the_first_error() -> R<()> {
     test_run(
-        r##"
+        r"
             |#!/usr/bin/env bash
             |mv first
             |mv second
-        "##,
-        r##"
+        ",
+        r"
             |protocol:
             |  - cp first
             |  - cp second
-        "##,
+        ",
         Err(&trim_margin(
             "
                 |error:
@@ -447,15 +447,15 @@ mod mismatch_in_number_of_commands {
     #[test]
     fn more_expected_commands() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |ls
-            "##,
-            r##"
+            ",
+            r"
                 |protocol:
                 |  - ls
                 |  - cp
-            "##,
+            ",
             Err(&trim_margin(
                 "
                     |error:
@@ -470,15 +470,15 @@ mod mismatch_in_number_of_commands {
     #[test]
     fn more_received_commands() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |ls
                 |cp
-            "##,
-            r##"
+            ",
+            r"
                 |protocol:
                 |  - ls
-            "##,
+            ",
             Err(&trim_margin(
                 "
                     |error:
@@ -497,17 +497,17 @@ mod stdout {
     #[test]
     fn mock_stdout() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |output=$(cp)
                 |cp $output
-            "##,
-            r##"
+            ",
+            r"
                 |protocol:
                 |  - command: cp
                 |    stdout: test_output
                 |  - cp test_output
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -516,17 +516,17 @@ mod stdout {
     #[test]
     fn mock_stdout_with_special_characters() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |output=$(cp)
                 |cp $output
-            "##,
-            r##"
+            ",
+            r#"
                 |protocol:
                 |  - command: cp
                 |    stdout: 'foo"'
                 |  - 'cp foo\"'
-            "##,
+            "#,
             Ok(()),
         )?;
         Ok(())
@@ -535,17 +535,17 @@ mod stdout {
     #[test]
     fn mock_stdout_with_newlines() -> R<()> {
         test_run(
-            r##"
+            r#"
                 |#!/usr/bin/env bash
                 |output=$(cp)
                 |cp "$output"
-            "##,
-            r##"
+            "#,
+            r#"
                 |protocol:
                 |  - command: cp
                 |    stdout: "foo\nbar"
                 |  - 'cp foo\nbar'
-            "##,
+            "#,
             Ok(()),
         )?;
         Ok(())
@@ -555,15 +555,15 @@ mod stdout {
 #[test]
 fn pass_arguments_into_tested_script() -> R<()> {
     test_run(
-        r##"
+        r"
             |#!/usr/bin/env bash
             |cp $1
-        "##,
-        r##"
+        ",
+        r"
             |arguments: foo
             |protocol:
             |  - cp foo
-        "##,
+        ",
         Ok(()),
     )?;
     Ok(())
@@ -575,18 +575,18 @@ mod multiple_protocols {
     #[test]
     fn all_pass() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |cp $1
-            "##,
-            r##"
+            ",
+            r"
                 |- arguments: foo
                 |  protocol:
                 |    - cp foo
                 |- arguments: bar
                 |  protocol:
                 |    - cp bar
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -595,16 +595,16 @@ mod multiple_protocols {
     #[test]
     fn all_fail() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |mv
-            "##,
-            r##"
+            ",
+            r"
                 |- protocol:
                 |    - cp
                 |- protocol:
                 |    - cp
-            "##,
+            ",
             Err(&trim_margin(
                 "
                     |error in protocol 1:
@@ -622,16 +622,16 @@ mod multiple_protocols {
     #[test]
     fn some_fail() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |mv
-            "##,
-            r##"
+            ",
+            r"
                 |- protocol:
                 |    - mv
                 |- protocol:
                 |    - cp
-            "##,
+            ",
             Err(&trim_margin(
                 "
                     |protocol 1:
@@ -652,16 +652,16 @@ mod environment {
     #[test]
     fn pass_env_into_tested_script() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |cp $FOO
-            "##,
-            r##"
+            ",
+            r"
                 |env:
                 |  FOO: test-env-var
                 |protocol:
                 |  - cp test-env-var
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -671,14 +671,14 @@ mod environment {
     fn does_not_inherit_the_parent_env() -> R<()> {
         std::env::set_var("FOO", "bar");
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |cp $FOO
-            "##,
-            r##"
+            ",
+            r"
                 |protocol:
                 |  - cp
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -688,14 +688,14 @@ mod environment {
 #[test]
 fn detects_running_commands_from_ruby_scripts() -> R<()> {
     test_run(
-        r##"
+        r"
             |#!/usr/bin/env ruby
             |`ls`
-        "##,
-        r##"
+        ",
+        r"
             |protocol:
             |  - ls
-        "##,
+        ",
         Ok(()),
     )?;
     Ok(())
@@ -707,18 +707,18 @@ mod mocked_exitcodes {
     #[test]
     fn set_a_non_zero_exitcode() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |if !(grep foo) ; then
                 |  ls
                 |fi
-            "##,
-            r##"
+            ",
+            r"
                 |protocol:
                 |  - command: grep foo
                 |    exitcode: 1
                 |  - ls
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -727,18 +727,18 @@ mod mocked_exitcodes {
     #[test]
     fn set_a_zero_exitcode() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |if grep foo ; then
                 |  ls
                 |fi
-            "##,
-            r##"
+            ",
+            r"
                 |protocol:
                 |  - command: grep foo
                 |    exitcode: 0
                 |  - ls
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -747,17 +747,17 @@ mod mocked_exitcodes {
     #[test]
     fn uses_a_zero_exitcode_by_default() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |if grep foo ; then
                 |  ls
                 |fi
-            "##,
-            r##"
+            ",
+            r"
                 |protocol:
                 |  - grep foo
                 |  - ls
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -766,17 +766,17 @@ mod mocked_exitcodes {
     #[test]
     fn allow_to_specify_the_exact_exitcode() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |grep foo
                 |ls $?
-            "##,
-            r##"
+            ",
+            r"
                 |protocol:
                 |  - command: grep foo
                 |    exitcode: 42
                 |  - ls 42
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -789,15 +789,15 @@ mod working_directory {
     #[test]
     fn allows_to_specify_the_working_directory() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |ls $(pwd)/file
-            "##,
-            r##"
+            ",
+            r"
                 |cwd: /foo
                 |protocol:
                 |  - ls /foo/file
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -806,15 +806,15 @@ mod working_directory {
     #[test]
     fn works_for_long_paths() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |ls $(pwd)/file
-            "##,
-            r##"
+            ",
+            r"
                 |cwd: /foo/bar/baz/foo/bar/baz/foo/bar/baz/foo
                 |protocol:
                 |  - ls /foo/bar/baz/foo/bar/baz/foo/bar/baz/foo/file
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -824,15 +824,15 @@ mod working_directory {
     fn inherits_the_working_directory_if_not_specified() -> R<()> {
         let cwd = env::current_dir()?;
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |ls $(pwd)/foo
-            "##,
+            ",
             &format!(
-                r##"
+                r"
                     |protocol:
                     |  - ls {}/foo
-                "##,
+                ",
                 path_to_string(&cwd)?
             ),
             Ok(()),
@@ -847,13 +847,13 @@ mod expected_exitcode {
     #[test]
     fn failure_when_the_tested_script_exits_with_a_non_zero_exitcode() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |exit 42
-            "##,
-            r##"
+            ",
+            r"
                 |protocol: []
-            "##,
+            ",
             Err(&trim_margin(
                 "
                     |error:
@@ -868,14 +868,14 @@ mod expected_exitcode {
     #[test]
     fn expect_non_zero_exitcode_passing() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |exit 42
-            "##,
-            r##"
+            ",
+            r"
                 |protocol: []
                 |exitcode: 42
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -884,14 +884,14 @@ mod expected_exitcode {
     #[test]
     fn expect_non_zero_exitcode_failing() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |true
-            "##,
-            r##"
+            ",
+            r"
                 |protocol: []
                 |exitcode: 42
-            "##,
+            ",
             Err(&trim_margin(
                 "
                 |error:
@@ -910,17 +910,17 @@ mod unmocked_commands {
     #[test]
     fn allows_to_unmock_commands() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |ls $(dirname dir/file)
-            "##,
-            r##"
+            ",
+            r"
                 |protocols:
                 |  - protocol:
                 |    - ls dir
                 |unmockedCommands:
                 |  - dirname
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -929,18 +929,18 @@ mod unmocked_commands {
     #[test]
     fn complains_when_expected_an_unmocked_command() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |ls $(dirname dir/file)
-            "##,
-            r##"
+            ",
+            r"
                 |protocols:
                 |  - protocol:
                 |    - dirname dir/file
                 |    - ls dir
                 |unmockedCommands:
                 |  - dirname
-            "##,
+            ",
             Err(&trim_margin(
                 "
                     |error:
@@ -959,19 +959,19 @@ mod file_mocking {
     #[test]
     fn allows_to_mock_files_existence() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |if [ -f /foo ]; then
                 |  cp
                 |fi
-            "##,
-            r##"
+            ",
+            r"
                 |protocols:
                 |  - protocol:
                 |      - cp
                 |    mockedFiles:
                 |      - /foo
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -980,19 +980,19 @@ mod file_mocking {
     #[test]
     fn allows_to_mock_directory_existence() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |if [ -d /foo/ ]; then
                 |  cp
                 |fi
-            "##,
-            r##"
+            ",
+            r"
                 |protocols:
                 |  - protocol:
                 |      - command: cp
                 |    mockedFiles:
                 |      - /foo/
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())
@@ -1001,16 +1001,16 @@ mod file_mocking {
     #[test]
     fn does_not_mock_existence_of_unspecified_files() -> R<()> {
         test_run(
-            r##"
+            r"
                 |#!/usr/bin/env bash
                 |if [ -f /foo ]; then
                 |  cp
                 |fi
-            "##,
-            r##"
+            ",
+            r"
                 |protocols:
                 |  - protocol: []
-            "##,
+            ",
             Ok(()),
         )?;
         Ok(())

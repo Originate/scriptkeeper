@@ -503,10 +503,10 @@ mod load {
     fn reads_a_protocol_from_a_sibling_yaml_file() -> R<()> {
         assert_eq!(
             test_parse_one(
-                r##"
+                r"
                     |protocol:
                     |  - /bin/true
-                "##,
+                ",
             )?,
             Protocol::new(vec![Step::new(Command {
                 executable: b"/bin/true".to_vec(),
@@ -528,11 +528,11 @@ mod load {
     fn works_for_multiple_commands() -> R<()> {
         assert_eq!(
             test_parse_one(
-                r##"
+                r"
                     |protocol:
                     |  - /bin/true
                     |  - /bin/false
-                "##
+                "
             )?
             .steps
             .map(|step| step.command.executable),
@@ -545,10 +545,10 @@ mod load {
     fn allows_to_specify_arguments() -> R<()> {
         assert_eq!(
             test_parse_one(
-                r##"
+                r"
                     |protocol:
                     |  - /bin/true foo bar
-                "##
+                "
             )?
             .steps
             .map(|step| step.command.arguments),
@@ -561,10 +561,10 @@ mod load {
     fn allows_to_specify_the_protocol_as_an_object() -> R<()> {
         assert_eq!(
             test_parse_one(
-                r##"
+                r"
                     |protocol:
                     |  - /bin/true
-                "##
+                "
             )?,
             Protocol::new(vec![Step::new(Command {
                 executable: b"/bin/true".to_vec(),
@@ -578,12 +578,12 @@ mod load {
     fn allows_to_specify_the_script_environment() -> R<()> {
         assert_eq!(
             test_parse_one(
-                r##"
+                r"
                     |protocol:
                     |  - /bin/true
                     |env:
                     |  foo: bar
-                "##
+                "
             )?
             .env
             .into_iter()
@@ -599,12 +599,12 @@ mod load {
         assert_eq!(
             test_parse(
                 &tempfile,
-                r##"
+                r"
                     |- arguments: foo
                     |  protocol: []
                     |- arguments: bar
                     |  protocol: []
-                "##,
+                ",
             )?
             .protocols
             .map(|protocol| protocol.arguments),
@@ -619,11 +619,11 @@ mod load {
         assert_error!(
             test_parse(
                 &tempfile,
-                r##"
+                r"
                     |protocol: []
                     |---
                     |protocol: []
-                "##,
+                ",
             ),
             format!(
                 "multiple YAML documents not allowed (in {}.protocols.yaml)",
@@ -639,13 +639,13 @@ mod load {
         assert_eq!(
             test_parse(
                 &tempfile,
-                r##"
+                r"
                     |protocols:
                     |  - arguments: foo
                     |    protocol: []
                     |  - arguments: bar
                     |    protocol: []
-                "##,
+                ",
             )?
             .protocols
             .map(|protocol| protocol.arguments),
@@ -677,11 +677,11 @@ mod load {
         fn allows_arguments() -> R<()> {
             assert_eq!(
                 test_parse_one(
-                    r##"
+                    r"
                         |protocol:
                         |  - /bin/true
                         |arguments: foo bar
-                    "##
+                    "
                 )?
                 .arguments,
                 vec!["foo", "bar"]
@@ -693,11 +693,11 @@ mod load {
         fn allows_arguments_with_whitespace() -> R<()> {
             assert_eq!(
                 test_parse_one(
-                    r##"
+                    r#"
                         |protocol:
                         |  - /bin/true
                         |arguments: foo "bar baz"
-                    "##
+                    "#
                 )?
                 .arguments,
                 vec!["foo", "bar baz"]
@@ -711,11 +711,11 @@ mod load {
             assert_error!(
                 test_parse(
                     &tempfile,
-                    r##"
+                    r"
                         |protocol:
                         |  - /bin/true
                         |arguments: 42
-                    "##
+                    "
                 ),
                 format!(
                     "unexpected type in {}.protocols.yaml: \
@@ -735,11 +735,11 @@ mod load {
         fn allows_to_specify_the_working_directory() -> R<()> {
             assert_eq!(
                 test_parse_one(
-                    r##"
+                    r"
                         |protocol:
                         |  - /bin/true
                         |cwd: /foo
-                    "##
+                    "
                 )?
                 .cwd,
                 Some(b"/foo".to_vec())
@@ -751,10 +751,10 @@ mod load {
         fn none_is_the_default() -> R<()> {
             assert_eq!(
                 test_parse_one(
-                    r##"
+                    r"
                         |protocol:
                         |  - /bin/true
-                    "##
+                    "
                 )?
                 .cwd,
                 None
@@ -765,11 +765,11 @@ mod load {
         #[test]
         fn disallows_relative_paths() -> R<()> {
             let yaml = YamlLoader::load_from_str(&trim_margin(
-                r##"
+                r"
                     |protocol:
                     |  - /bin/true
                     |cwd: foo
-                "##,
+                ",
             )?)?;
             assert_error!(
                 Protocols::parse(yaml[0].clone()),
@@ -787,11 +787,11 @@ mod load {
         fn allows_to_specify_the_expected_exit_code() -> R<()> {
             assert_eq!(
                 test_parse_one(
-                    r##"
+                    r"
                         |protocol:
                         |  - /bin/true
                         |exitcode: 42
-                    "##
+                    "
                 )?
                 .exitcode,
                 Some(42)
@@ -803,10 +803,10 @@ mod load {
         fn uses_none_as_the_default() -> R<()> {
             assert_eq!(
                 test_parse_one(
-                    r##"
+                    r"
                         |protocol:
                         |  - /bin/true
-                    "##
+                    "
                 )?
                 .exitcode,
                 None
@@ -825,12 +825,12 @@ mod load {
             assert_eq!(
                 test_parse(
                     &tempfile,
-                    r##"
+                    r"
                         |protocols:
                         |  - protocol: []
                         |unmockedCommands:
                         |  - foo
-                    "##
+                    "
                 )?
                 .unmocked_commands
                 .map(|command| String::from_utf8(command).unwrap()),
@@ -850,11 +850,11 @@ mod load {
             assert_eq!(
                 test_parse(
                     &tempfile,
-                    r##"
+                    r"
                         |protocols:
                         |  - protocol: []
                         |interpreter: /bin/bash
-                    "##,
+                    ",
                 )?
                 .interpreter
                 .unwrap(),
@@ -869,11 +869,11 @@ mod load {
             assert_error!(
                 test_parse(
                     &tempfile,
-                    r##"
+                    r"
                         |protocols:
                         |  - protocol: []
                         |interpreter: 42
-                    "##,
+                    ",
                 ),
                 format!(
                     "unexpected type in {}.protocols.yaml: \
@@ -889,11 +889,11 @@ mod load {
     fn allows_to_specify_mocked_files() -> R<()> {
         assert_eq!(
             test_parse_one(
-                r##"
+                r"
                     |protocol: []
                     |mockedFiles:
                     |  - /foo
-                "##
+                "
             )?
             .mocked_files
             .map(|path| String::from_utf8_lossy(&path).into_owned()),
@@ -910,10 +910,10 @@ mod load {
         fn allows_to_specify_the_expected_stderr() -> R<()> {
             assert_eq!(
                 test_parse_one(
-                    r##"
+                    r"
                         |- protocol: []
                         |  stderr: foo
-                    "##
+                    "
                 )?
                 .stderr
                 .map(|s| String::from_utf8(s).unwrap()),
@@ -926,9 +926,9 @@ mod load {
         fn none_is_the_default() -> R<()> {
             assert_eq!(
                 test_parse_one(
-                    r##"
+                    r"
                         |- protocol: []
-                    "##
+                    "
                 )?
                 .stderr,
                 None
@@ -945,11 +945,11 @@ mod load {
         fn parses_underscores_as_holes() -> R<()> {
             assert_eq!(
                 test_parse_one(
-                    r##"
+                    r"
                         |protocols:
                         |  - protocol:
                         |      - _
-                    "##
+                    "
                 )?
                 .ends_with_hole,
                 true
@@ -961,11 +961,11 @@ mod load {
         fn false_is_the_default() -> R<()> {
             assert_eq!(
                 test_parse_one(
-                    r##"
+                    r"
                         |protocols:
                         |  - protocol:
                         |      - /bin/foo
-                    "##
+                    "
                 )?
                 .ends_with_hole,
                 false
@@ -979,12 +979,12 @@ mod load {
             assert_error!(
                 test_parse(
                     &tempfile,
-                    r##"
+                    r"
                         |protocols:
                         |  - protocol:
                         |      - _
                         |      - /bin/foo
-                    "##
+                    "
                 ),
                 format!(
                     "unexpected type in {}.protocols.yaml: holes ('_') are only allowed as the last step",

@@ -235,7 +235,7 @@ mod command {
                     Command::new(r#"foo bar\\baz"#)?,
                     Command {
                         executable: b"foo".to_vec(),
-                        arguments: vec![br#"bar\baz"#.to_vec()]
+                        arguments: vec![br"bar\baz".to_vec()]
                     }
                 );
                 Ok(())
@@ -270,26 +270,22 @@ mod command {
 
         roundtrip!(command_and_arguments, "foo bar baz");
 
-        roundtrip!(quoted_argument_with_space, r##"foo "bar baz""##);
+        roundtrip!(quoted_argument_with_space, r#"foo "bar baz""#);
 
-        normalizing_roundtrip!(quoted_argument_without_space, r##"foo "bar""##, "foo bar");
+        normalizing_roundtrip!(quoted_argument_without_space, r#"foo "bar""#, "foo bar");
 
-        roundtrip!(escaped_quotes, r##"foo bar\""##);
+        roundtrip!(escaped_quotes, r#"foo bar\""#);
 
-        normalizing_roundtrip!(
-            escaped_quotes_in_quotes,
-            r##"foo "bar\"""##,
-            r##"foo bar\""##
-        );
+        normalizing_roundtrip!(escaped_quotes_in_quotes, r#"foo "bar\"""#, r#"foo bar\""#);
 
         normalizing_roundtrip!(
             puts_escaped_space_in_quotes,
-            r##"foo bar\ baz"##,
-            r##"foo "bar baz""##
+            r"foo bar\ baz",
+            r#"foo "bar baz""#
         );
 
-        roundtrip!(escaped_newlines, r##"foo bar\nbaz"##);
+        roundtrip!(escaped_newlines, r"foo bar\nbaz");
 
-        roundtrip!(backslash, r##"foo bar\\baz"##);
+        roundtrip!(backslash, r"foo bar\\baz");
     }
 }
