@@ -392,16 +392,18 @@ impl Protocols {
             ) {
                 (Ok(protocols), _) => {
                     let mut protocols = Protocols::from_array(protocols.expect_array()?)?;
+                    check_keys(&["protocols", "interpreter", "unmockedCommands"], object)?;
                     protocols.add_unmocked_commands(object)?;
                     protocols.add_interpreter(object)?;
                     protocols
                 }
                 (Err(_), Ok(_)) => Protocols::new(vec![Protocol::from_object(&object)?]),
                 (Err(_), Err(_)) => Err(format!(
-                    "expected field \"protocol\" or \"protocols\", got: {:?}",
+                    "expected top-level field \"protocol\" or \"protocols\", got: {:?}",
                     &yaml
                 ))?,
             },
+
             _ => Err(format!("expected: array or object, got: {:?}", &yaml))?,
         })
     }
@@ -433,11 +435,7 @@ impl Protocols {
         Ok((
             protocols_file.clone(),
             Protocols::parse(yaml).map_err(|error| {
-                format!(
-                    "unexpected type in {}: {}",
-                    protocols_file.to_string_lossy(),
-                    error
-                )
+                format!("error in {}: {}", protocols_file.to_string_lossy(), error)
             })?,
         ))
     }
@@ -518,6 +516,37 @@ mod load {
             Protocols::load(&PathBuf::from("./does-not-exist")),
             "protocol file not found: ./does-not-exist.protocols.yaml"
         );
+    }
+
+    mod invalid_fields {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn disallows_unknown_top_level_fields() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_error!(
+                test_parse(
+                    &tempfile,
+                    "
+                        |foo: 42
+                        |protocols:
+                        |  - protocol:
+                        |      - foo
+                    "
+                ),
+                format!(
+                    "error in {}.protocols.yaml: \
+                     unexpected field 'foo', \
+                     possible values: 'protocols', 'interpreter', 'unmockedCommands'",
+                    path_to_string(&tempfile.path())?
+                )
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn multiple_unknown_fields() {}
     }
 
     #[test]
@@ -656,8 +685,8 @@ mod load {
         assert_error!(
             test_parse(&tempfile, "{}"),
             format!(
-                "unexpected type in {}.protocols.yaml: \
-                 expected field \"protocol\" or \"protocols\", \
+                "error in {}.protocols.yaml: \
+                 expected top-level field \"protocol\" or \"protocols\", \
                  got: Hash({{}})",
                 path_to_string(&tempfile.path())?
             )
@@ -714,7 +743,7 @@ mod load {
                     "
                 ),
                 format!(
-                    "unexpected type in {}.protocols.yaml: \
+                    "error in {}.protocols.yaml: \
                      expected: string, got: Integer(42)",
                     path_to_string(&tempfile.path())?
                 )
@@ -873,7 +902,7 @@ mod load {
                     ",
                 ),
                 format!(
-                    "unexpected type in {}.protocols.yaml: \
+                    "error in {}.protocols.yaml: \
                      expected: string, got: Integer(42)",
                     path_to_string(&tempfile.path())?
                 )
@@ -984,7 +1013,7 @@ mod load {
                     "
                 ),
                 format!(
-                    "unexpected type in {}.protocols.yaml: holes ('_') are only allowed as the last step",
+                    "error in {}.protocols.yaml: holes ('_') are only allowed as the last step",
                     path_to_string(&tempfile.path())?
                 )
             );

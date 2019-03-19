@@ -3,7 +3,7 @@ use linked_hash_map::LinkedHashMap;
 use std::fmt;
 use std::io;
 use std::io::Cursor;
-use yaml_rust::{Yaml, YamlEmitter};
+use yaml_rust::{yaml::Hash, Yaml, YamlEmitter};
 
 pub trait YamlExt {
     fn expect_str(&self) -> R<&str>;
@@ -84,6 +84,24 @@ impl MapExt for LinkedHashMap<Yaml, Yaml> {
             .get(&Yaml::String(field.to_string()))
             .ok_or_else(|| format!("expected field '{}', got: {:?}", field, self))?)
     }
+}
+
+pub fn check_keys(known_keys: &[&str], object: &Hash) -> R<()> {
+    for key in object.keys() {
+        let key = key.expect_str()?;
+        if !known_keys.contains(&key) {
+            Err(format!(
+                "unexpected field '{}', possible values: {}",
+                key,
+                known_keys
+                    .iter()
+                    .map(|key| format!("'{}'", key))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ))?;
+        }
+    }
+    Ok(())
 }
 
 fn adjust_yaml_output(input: Vec<u8>) -> Vec<u8> {
