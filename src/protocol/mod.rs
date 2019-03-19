@@ -184,7 +184,7 @@ pub struct Protocol {
     pub ends_with_hole: bool,
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
-    pub cwd: Option<Vec<u8>>,
+    pub cwd: Option<PathBuf>,
     pub stderr: Option<Vec<u8>>,
     pub exitcode: Option<i32>,
     pub mocked_files: Vec<PathBuf>,
@@ -265,7 +265,7 @@ impl Protocol {
                     cwd
                 ))?;
             }
-            self.cwd = Some(cwd.as_bytes().to_vec());
+            self.cwd = Some(PathBuf::from(cwd));
         }
         Ok(())
     }
@@ -741,7 +741,7 @@ mod load {
                     "
                 )?
                 .cwd,
-                Some(b"/foo".to_vec())
+                Some(PathBuf::from("/foo"))
             );
             Ok(())
         }
