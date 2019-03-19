@@ -101,12 +101,10 @@ impl SyscallMock for ProtocolChecker {
         executable: PathBuf,
         arguments: Vec<OsString>,
     ) -> R<()> {
-        let is_unmocked_command = self.unmocked_commands.iter().any(|unmocked_command| {
-            protocol::compare_executables(
-                &unmocked_command.as_os_str().as_bytes(),
-                &executable.as_os_str().as_bytes(),
-            )
-        });
+        let is_unmocked_command = self
+            .unmocked_commands
+            .iter()
+            .any(|unmocked_command| protocol::compare_executables(unmocked_command, &executable));
         if !is_unmocked_command {
             let mock_executable_path = self.handle_step(protocol::Command {
                 executable,

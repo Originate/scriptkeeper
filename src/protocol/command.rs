@@ -2,7 +2,6 @@ use super::argument_parser::Parser;
 use super::executable_path;
 use crate::R;
 use std::ffi::OsString;
-use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 use std::str;
 
@@ -22,10 +21,8 @@ impl Command {
     }
 
     pub fn compare(&self, other: &Command) -> bool {
-        executable_path::compare_executables(
-            &self.executable.as_os_str().as_bytes(),
-            &other.executable.as_os_str().as_bytes(),
-        ) && self.arguments == other.arguments
+        executable_path::compare_executables(&self.executable, &other.executable)
+            && self.arguments == other.arguments
     }
 
     fn escape(word: String) -> String {
@@ -50,12 +47,11 @@ impl Command {
     }
 
     pub fn format(&self) -> String {
-        let executable = String::from_utf8_lossy(&executable_path::canonicalize(
-            &self.executable.as_os_str().as_bytes(),
-        ))
-        .into_owned();
+        let executable = executable_path::canonicalize(&self.executable)
+            .to_string_lossy()
+            .into_owned();
         if self.arguments.is_empty() {
-            executable.to_string()
+            executable
         } else {
             format!(
                 "{} {}",
