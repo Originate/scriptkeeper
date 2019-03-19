@@ -98,7 +98,7 @@ mod parse_step {
         assert_eq!(
             test_parse_step(r#""foo""#)?,
             Step::new(Command {
-                executable: b"foo".to_vec(),
+                executable: PathBuf::from("foo"),
                 arguments: vec![],
             }),
         );
@@ -110,7 +110,7 @@ mod parse_step {
         assert_eq!(
             test_parse_step(r#""foo bar""#)?.command,
             Command {
-                executable: b"foo".to_vec(),
+                executable: PathBuf::from("foo"),
                 arguments: vec![b"bar".to_vec()],
             },
         );
@@ -122,7 +122,7 @@ mod parse_step {
         assert_eq!(
             test_parse_step(r#"{command: "foo"}"#)?,
             Step::new(Command {
-                executable: b"foo".to_vec(),
+                executable: PathBuf::from("foo"),
                 arguments: vec![],
             }),
         );
@@ -134,7 +134,7 @@ mod parse_step {
         assert_eq!(
             test_parse_step(r#"{command: "foo bar"}"#)?.command,
             Command {
-                executable: b"foo".to_vec(),
+                executable: PathBuf::from("foo"),
                 arguments: vec![b"bar".to_vec()],
             },
         );
@@ -508,7 +508,7 @@ mod load {
                 ",
             )?,
             Protocol::new(vec![Step::new(Command {
-                executable: b"/bin/true".to_vec(),
+                executable: PathBuf::from("/bin/true"),
                 arguments: vec![],
             })]),
         );
@@ -535,7 +535,7 @@ mod load {
             )?
             .steps
             .map(|step| step.command.executable),
-            vec![b"/bin/true".to_vec(), b"/bin/false".to_vec()],
+            vec![PathBuf::from("/bin/true"), PathBuf::from("/bin/false")],
         );
         Ok(())
     }
@@ -566,7 +566,7 @@ mod load {
                 "
             )?,
             Protocol::new(vec![Step::new(Command {
-                executable: b"/bin/true".to_vec(),
+                executable: PathBuf::from("/bin/true"),
                 arguments: vec![],
             })]),
         );

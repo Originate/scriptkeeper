@@ -36,7 +36,7 @@ pub trait SyscallMock {
         &mut self,
         _pid: Pid,
         _registers: &user_regs_struct,
-        _executable: Vec<u8>,
+        _executable: PathBuf,
         _arguments: Vec<Vec<u8>>,
     ) -> R<()> {
         Ok(())
@@ -242,7 +242,10 @@ impl Tracer {
         match (&syscall, syscall_stop) {
             (Syscall::Execve, SyscallStop::Enter) => {
                 if self.tracee_pid != pid {
-                    let executable = tracee_memory::peek_string(pid, registers.rdi)?;
+                    let executable = PathBuf::from(OsString::from_vec(tracee_memory::peek_string(
+                        pid,
+                        registers.rdi,
+                    )?));
                     let arguments = tracee_memory::peek_string_array(pid, registers.rsi)?;
                     syscall_mock.handle_execve_enter(pid, registers, executable, arguments)?;
                 }

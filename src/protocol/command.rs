@@ -1,11 +1,13 @@
 use super::argument_parser::Parser;
 use super::executable_path;
 use crate::R;
+use std::os::unix::ffi::OsStrExt;
+use std::path::PathBuf;
 use std::str;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Command {
-    pub executable: Vec<u8>,
+    pub executable: PathBuf,
     pub arguments: Vec<Vec<u8>>,
 }
 
@@ -19,8 +21,10 @@ impl Command {
     }
 
     pub fn compare(&self, other: &Command) -> bool {
-        executable_path::compare_executables(&self.executable, &other.executable)
-            && self.arguments == other.arguments
+        executable_path::compare_executables(
+            &self.executable.as_os_str().as_bytes(),
+            &other.executable.as_os_str().as_bytes(),
+        ) && self.arguments == other.arguments
     }
 
     fn escape(word: String) -> String {
@@ -45,8 +49,10 @@ impl Command {
     }
 
     pub fn format(&self) -> String {
-        let executable =
-            String::from_utf8_lossy(&executable_path::canonicalize(&self.executable)).into_owned();
+        let executable = String::from_utf8_lossy(&executable_path::canonicalize(
+            &self.executable.as_os_str().as_bytes(),
+        ))
+        .into_owned();
         if self.arguments.is_empty() {
             executable.to_string()
         } else {
@@ -59,13 +65,11 @@ impl Command {
     }
 
     pub fn new(command: &str) -> R<Command> {
-        let mut words = Parser::parse_arguments(command)?
-            .into_iter()
-            .map(|word| word.into_bytes());
+        let mut words = Parser::parse_arguments(command)?.into_iter();
         match words.next() {
             Some(executable) => Ok(Command {
-                executable,
-                arguments: words.collect(),
+                executable: PathBuf::from(executable),
+                arguments: words.map(|word| word.into_bytes()).collect(),
             }),
             None => Err(format!(
                 "expected: space-separated command and arguments ({:?})",
@@ -89,7 +93,7 @@ mod command {
             assert_eq!(
                 Command::new("foo bar")?,
                 Command {
-                    executable: b"foo".to_vec(),
+                    executable: PathBuf::from("foo"),
                     arguments: vec![b"bar".to_vec()]
                 }
             );
@@ -101,7 +105,7 @@ mod command {
             assert_eq!(
                 Command::new(r#"foo "bar baz""#)?,
                 Command {
-                    executable: b"foo".to_vec(),
+                    executable: PathBuf::from("foo"),
                     arguments: vec![b"bar baz".to_vec()]
                 }
             );
@@ -113,14 +117,14 @@ mod command {
             assert_eq!(
                 Command::new(r#"foo\" bar baz"#)?,
                 Command {
-                    executable: b"foo\"".to_vec(),
+                    executable: PathBuf::from("foo\""),
                     arguments: vec![b"bar", b"baz"].map(|arg| arg.to_vec())
                 }
             );
             assert_eq!(
                 Command::new(r#"foo\" "bar baz""#)?,
                 Command {
-                    executable: b"foo\"".to_vec(),
+                    executable: PathBuf::from("foo\""),
                     arguments: vec![b"bar baz".to_vec()]
                 }
             );
@@ -132,7 +136,7 @@ mod command {
             assert_eq!(
                 Command::new(r#"foo "bar\" baz""#)?,
                 Command {
-                    executable: b"foo".to_vec(),
+                    executable: PathBuf::from("foo"),
                     arguments: vec![b"bar\" baz".to_vec()]
                 }
             );
@@ -171,7 +175,7 @@ mod command {
             assert_eq!(
                 Command::new("foo  bar")?,
                 Command {
-                    executable: b"foo".to_vec(),
+                    executable: PathBuf::from("foo"),
                     arguments: vec![b"bar".to_vec()]
                 }
             );
@@ -183,7 +187,7 @@ mod command {
             assert_eq!(
                 Command::new(" foo bar")?,
                 Command {
-                    executable: b"foo".to_vec(),
+                    executable: PathBuf::from("foo"),
                     arguments: vec![b"bar".to_vec()]
                 }
             );
@@ -195,7 +199,7 @@ mod command {
             assert_eq!(
                 Command::new("foo bar ")?,
                 Command {
-                    executable: b"foo".to_vec(),
+                    executable: PathBuf::from("foo"),
                     arguments: vec![b"bar".to_vec()]
                 }
             );
@@ -210,7 +214,7 @@ mod command {
                 assert_eq!(
                     Command::new(r#"foo "bar\nbaz""#)?,
                     Command {
-                        executable: b"foo".to_vec(),
+                        executable: PathBuf::from("foo"),
                         arguments: vec![b"bar\nbaz".to_vec()]
                     }
                 );
@@ -222,7 +226,7 @@ mod command {
                 assert_eq!(
                     Command::new(r#"foo bar\ baz"#)?,
                     Command {
-                        executable: b"foo".to_vec(),
+                        executable: PathBuf::from("foo"),
                         arguments: vec![b"bar baz".to_vec()]
                     }
                 );
@@ -234,7 +238,7 @@ mod command {
                 assert_eq!(
                     Command::new(r#"foo bar\\baz"#)?,
                     Command {
-                        executable: b"foo".to_vec(),
+                        executable: PathBuf::from("foo"),
                         arguments: vec![br"bar\baz".to_vec()]
                     }
                 );

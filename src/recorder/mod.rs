@@ -42,11 +42,14 @@ impl SyscallMock for Recorder {
         &mut self,
         _pid: Pid,
         _registers: &user_regs_struct,
-        executable: Vec<u8>,
+        executable: PathBuf,
         arguments: Vec<Vec<u8>>,
     ) -> R<()> {
         let is_unmocked_command = self.unmocked_commands.iter().any(|unmocked_command| {
-            compare_executables(unmocked_command.as_os_str().as_bytes(), &executable)
+            compare_executables(
+                unmocked_command.as_os_str().as_bytes(),
+                executable.as_os_str().as_bytes(),
+            )
         });
         if !is_unmocked_command {
             self.command = Some(Command {
