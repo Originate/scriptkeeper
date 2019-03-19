@@ -21,7 +21,7 @@ use std::ffi::CString;
 use std::fs;
 use std::os::unix::ffi::OsStrExt;
 use std::panic;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str;
 use stdio_redirecting::{CaptureStderr, Redirector};
 use syscall::Syscall;
@@ -80,7 +80,7 @@ impl Tracer {
     }
 
     fn execve_params(
-        interpreter: &Option<Vec<u8>>,
+        interpreter: &Option<PathBuf>,
         program: &Path,
         args: Vec<String>,
         env: HashMap<String, String>,
@@ -97,12 +97,9 @@ impl Tracer {
         }
         Ok(match interpreter {
             Some(interpreter) => {
-                c_args.push_front(CString::new(interpreter.clone())?);
-                (
-                    CString::new(interpreter.clone())?,
-                    c_args.into_iter().collect(),
-                    c_env,
-                )
+                let c_interpreter = CString::new(interpreter.as_os_str().as_bytes())?;
+                c_args.push_front(c_interpreter.clone());
+                (c_interpreter, c_args.into_iter().collect(), c_env)
             }
             None => (c_executable.clone(), c_args.into_iter().collect(), c_env),
         })
@@ -110,11 +107,11 @@ impl Tracer {
 
     fn format_execve_error(
         error: nix::Error,
-        interpreter: &Option<Vec<u8>>,
+        interpreter: &Option<PathBuf>,
         program: &Path,
     ) -> String {
         let (program, interpreter) = if let Some(interpreter) = interpreter {
-            (program, String::from_utf8_lossy(&interpreter).to_string())
+            (program, interpreter.to_string_lossy().into_owned())
         } else {
             (
                 program,
@@ -131,7 +128,7 @@ impl Tracer {
     }
 
     fn execve(
-        interpreter: &Option<Vec<u8>>,
+        interpreter: &Option<PathBuf>,
         program: &Path,
         args: Vec<String>,
         env: HashMap<String, String>,
@@ -144,7 +141,7 @@ impl Tracer {
 
     pub fn run_against_mock<MockResult>(
         context: &Context,
-        interpreter: &Option<Vec<u8>>,
+        interpreter: &Option<PathBuf>,
         program: &Path,
         args: Vec<String>,
         env: HashMap<String, String>,

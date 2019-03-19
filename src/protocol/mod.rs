@@ -350,7 +350,7 @@ impl Protocol {
 pub struct Protocols {
     pub protocols: Vec<Protocol>,
     pub unmocked_commands: Vec<PathBuf>,
-    pub interpreter: Option<Vec<u8>>,
+    pub interpreter: Option<PathBuf>,
 }
 
 impl Protocols {
@@ -372,7 +372,7 @@ impl Protocols {
 
     fn add_interpreter(&mut self, object: &Hash) -> R<()> {
         if let Ok(interpreter) = object.expect_field("interpreter") {
-            self.interpreter = Some(interpreter.expect_str()?.as_bytes().to_vec());
+            self.interpreter = Some(PathBuf::from(interpreter.expect_str()?));
         }
         Ok(())
     }
@@ -857,8 +857,9 @@ mod load {
                     ",
                 )?
                 .interpreter
-                .unwrap(),
-                b"/bin/bash",
+                .unwrap()
+                .to_string_lossy(),
+                "/bin/bash",
             );
             Ok(())
         }
