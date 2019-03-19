@@ -9,6 +9,7 @@ use crate::tracer::SyscallMock;
 use crate::{ExitCode, R};
 use libc::user_regs_struct;
 use nix::unistd::Pid;
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 pub enum HoleRecorder {
@@ -42,7 +43,7 @@ impl SyscallMock for HoleRecorder {
         pid: Pid,
         registers: &user_regs_struct,
         executable: PathBuf,
-        arguments: Vec<Vec<u8>>,
+        arguments: Vec<OsString>,
     ) -> R<()> {
         match self {
             HoleRecorder::Checker {

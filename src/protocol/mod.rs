@@ -13,6 +13,7 @@ use crate::R;
 pub use command::Command;
 use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, VecDeque};
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use yaml_rust::{yaml::Hash, Yaml, YamlLoader};
@@ -111,7 +112,7 @@ mod parse_step {
             test_parse_step(r#""foo bar""#)?.command,
             Command {
                 executable: PathBuf::from("foo"),
-                arguments: vec![b"bar".to_vec()],
+                arguments: vec![OsString::from("bar")],
             },
         );
         Ok(())
@@ -135,7 +136,7 @@ mod parse_step {
             test_parse_step(r#"{command: "foo bar"}"#)?.command,
             Command {
                 executable: PathBuf::from("foo"),
-                arguments: vec![b"bar".to_vec()],
+                arguments: vec![OsString::from("bar")],
             },
         );
         Ok(())
@@ -317,11 +318,7 @@ impl Protocol {
     fn serialize(&self) -> Yaml {
         let mut protocol = LinkedHashMap::new();
         if !self.arguments.is_empty() {
-            let arguments = self
-                .arguments
-                .iter()
-                .map(|arg| arg.as_bytes().to_vec())
-                .collect();
+            let arguments = self.arguments.iter().map(OsString::from).collect();
             protocol.insert(
                 Yaml::from_str("arguments"),
                 Yaml::String(Command::format_arguments(arguments)),
@@ -551,7 +548,7 @@ mod load {
             )?
             .steps
             .map(|step| step.command.arguments),
-            vec![vec![b"foo".to_vec(), b"bar".to_vec()]],
+            vec![vec![OsString::from("foo"), OsString::from("bar")]],
         );
         Ok(())
     }
