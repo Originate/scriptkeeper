@@ -192,6 +192,19 @@ protocols:
       - _
 ```
 
+This allows for an iterative process to create a protocol:
+
+1. Start with an empty protocol with a hole.
+2. Run `check-protocols`.
+3. Identify the step in the recorded protocol where it deviates from the
+   intended test. (If it doesn't, you're done.)
+4. Refine the protocol by modifying the inputs to the tested script, i.e. the
+   arguments, the environment, etc. This can be guided by both the recorded
+   script and the script's output to `stdout` and `stderr`.
+5. Remove all protocol steps after the step identified in 3.
+6. Add a hole at the end.
+7. Re-iterate from step 2.
+
 ## Running inside `docker` (for OSX)
 
 You can run the tool inside docker, for example like this:
