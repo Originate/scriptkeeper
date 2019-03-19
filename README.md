@@ -1,4 +1,9 @@
-# Check Protocols [![CircleCI](https://circleci.com/gh/Originate/check-protocols.svg?style=svg)](https://circleci.com/gh/Originate/check-protocols) [![Waffle.io - Columns and their card count](https://badge.waffle.io/Originate/check-protocols.svg?columns=all)](https://waffle.io/Originate/check-protocols)
+# Check Protocols
+[![CircleCI](https://circleci.com/gh/Originate/check-protocols.svg?style=svg)](https://circleci.com/gh/Originate/check-protocols)
+[![open issues](https://img.shields.io/github/issues/originate/check-protocols.svg?label=open%20issues)](https://github.com/Originate/check-protocols/issues)
+[![open pull requests](https://img.shields.io/github/issues-pr-raw/originate/check-protocols.svg?color=%238888ff)](https://github.com/Originate/check-protocols/pulls)
+[![closed issues](https://img.shields.io/github/issues-closed/originate/check-protocols.svg?color=green&label=closed%20issues)](https://github.com/Originate/check-protocols/issues?q=is%3Aissue+is%3Aclosed)
+[Issue Board](https://github.com/orgs/Originate/projects/1)
 
 Run tests against your scripts without changing your scripts.
 
@@ -216,11 +221,14 @@ You can run the tool inside docker, for example like this:
 
 ## Contributing
 
-Contributions, feature requests, bug reports, etc. are all welcome. Please consider the following guidelines
-when submitting:
 
-* For any pull request that you intend to merge, we ask that all tests pass for every commit that will end up on master
+
+Contributions, feature requests, bug reports, etc. are all welcome.  Please
+consider the following guidelines when submitting:
+
+* For any pull request that you intend to merge, we ask that all tests pass for every commit that will end up on master.
 * We will address the top rated (by :thumbsup:) issues first, please cast your votes!
+* You can coordinate your work through this [ticket board](https://github.com/orgs/Originate/projects/1).
 
 ### For OSX
 
