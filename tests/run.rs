@@ -121,7 +121,7 @@ mod yaml_parse_errors {
         assert_error!(
             result,
             format!(
-                "unexpected type in {}.protocols.yaml: \
+                "error in {}.protocols.yaml: \
                  expected: array, got: Integer(42)",
                 path_to_string(&script.path())?
             )
