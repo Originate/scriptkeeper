@@ -120,6 +120,7 @@ impl SyscallMock for ProtocolChecker {
 
     fn handle_getcwd_exit(&self, pid: Pid, registers: &user_regs_struct) -> R<()> {
         if let Some(mock_cwd) = &self.protocol.cwd {
+            let mock_cwd = mock_cwd.as_os_str().as_bytes();
             let buffer_ptr = registers.rdi;
             let max_size = registers.rsi;
             tracee_memory::poke_string(pid, buffer_ptr, mock_cwd, max_size)?;
