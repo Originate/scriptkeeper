@@ -56,6 +56,7 @@ impl Step {
         match yaml {
             Yaml::String(string) => Step::from_string(string),
             Yaml::Hash(object) => {
+                check_keys(&["command", "stdout", "exitcode"], object)?;
                 let mut step = Step::from_string(object.expect_field("command")?.expect_str()?)?;
                 step.add_stdout(object)?;
                 step.add_exitcode(object)?;
@@ -403,8 +404,8 @@ impl Protocols {
                 object.expect_field("protocol"),
             ) {
                 (Ok(protocols), _) => {
-                    let mut protocols = Protocols::from_array(protocols.expect_array()?)?;
                     check_keys(&["protocols", "interpreter", "unmockedCommands"], object)?;
+                    let mut protocols = Protocols::from_array(protocols.expect_array()?)?;
                     protocols.add_unmocked_commands(object)?;
                     protocols.add_interpreter(object)?;
                     protocols
@@ -415,7 +416,6 @@ impl Protocols {
                     &yaml
                 ))?,
             },
-
             _ => Err(format!("expected: array or object, got: {:?}", &yaml))?,
         })
     }
@@ -535,7 +535,7 @@ mod load {
         use pretty_assertions::assert_eq;
 
         #[test]
-        fn disallows_unknown_top_level_fields() -> R<()> {
+        fn disallows_unknown_top_level_keys() -> R<()> {
             let tempfile = TempFile::new()?;
             assert_error!(
                 test_parse(
@@ -558,7 +558,7 @@ mod load {
         }
 
         #[test]
-        fn disallows_unknown_protocol_fields() -> R<()> {
+        fn disallows_unknown_protocol_keys() -> R<()> {
             let tempfile = TempFile::new()?;
             assert_error!(
                 test_parse(
@@ -576,6 +576,29 @@ mod load {
                      possible values: \
                      'protocol', 'mockedFiles', 'arguments', 'env', \
                      'exitcode', 'stderr', 'cwd'",
+                    path_to_string(&tempfile.path())?
+                )
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn disallows_unknown_step_keys() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_error!(
+                test_parse(
+                    &tempfile,
+                    "
+                        |protocols:
+                        |  - protocol:
+                        |      - command: foo
+                        |        foo: 42
+                    "
+                ),
+                format!(
+                    "error in {}.protocols.yaml: \
+                     unexpected field 'foo', \
+                     possible values: 'command', 'stdout', 'exitcode'",
                     path_to_string(&tempfile.path())?
                 )
             );
