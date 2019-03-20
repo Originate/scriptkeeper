@@ -11,6 +11,7 @@
 extern crate serde_derive;
 #[macro_use]
 extern crate memoffset;
+extern crate regex;
 
 pub mod cli;
 pub mod context;
