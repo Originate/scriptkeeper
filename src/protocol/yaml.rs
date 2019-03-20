@@ -110,7 +110,7 @@ fn adjust_yaml_output(input: Vec<u8>) -> Vec<u8> {
     result
 }
 
-pub fn write_yaml(mut output_stream: Box<io::Write>, yaml: &Yaml) -> R<()> {
+pub fn write_yaml(output_stream: &mut dyn io::Write, yaml: &Yaml) -> R<()> {
     struct ToFmtWrite {
         inner: Cursor<Vec<u8>>,
     }

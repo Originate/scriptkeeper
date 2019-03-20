@@ -90,12 +90,12 @@ impl ProtocolResult {
         checker_results: &CheckerResults,
     ) -> R<()> {
         if checker_results.is_pass() && results.iter().any(|result| result.is_recorded()) {
-            let file = OpenOptions::new()
+            let mut file = OpenOptions::new()
                 .write(true)
                 .truncate(true)
                 .open(protocols_file)?;
             write_yaml(
-                Box::new(file),
+                &mut file,
                 &Protocols {
                     protocols: results.iter().map(|result| result.get_protocol()).collect(),
                     unmocked_commands,
