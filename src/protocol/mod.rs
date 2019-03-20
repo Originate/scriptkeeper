@@ -56,8 +56,15 @@ impl Step {
         match yaml {
             Yaml::String(string) => Step::from_string(string),
             Yaml::Hash(object) => {
-                check_keys(&["command", "stdout", "exitcode"], object)?;
-                let mut step = Step::from_string(object.expect_field("command")?.expect_str()?)?;
+                check_keys(&["command", "stdout", "exitcode", "regex"], object)?;
+                let mut step = match (object.expect_field("command"), object.expect_field("regex"))
+                {
+                    (Ok(command_field), Err(_)) => Step::from_string(command_field.expect_str()?)?,
+                    (Err(_), Ok(regex_field)) => {
+                        Step::new(CommandMatcher::regex_match(regex_field.expect_str()?)?)
+                    }
+                    _ => Err("please provide either a 'command' or 'regex' but not both")?,
+                };
                 step.add_stdout(object)?;
                 step.add_exitcode(object)?;
                 Ok(step)
@@ -598,7 +605,7 @@ mod load {
                 format!(
                     "error in {}.protocols.yaml: \
                      unexpected field 'foo', \
-                     possible values: 'command', 'stdout', 'exitcode'",
+                     possible values: 'command', 'stdout', 'exitcode', 'regex'",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -1025,6 +1032,51 @@ mod load {
                 )?
                 .stderr,
                 None
+            );
+            Ok(())
+        }
+    }
+
+    mod regex_matching {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn parses_a_regex_command_matcher() -> R<()> {
+            let step = test_parse_one(
+                r"
+                    |protocols:
+                    |  - protocol:
+                    |      - regex: \d
+                ",
+            )?
+            .steps[0]
+                .clone();
+            match step.command {
+                CommandMatcher::RegexMatch(regex) => assert_eq!(regex.as_str(), "^\\d$"),
+                _ => panic!("expected regex match, got: {:?}", step.command),
+            }
+            Ok(())
+        }
+
+        #[test]
+        fn disallows_a_regex_matcher_and_command() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_error!(
+                test_parse(
+                    &tempfile,
+                    r"
+                        |protocols:
+                        |  - protocol:
+                        |      - regex: \d
+                        |        command: foo
+                    ",
+                ),
+                format!(
+                    "error in {}.protocols.yaml: \
+                     please provide either a 'command' or 'regex' but not both",
+                    path_to_string(&tempfile.path())?
+                )
             );
             Ok(())
         }
