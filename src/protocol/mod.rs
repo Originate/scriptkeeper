@@ -295,6 +295,18 @@ impl Protocol {
     }
 
     fn from_object(object: &Hash) -> R<Protocol> {
+        check_keys(
+            &[
+                "protocol",
+                "mockedFiles",
+                "arguments",
+                "env",
+                "exitcode",
+                "stderr",
+                "cwd",
+            ],
+            object,
+        )?;
         let mut protocol = Protocol::from_array(object.expect_field("protocol")?.expect_array()?)?;
         protocol.add_arguments(&object)?;
         protocol.add_env(&object)?;
@@ -539,6 +551,31 @@ mod load {
                     "error in {}.protocols.yaml: \
                      unexpected field 'foo', \
                      possible values: 'protocols', 'interpreter', 'unmockedCommands'",
+                    path_to_string(&tempfile.path())?
+                )
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn disallows_unknown_protocol_fields() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_error!(
+                test_parse(
+                    &tempfile,
+                    "
+                        |protocols:
+                        |  - protocol:
+                        |      - foo
+                        |    foo: 42
+                    "
+                ),
+                format!(
+                    "error in {}.protocols.yaml: \
+                     unexpected field 'foo', \
+                     possible values: \
+                     'protocol', 'mockedFiles', 'arguments', 'env', \
+                     'exitcode', 'stderr', 'cwd'",
                     path_to_string(&tempfile.path())?
                 )
             );
