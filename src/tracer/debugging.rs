@@ -68,6 +68,11 @@ impl Debugger {
             Close => vec![("fd", registers.rdi.to_string())],
             Stat => vec![("filename", Debugger::string(pid, registers.rdi))],
             Fstat => vec![("fd", registers.rdi.to_string())],
+            Mmap => vec![("fd", registers.r8.to_string())],
+            Access => vec![
+                ("filename", Debugger::string(pid, registers.rdi)),
+                ("mode", registers.rsi.to_string()),
+            ],
             Dup2 => vec![
                 ("oldfd", registers.rdi.to_string()),
                 ("newfd", registers.rsi.to_string()),
