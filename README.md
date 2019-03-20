@@ -3,7 +3,7 @@
 [![open issues](https://img.shields.io/github/issues/originate/check-protocols.svg?label=open%20issues)](https://github.com/Originate/check-protocols/issues)
 [![open pull requests](https://img.shields.io/github/issues-pr-raw/originate/check-protocols.svg?color=%238888ff)](https://github.com/Originate/check-protocols/pulls)
 [![closed issues](https://img.shields.io/github/issues-closed/originate/check-protocols.svg?color=green&label=closed%20issues)](https://github.com/Originate/check-protocols/issues?q=is%3Aissue+is%3Aclosed)
-[Issue Board](https://github.com/orgs/Originate/projects/1)
+[![issue board](https://img.shields.io/badge/check--protocols-issue%20board-important.svg)](https://github.com/orgs/Originate/projects/1)
 
 Run tests against your scripts without changing your scripts.
 
