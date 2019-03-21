@@ -1,7 +1,8 @@
 pub mod hole_recorder;
 mod protocol_result;
 
-use crate::protocol::command::{Command, CommandMatcher};
+use crate::protocol::command::Command;
+use crate::protocol::command_matcher::CommandMatcher;
 use crate::protocol::{compare_executables, Protocol, Step};
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::SyscallMock;

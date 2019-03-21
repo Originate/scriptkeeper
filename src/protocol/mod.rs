@@ -2,6 +2,7 @@ extern crate yaml_rust;
 
 mod argument_parser;
 pub mod command;
+pub mod command_matcher;
 mod executable_path;
 pub mod yaml;
 
@@ -10,7 +11,8 @@ pub use self::executable_path::compare_executables;
 use crate::protocol::yaml::*;
 use crate::utils::{path_to_string, with_has_more};
 use crate::R;
-pub use command::{Command, CommandMatcher};
+pub use command::Command;
+pub use command_matcher::CommandMatcher;
 use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, VecDeque};
 use std::ffi::OsString;
