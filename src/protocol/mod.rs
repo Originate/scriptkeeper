@@ -22,15 +22,15 @@ use yaml_rust::{yaml::Hash, Yaml, YamlLoader};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Step {
-    pub command: CommandMatcher,
+    pub command_matcher: CommandMatcher,
     pub stdout: Vec<u8>,
     pub exitcode: i32,
 }
 
 impl Step {
-    pub fn new(command: CommandMatcher) -> Step {
+    pub fn new(command_matcher: CommandMatcher) -> Step {
         Step {
-            command,
+            command_matcher,
             stdout: vec![],
             exitcode: 0,
         }
@@ -76,7 +76,7 @@ impl Step {
     }
 
     fn serialize(&self) -> Yaml {
-        let command = Yaml::String(self.command.format());
+        let command = Yaml::String(self.command_matcher.format());
         if self.exitcode == 0 {
             command
         } else {
@@ -119,7 +119,7 @@ mod parse_step {
     #[test]
     fn parses_arguments() -> R<()> {
         assert_eq!(
-            test_parse_step(r#""foo bar""#)?.command,
+            test_parse_step(r#""foo bar""#)?.command_matcher,
             CommandMatcher::Exact(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![OsString::from("bar")],
@@ -143,7 +143,7 @@ mod parse_step {
     #[test]
     fn allows_to_put_arguments_in_the_command_field() -> R<()> {
         assert_eq!(
-            test_parse_step(r#"{command: "foo bar"}"#)?.command,
+            test_parse_step(r#"{command: "foo bar"}"#)?.command_matcher,
             CommandMatcher::Exact(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![OsString::from("bar")],
@@ -619,7 +619,7 @@ mod load {
     }
 
     fn get_exact(step: Step) -> Command {
-        match step.command {
+        match step.command_matcher {
             CommandMatcher::Exact(command) => command,
             CommandMatcher::RegexMatch(_) => panic!("expected Exact"),
         }
@@ -1054,9 +1054,9 @@ mod load {
             )?
             .steps[0]
                 .clone();
-            match step.command {
+            match step.command_matcher {
                 CommandMatcher::RegexMatch(regex) => assert_eq!(regex.as_str(), "^\\d$"),
-                _ => panic!("expected regex match, got: {:?}", step.command),
+                _ => panic!("expected regex match, got: {:?}", step.command_matcher),
             }
             Ok(())
         }
@@ -1201,7 +1201,7 @@ mod serialize {
     #[test]
     fn includes_the_step_exitcodes() -> R<()> {
         let protocol = Protocol::new(vec![Step {
-            command: CommandMatcher::exact_match("cp")?,
+            command_matcher: CommandMatcher::exact_match("cp")?,
             stdout: vec![],
             exitcode: 42,
         }]);

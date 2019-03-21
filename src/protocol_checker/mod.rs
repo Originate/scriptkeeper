@@ -50,9 +50,9 @@ impl ProtocolChecker {
     fn handle_step(&mut self, received: protocol::Command) -> R<PathBuf> {
         let mock_config = match self.protocol.steps.pop_front() {
             Some(next_protocol_step) => {
-                if !next_protocol_step.command.matches(&received) {
+                if !next_protocol_step.command_matcher.matches(&received) {
                     self.register_step_error(
-                        &next_protocol_step.command.format(),
+                        &next_protocol_step.command_matcher.format(),
                         &received.format(),
                     );
                 }
@@ -155,7 +155,10 @@ impl SyscallMock for ProtocolChecker {
 
     fn handle_end(mut self, exitcode: i32, redirector: &Redirector) -> R<CheckerResult> {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
-            self.register_step_error(&expected_step.command.format(), "<script terminated>");
+            self.register_step_error(
+                &expected_step.command_matcher.format(),
+                "<script terminated>",
+            );
         }
         let expected_exitcode = self.protocol.exitcode.unwrap_or(0);
         if exitcode != expected_exitcode {
