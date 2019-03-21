@@ -8,8 +8,8 @@
 #[path = "./utils.rs"]
 mod utils;
 
-use check_protocols::context::Context;
-use check_protocols::{cli, run_main, R};
+use scriptkeeper::context::Context;
+use scriptkeeper::{cli, run_main, R};
 use test_utils::{trim_margin, TempFile};
 use utils::assert_eq_yaml;
 
@@ -21,7 +21,7 @@ mod yaml_formatting {
         let context = Context::new_mock();
         run_main(
             &context,
-            &cli::Args::CheckProtocols {
+            &cli::Args::Scriptkeeper {
                 script_path: TempFile::write_temp_script(b"#!/usr/bin/env bash")?.path(),
                 record: true,
             },
@@ -35,7 +35,7 @@ mod yaml_formatting {
         let context = Context::new_mock();
         run_main(
             &context,
-            &cli::Args::CheckProtocols {
+            &cli::Args::Scriptkeeper {
                 script_path: TempFile::write_temp_script(b"#!/usr/bin/env bash")?.path(),
                 record: true,
             },
@@ -50,7 +50,7 @@ fn test_recording(script: &str, expected: &str) -> R<()> {
     let context = Context::new_mock();
     run_main(
         &context,
-        &cli::Args::CheckProtocols {
+        &cli::Args::Scriptkeeper {
             script_path: script.path(),
             record: true,
         },

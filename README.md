@@ -1,9 +1,9 @@
-# Check Protocols
-[![CircleCI](https://circleci.com/gh/Originate/check-protocols.svg?style=svg)](https://circleci.com/gh/Originate/check-protocols)
-[![open issues](https://img.shields.io/github/issues/originate/check-protocols.svg?label=open%20issues)](https://github.com/Originate/check-protocols/issues)
-[![open pull requests](https://img.shields.io/github/issues-pr-raw/originate/check-protocols.svg?color=%238888ff)](https://github.com/Originate/check-protocols/pulls)
-[![closed issues](https://img.shields.io/github/issues-closed/originate/check-protocols.svg?color=green&label=closed%20issues)](https://github.com/Originate/check-protocols/issues?q=is%3Aissue+is%3Aclosed)
-[![issue board](https://img.shields.io/badge/check--protocols-issue%20board-important.svg)](https://github.com/orgs/Originate/projects/1)
+# `scriptkeeper`
+[![CircleCI](https://circleci.com/gh/Originate/scriptkeeper.svg?style=svg)](https://circleci.com/gh/Originate/scriptkeeper)
+[![open issues](https://img.shields.io/github/issues/originate/scriptkeeper.svg?label=open%20issues)](https://github.com/Originate/scriptkeeper/issues)
+[![open pull requests](https://img.shields.io/github/issues-pr-raw/originate/scriptkeeper.svg?color=%238888ff)](https://github.com/Originate/scriptkeeper/pulls)
+[![closed issues](https://img.shields.io/github/issues-closed/originate/scriptkeeper.svg?color=green&label=closed%20issues)](https://github.com/Originate/scriptkeeper/issues?q=is%3Aissue+is%3Aclosed)
+[![issue board](https://img.shields.io/badge/scriptkeeper-issue%20board-important.svg)](https://github.com/orgs/Originate/projects/1)
 
 Run tests against your scripts without changing your scripts.
 
@@ -13,9 +13,9 @@ Automated tests help us write well-behaved applications, and that's great, but
 what about all those pesky little scripts we use in and around our applications
 (e.g. deploy scripts)? How do we test those?
 
-`check-protocols` is a tool for people who wish to write tests for existing
+`scriptkeeper` is a tool for people who wish to write tests for existing
 scripts and/or use TDD to write new scripts. Because of its design,
-`check-protocols` is language agnostic, since it mocks out syscalls. That means
+`scriptkeeper` is language agnostic, since it mocks out syscalls. That means
 you can test Bash scripts just as well as Python, Ruby, etc.
 
 
@@ -24,14 +24,14 @@ you can test Bash scripts just as well as Python, Ruby, etc.
 **This tool is very experimental. It may give incorrect results and delete your
 files.**
 
-There are lots and lots of features still missing from `check-protocols`. If you
+There are lots and lots of features still missing from `scriptkeeper`. If you
 try it out, I'd be interested to hear which features you would want the most.
 Feel free to open (or vote on)
-[issues](https://github.com/Originate/check-protocols/issues).
+[issues](https://github.com/Originate/scriptkeeper/issues).
 
 ## Usage
 
-`check-protocols` allows you to write tests -- so-called protocols -- for
+`scriptkeeper` allows you to write tests -- so-called protocols -- for
 scripts (or other executables) -- without the need to modify your executables.
 
 Here's an example script `./build-image.sh`:
@@ -65,7 +65,7 @@ protocols:
     exitcode: 1
 ```
 
-Now running `check-protocols ./build-image.sh` will tell you whether your script
+Now running `scriptkeeper ./build-image.sh` will tell you whether your script
 `./build-image.sh` conforms to your protocols in
 `./build-image.sh.protocols.yaml`.
 
@@ -88,7 +88,7 @@ protocols:
       { [string]: string }
     cwd?: string
       # Current working directory the tested script will be executed in.
-      # Example: /test-dir, default: same directory that `check-protocols` is run in.
+      # Example: /test-dir, default: same directory that `scriptkeeper` is run in.
     mockedFiles?: [string]
       # List of files and folders that are going to be mocked to exist.
       # Note that directories must include a trailing '/'.
@@ -186,8 +186,8 @@ This will actually execute the sub-commands that your script performs, without
 mocking them out. And it will overwrite your protocols file with the recorded
 version.
 
-You can also start with a partial protocol and have `check-protocols` fill in
-the specified holes:
+You can also start with a partial protocol and have `scriptkeeper` fill in the
+specified holes:
 
 ``` yaml
 protocols:
@@ -200,7 +200,7 @@ protocols:
 This allows for an iterative process to create a protocol:
 
 1. Start with an empty protocol with a hole.
-2. Run `check-protocols`.
+2. Run `scriptkeeper`.
 3. Identify the step in the recorded protocol where it deviates from the
    intended test. (If it doesn't, you're done.)
 4. Refine the protocol by modifying the inputs to the tested script, i.e. the
@@ -216,7 +216,7 @@ You can run the tool inside docker, for example like this:
 
 ``` bash
 ./build-docker-image.sh
-./check-protocols-in-docker.sh <PATH_TO_YOUR_SCRIPT>
+./scriptkeeper-in-docker.sh <PATH_TO_YOUR_SCRIPT>
 ```
 
 ## Contributing

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[derive(Debug, PartialEq)]
 pub enum Args {
     ExecutableMock { executable_mock_path: PathBuf },
-    CheckProtocols { script_path: PathBuf, record: bool },
+    Scriptkeeper { script_path: PathBuf, record: bool },
 }
 
 pub fn parse_args(args: impl Iterator<Item = String>) -> Args {
@@ -23,7 +23,7 @@ fn parse_args_safe(args: impl Iterator<Item = String>) -> Result<Args, Error> {
             ),
         })
     } else {
-        let matches = App::new("check-protocols")
+        let matches = App::new("scriptkeeper")
             .arg(Arg::with_name("record").short("r").long("record").help(
                 "[EXPERIMENTAL] Runs the script (without mocking out anything), \
                  records a protocol and prints it to stdout",
@@ -35,7 +35,7 @@ fn parse_args_safe(args: impl Iterator<Item = String>) -> Result<Args, Error> {
                     .index(1),
             )
             .get_matches_from_safe(args)?;
-        Ok(Args::CheckProtocols {
+        Ok(Args::Scriptkeeper {
             script_path: PathBuf::from(matches.value_of("program").unwrap()),
             record: matches.is_present("record"),
         })
@@ -52,7 +52,7 @@ mod parse_args_safe {
     fn returns_the_given_script() -> R<()> {
         assert_eq!(
             parse_args_safe(vec!["program", "file"].into_iter().map(String::from))?,
-            Args::CheckProtocols {
+            Args::Scriptkeeper {
                 script_path: PathBuf::from("file"),
                 record: false
             }
@@ -75,7 +75,7 @@ mod parse_args_safe {
                     .into_iter()
                     .map(String::from),
             )?,
-            Args::CheckProtocols {
+            Args::Scriptkeeper {
                 script_path: PathBuf::from("file"),
                 record: true
             }

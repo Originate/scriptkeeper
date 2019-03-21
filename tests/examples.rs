@@ -8,15 +8,15 @@
 #[path = "./utils.rs"]
 mod utils;
 
-use check_protocols::{context::Context, run_check_protocols, ExitCode, R};
 use path::PathBuf;
+use scriptkeeper::{context::Context, run_scriptkeeper, ExitCode, R};
 use std::*;
 
 pub fn test_run_from_directory(directory: &str) -> R<()> {
     let directory = PathBuf::from("./tests/examples").join(directory);
     let script_file = directory.join("script");
     let context = &Context::new_mock();
-    let exitcode = run_check_protocols(context, &script_file)
+    let exitcode = run_scriptkeeper(context, &script_file)
         .map_err(|error| format!("can't execute {:?}: {}", &script_file, error))?;
     let expected_file = directory.join("expected");
     let expected = String::from_utf8(

@@ -17,7 +17,7 @@ doc:
 
 scripts:
   cargo run -- build-docker-image.sh
-  cargo run -- check-protocols-in-docker.sh
+  cargo run -- scriptkeeper-in-docker.sh
 
 dev:
   clear ; printf "\e[3J"
@@ -27,10 +27,10 @@ run_bigger:
   cargo run -- tests/examples/bigger/script
 
 test_dockerfile:
-  docker build -t check-protocols .
+  docker build -t scriptkeeper .
   docker run --rm \
     --cap-add=SYS_PTRACE \
     -v $(pwd)/tests/examples/bigger/script:/root/script \
     -v $(pwd)/tests/examples/bigger/script.protocols.yaml:/root/script.protocols.yaml \
-    check-protocols \
+    scriptkeeper \
     script

@@ -7,7 +7,7 @@
 #[path = "./utils.rs"]
 mod utils;
 
-use check_protocols::R;
+use scriptkeeper::R;
 use test_utils::trim_margin;
 use utils::test_run;
 
