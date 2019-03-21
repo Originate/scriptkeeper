@@ -612,6 +612,7 @@ mod load {
     fn get_exact(step: Step) -> Command {
         match step.command {
             CommandMatcher::Exact(command) => command,
+            CommandMatcher::RegexMatch(_) => panic!("expected Exact"),
         }
     }
 
