@@ -24,7 +24,7 @@ impl PartialEq for CommandMatcher {
 impl Eq for CommandMatcher {}
 
 impl CommandMatcher {
-    pub fn matches_received(&self, received: &Command) -> bool {
+    pub fn matches(&self, received: &Command) -> bool {
         match self {
             CommandMatcher::Exact(command) => {
                 executable_path::compare_executables(&command.executable, &received.executable)
@@ -59,18 +59,18 @@ mod command_matcher {
 
     #[test]
     fn exact_command_matches_received() -> R<()> {
-        assert!(CommandMatcher::exact_match("cp ./")?.matches_received(&Command::new("cp ./")?));
+        assert!(CommandMatcher::exact_match("cp ./")?.matches(&Command::new("cp ./")?));
         Ok(())
     }
 
     #[test]
     fn exact_command_doesnt_match_different_command() -> R<()> {
-        assert!(!CommandMatcher::exact_match("cp ./")?.matches_received(&Command::new("bar")?));
+        assert!(!CommandMatcher::exact_match("cp ./")?.matches(&Command::new("bar")?));
         Ok(())
     }
 
     fn test_regex_matches_command(regex: &str, command: &str) -> R<bool> {
-        let result = CommandMatcher::regex_match(regex)?.matches_received(&Command::new(command)?);
+        let result = CommandMatcher::regex_match(regex)?.matches(&Command::new(command)?);
         Ok(result)
     }
 
