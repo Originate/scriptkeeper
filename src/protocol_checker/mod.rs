@@ -50,7 +50,7 @@ impl ProtocolChecker {
     fn handle_step(&mut self, received: protocol::Command) -> R<PathBuf> {
         let mock_config = match self.protocol.steps.pop_front() {
             Some(next_protocol_step) => {
-                if !next_protocol_step.command.compare(&received) {
+                if !next_protocol_step.command.matches_received(&received) {
                     self.register_step_error(
                         &next_protocol_step.command.format(),
                         &received.format(),

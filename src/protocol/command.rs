@@ -6,6 +6,32 @@ use std::path::PathBuf;
 use std::str;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
+pub enum CommandMatcher {
+    Exact(Command),
+}
+
+impl CommandMatcher {
+    pub fn matches_received(&self, received: &Command) -> bool {
+        match self {
+            CommandMatcher::Exact(self_command) => {
+                executable_path::compare_executables(&self_command.executable, &received.executable)
+                    && self_command.arguments == received.arguments
+            }
+        }
+    }
+
+    pub fn format(&self) -> String {
+        match self {
+            CommandMatcher::Exact(self_command) => self_command.format(),
+        }
+    }
+
+    pub fn exact_match(command: &str) -> R<CommandMatcher> {
+        Ok(CommandMatcher::Exact(Command::new(command)?))
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Command {
     pub executable: PathBuf,
     pub arguments: Vec<OsString>,
@@ -18,11 +44,6 @@ impl Command {
         } else {
             word
         }
-    }
-
-    pub fn compare(&self, other: &Command) -> bool {
-        executable_path::compare_executables(&self.executable, &other.executable)
-            && self.arguments == other.arguments
     }
 
     fn escape(word: String) -> String {

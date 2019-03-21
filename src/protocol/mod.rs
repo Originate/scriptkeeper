@@ -10,7 +10,7 @@ pub use self::executable_path::compare_executables;
 use crate::protocol::yaml::*;
 use crate::utils::{path_to_string, with_has_more};
 use crate::R;
-pub use command::Command;
+pub use command::{Command, CommandMatcher};
 use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, VecDeque};
 use std::ffi::OsString;
@@ -20,13 +20,13 @@ use yaml_rust::{yaml::Hash, Yaml, YamlLoader};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Step {
-    pub command: Command,
+    pub command: CommandMatcher,
     pub stdout: Vec<u8>,
     pub exitcode: i32,
 }
 
 impl Step {
-    pub fn new(command: Command) -> Step {
+    pub fn new(command: CommandMatcher) -> Step {
         Step {
             command,
             stdout: vec![],
@@ -35,7 +35,7 @@ impl Step {
     }
 
     fn from_string(string: &str) -> R<Step> {
-        Ok(Step::new(Command::new(string)?))
+        Ok(Step::new(CommandMatcher::exact_match(string)?))
     }
 
     fn add_exitcode(&mut self, object: &Hash) -> R<()> {
@@ -99,10 +99,10 @@ mod parse_step {
     fn parses_strings_to_steps() -> R<()> {
         assert_eq!(
             test_parse_step(r#""foo""#)?,
-            Step::new(Command {
+            Step::new(CommandMatcher::Exact(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![],
-            }),
+            })),
         );
         Ok(())
     }
@@ -111,10 +111,10 @@ mod parse_step {
     fn parses_arguments() -> R<()> {
         assert_eq!(
             test_parse_step(r#""foo bar""#)?.command,
-            Command {
+            CommandMatcher::Exact(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![OsString::from("bar")],
-            },
+            }),
         );
         Ok(())
     }
@@ -123,10 +123,10 @@ mod parse_step {
     fn parses_objects_to_steps() -> R<()> {
         assert_eq!(
             test_parse_step(r#"{command: "foo"}"#)?,
-            Step::new(Command {
+            Step::new(CommandMatcher::Exact(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![],
-            }),
+            })),
         );
         Ok(())
     }
@@ -135,10 +135,10 @@ mod parse_step {
     fn allows_to_put_arguments_in_the_command_field() -> R<()> {
         assert_eq!(
             test_parse_step(r#"{command: "foo bar"}"#)?.command,
-            Command {
+            CommandMatcher::Exact(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![OsString::from("bar")],
-            },
+            }),
         );
         Ok(())
     }
@@ -514,10 +514,10 @@ mod load {
                     |  - /bin/true
                 ",
             )?,
-            Protocol::new(vec![Step::new(Command {
+            Protocol::new(vec![Step::new(CommandMatcher::Exact(Command {
                 executable: PathBuf::from("/bin/true"),
                 arguments: vec![],
-            })]),
+            }))]),
         );
         Ok(())
     }
@@ -609,6 +609,12 @@ mod load {
         fn multiple_unknown_fields() {}
     }
 
+    fn get_exact(step: Step) -> Command {
+        match step.command {
+            CommandMatcher::Exact(command) => command,
+        }
+    }
+
     #[test]
     fn works_for_multiple_commands() -> R<()> {
         assert_eq!(
@@ -620,7 +626,7 @@ mod load {
                 "
             )?
             .steps
-            .map(|step| step.command.executable),
+            .map(|step| get_exact(step).executable.clone()),
             vec![PathBuf::from("/bin/true"), PathBuf::from("/bin/false")],
         );
         Ok(())
@@ -636,7 +642,7 @@ mod load {
                 "
             )?
             .steps
-            .map(|step| step.command.arguments),
+            .map(|step| get_exact(step).arguments.clone()),
             vec![vec![OsString::from("foo"), OsString::from("bar")]],
         );
         Ok(())
@@ -651,10 +657,10 @@ mod load {
                     |  - /bin/true
                 "
             )?,
-            Protocol::new(vec![Step::new(Command {
+            Protocol::new(vec![Step::new(CommandMatcher::Exact(Command {
                 executable: PathBuf::from("/bin/true"),
                 arguments: vec![],
-            })]),
+            }))]),
         );
         Ok(())
     }
@@ -1140,7 +1146,7 @@ mod serialize {
     #[test]
     fn includes_the_step_exitcodes() -> R<()> {
         let protocol = Protocol::new(vec![Step {
-            command: Command::new("cp")?,
+            command: CommandMatcher::exact_match("cp")?,
             stdout: vec![],
             exitcode: 42,
         }]);
