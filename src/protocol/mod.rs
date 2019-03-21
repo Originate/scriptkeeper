@@ -1068,8 +1068,8 @@ mod load {
                     r"
                         |protocols:
                         |  - protocol:
-                        |      - regex: \d
-                        |        command: foo
+                        |      - command: foo
+                        |        regex: \d
                     ",
                 ),
                 format!(
