@@ -6,9 +6,9 @@
 #![deny(clippy::all)]
 #![allow(dead_code)]
 
-use check_protocols::utils::path_to_string;
-use check_protocols::{context::Context, run_check_protocols, ExitCode, R};
 use pretty_assertions::assert_eq;
+use scriptkeeper::utils::path_to_string;
+use scriptkeeper::{context::Context, run_scriptkeeper, ExitCode, R};
 use std::fs;
 use std::path::PathBuf;
 use test_utils::{trim_margin, TempFile};
@@ -38,7 +38,7 @@ pub fn test_run_with_tempfile(
         script.path().with_extension("protocols.yaml"),
         trim_margin(protocol)?,
     )?;
-    let exitcode = run_check_protocols(context, &script.path())?;
+    let exitcode = run_scriptkeeper(context, &script.path())?;
     Ok((exitcode, context.get_captured_stdout()))
 }
 

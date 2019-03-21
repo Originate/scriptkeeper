@@ -81,14 +81,14 @@ pub fn run_main(context: &Context, args: &cli::Args) -> R<ExitCode> {
         cli::Args::ExecutableMock {
             executable_mock_path,
         } => executable_mock::run(context, &executable_mock_path)?,
-        cli::Args::CheckProtocols {
+        cli::Args::Scriptkeeper {
             script_path,
             record,
         } => {
             if *record {
                 print_recorded_protocol(context, script_path)?
             } else {
-                run_check_protocols(context, &script_path)?
+                run_scriptkeeper(context, &script_path)?
             }
         }
     })
@@ -122,7 +122,7 @@ mod run_main {
     }
 }
 
-pub fn run_check_protocols(context: &Context, script: &Path) -> R<ExitCode> {
+pub fn run_scriptkeeper(context: &Context, script: &Path) -> R<ExitCode> {
     if !script.exists() {
         Err(format!(
             "executable file not found: {}",

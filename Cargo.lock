@@ -52,26 +52,6 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "check-protocols"
-version = "0.1.0"
-dependencies = [
- "bincode 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
- "linked-hash-map 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "memoffset 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "nix 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "pretty_assertions 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "quale 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.88 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_derive 1.0.88 (registry+https://github.com/rust-lang/crates.io-index)",
- "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "test-utils 0.1.0",
- "trim-margin 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "yaml-rust 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "clap"
 version = "2.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -226,6 +206,26 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "scriptkeeper"
+version = "0.1.0"
+dependencies = [
+ "bincode 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
+ "linked-hash-map 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "memoffset 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nix 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pretty_assertions 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quale 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.88 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.88 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "test-utils 0.1.0",
+ "trim-margin 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "yaml-rust 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

@@ -9,7 +9,7 @@ protocols:
         --cap-add=SYS_PTRACE
         --mount type=bind,source=/basedir/./script,target=/root/script
         --mount type=bind,source=/basedir/./script.protocols.yaml,target=/root/script.protocols.yaml
-        check-protocols script
+        scriptkeeper script
   # works for absolute paths
   - arguments: /test/script
     protocol:
@@ -17,4 +17,4 @@ protocols:
         --cap-add=SYS_PTRACE
         --mount type=bind,source=/test/script,target=/root/script
         --mount type=bind,source=/test/script.protocols.yaml,target=/root/script.protocols.yaml
-        check-protocols script
+        scriptkeeper script

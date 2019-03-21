@@ -16,7 +16,7 @@ pub fn create_mock_executable(context: &Context, config: Config) -> R<Vec<u8>> {
     let mut result = b"#!".to_vec();
     result.append(
         &mut context
-            .check_protocols_executable()
+            .scriptkeeper_executable()
             .as_os_str()
             .as_bytes()
             .to_vec(),

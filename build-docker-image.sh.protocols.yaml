@@ -1,2 +1,2 @@
 protocol:
-  - /usr/bin/docker build -t check-protocols .
+  - /usr/bin/docker build -t scriptkeeper .
