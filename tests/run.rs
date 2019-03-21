@@ -105,7 +105,7 @@ fn can_specify_interpreter() -> R<()> {
 }
 
 #[test]
-fn can_specify_regex() -> R<()> {
+fn allows_to_match_command_arguments_by_regex() -> R<()> {
     test_run(
         r"
             |#!/usr/bin/env bash
@@ -115,6 +115,23 @@ fn can_specify_regex() -> R<()> {
             |protocols:
             |  - protocol:
             |    - regex: cp foo \w+
+        "#,
+        Ok(()),
+    )?;
+    Ok(())
+}
+
+#[test]
+fn allows_to_match_commands_by_regex() -> R<()> {
+    test_run(
+        r"
+            |#!/usr/bin/env bash
+            |cp foo bar
+        ",
+        r#"
+            |protocols:
+            |  - protocol:
+            |    - regex: \w+ foo bar
         "#,
         Ok(()),
     )?;
