@@ -5,13 +5,14 @@ use regex::Regex;
 use std::str;
 
 #[derive(Debug, Clone)]
-pub struct AnchoredRegex(String, Regex);
+pub struct AnchoredRegex {
+    original_string: String,
+    regex: Regex,
+}
 
 impl PartialEq for AnchoredRegex {
     fn eq(&self, other: &AnchoredRegex) -> bool {
-        match (self, other) {
-            (AnchoredRegex(a, _), AnchoredRegex(b, _)) => a == b,
-        }
+        self.original_string == other.original_string
     }
 }
 
@@ -19,14 +20,14 @@ impl Eq for AnchoredRegex {}
 
 impl AnchoredRegex {
     pub fn new(raw_regex: &str) -> R<AnchoredRegex> {
-        Ok(AnchoredRegex(
-            raw_regex.to_string(),
-            Regex::new(&format!("^{}$", raw_regex))?,
-        ))
+        Ok(AnchoredRegex {
+            original_string: raw_regex.to_string(),
+            regex: Regex::new(&format!("^{}$", raw_regex))?,
+        })
     }
 
     pub fn is_match(&self, other: &str) -> bool {
-        self.1.is_match(other)
+        self.regex.is_match(other)
     }
 }
 
@@ -50,7 +51,9 @@ impl CommandMatcher {
     pub fn format(&self) -> String {
         match self {
             CommandMatcher::ExactMatch(command) => command.format(),
-            CommandMatcher::RegexMatch(AnchoredRegex(string, _)) => string.clone(),
+            CommandMatcher::RegexMatch(AnchoredRegex {
+                original_string, ..
+            }) => original_string.clone(),
         }
     }
 }
