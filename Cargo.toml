@@ -30,6 +30,7 @@ trim-margin = "*"
 [dev-dependencies]
 test-utils = { path = "test-utils" }
 pretty_assertions = "*"
+unsafe_get = { git = "https://github.com/soenkehahn/unsafe_get", rev = "c6752403fae9a95158d8e41dbed2e1a4d95217d3" }
 
 [features]
 dev = []

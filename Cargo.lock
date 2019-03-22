@@ -225,6 +225,7 @@ dependencies = [
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "test-utils 0.1.0",
  "trim-margin 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "unsafe_get 0.1.0 (git+https://github.com/soenkehahn/unsafe_get?rev=c6752403fae9a95158d8e41dbed2e1a4d95217d3)",
  "yaml-rust 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -309,6 +310,11 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "unsafe_get"
+version = "0.1.0"
+source = "git+https://github.com/soenkehahn/unsafe_get?rev=c6752403fae9a95158d8e41dbed2e1a4d95217d3#c6752403fae9a95158d8e41dbed2e1a4d95217d3"
+
+[[package]]
 name = "vec_map"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -384,6 +390,7 @@ dependencies = [
 "checksum trim-margin 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "48117cceb8c7e70f435a873d11a2084ef79cd9e6e68ff66a2f27bb268bc0832b"
 "checksum unicode-width 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "882386231c45df4700b275c7ff55b6f3698780a650026380e72dabe76fa46526"
 "checksum unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fc72304796d0818e357ead4e000d19c9c174ab23dc11093ac919054d20a6a7fc"
+"checksum unsafe_get 0.1.0 (git+https://github.com/soenkehahn/unsafe_get?rev=c6752403fae9a95158d8e41dbed2e1a4d95217d3)" = "<none>"
 "checksum vec_map 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "05c78687fb1a80548ae3250346c3db86a80a7cdd77bda190189f2d0a0987c81a"
 "checksum void 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 "checksum winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "92c1eb33641e276cfa214a0522acad57be5c56b10cb348b3c5117db75f3ac4b0"
