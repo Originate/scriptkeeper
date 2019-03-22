@@ -8,7 +8,9 @@
 #[path = "./utils.rs"]
 mod utils;
 
+use quale::which;
 use scriptkeeper::context::Context;
+use scriptkeeper::utils::path_to_string;
 use scriptkeeper::{cli, run_main, R};
 use test_utils::{assert_eq_yaml, trim_margin, TempFile};
 
@@ -148,5 +150,26 @@ fn records_command_exitcodes() -> R<()> {
             |      - command: bash -c "exit 42"
             |        exitcode: 42
         "#,
+    )
+}
+
+#[test]
+#[ignore]
+fn records_stdout_of_commands() -> R<()> {
+    let echo = which("echo").ok_or("echo not found in $PATH")?;
+    test_recording(
+        &format!(
+            "
+                |#!/usr/bin/env bash
+                |{} foo > /dev/null
+            ",
+            path_to_string(&echo)?
+        ),
+        "
+            |protocols:
+            |  - protocol:
+            |      - command: echo foo
+            |        stdout: foo
+        ",
     )
 }
