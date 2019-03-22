@@ -14,6 +14,7 @@ extern crate memoffset;
 
 pub mod cli;
 pub mod context;
+mod executable_mock;
 mod recorder;
 mod test_checker;
 mod test_spec;
@@ -21,9 +22,8 @@ mod tracer;
 pub mod utils;
 
 use crate::context::Context;
+use crate::executable_mock::ExecutableMock;
 use crate::recorder::{hole_recorder::run_against_tests, Recorder};
-use crate::test_checker::executable_mock;
-use crate::test_checker::executable_mock::ExecutableMock;
 use crate::test_spec::yaml::write_yaml;
 use crate::test_spec::Tests;
 use crate::tracer::stdio_redirecting::CaptureStderr;
@@ -98,7 +98,7 @@ pub fn run_main(context: &Context, args: &cli::Args) -> R<ExitCode> {
 #[cfg(test)]
 mod run_main {
     use super::*;
-    use crate::test_checker::executable_mock;
+    use crate::executable_mock;
     use test_utils::TempFile;
 
     #[test]

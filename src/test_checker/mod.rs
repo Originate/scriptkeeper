@@ -1,7 +1,8 @@
 pub mod checker_result;
-pub mod executable_mock;
 
 use crate::context::Context;
+use crate::executable_mock;
+use crate::executable_mock::ExecutableMock;
 use crate::test_spec;
 use crate::test_spec::Test;
 use crate::tracer::stdio_redirecting::Redirector;
@@ -9,7 +10,6 @@ use crate::tracer::{tracee_memory, SyscallMock};
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::R;
 use checker_result::CheckerResult;
-use executable_mock::ExecutableMock;
 use libc::{c_ulonglong, user_regs_struct};
 use nix::sys::ptrace;
 use nix::unistd::Pid;
