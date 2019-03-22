@@ -23,6 +23,7 @@ pub mod utils;
 use crate::context::Context;
 use crate::recorder::{hole_recorder::run_against_tests, Recorder};
 use crate::test_checker::executable_mock;
+use crate::test_checker::executable_mock::ExecutableMock;
 use crate::test_spec::yaml::write_yaml;
 use crate::test_spec::Tests;
 use crate::tracer::stdio_redirecting::CaptureStderr;
@@ -80,7 +81,7 @@ pub fn run_main(context: &Context, args: &cli::Args) -> R<ExitCode> {
     Ok(match args {
         cli::Args::ExecutableMock {
             executable_mock_path,
-        } => executable_mock::run(context, &executable_mock_path)?,
+        } => ExecutableMock::run(context, &executable_mock_path)?,
         cli::Args::Scriptkeeper {
             script_path,
             record,
@@ -97,20 +98,19 @@ pub fn run_main(context: &Context, args: &cli::Args) -> R<ExitCode> {
 #[cfg(test)]
 mod run_main {
     use super::*;
-    use executable_mock::create_mock_executable;
+    use crate::test_checker::executable_mock;
     use test_utils::TempFile;
 
     #[test]
     fn when_passed_executable_mock_flag_behaves_like_executable_mock() -> R<()> {
         let context = Context::new_mock();
-        let executable_contents = create_mock_executable(
+        let executable_mock = ExecutableMock::new(
             &context,
             executable_mock::Config {
                 stdout: b"foo".to_vec(),
                 exitcode: 0,
             },
         )?;
-        let executable_mock = TempFile::write_temp_script(&executable_contents)?;
         run_main(
             &context,
             &cli::Args::ExecutableMock {

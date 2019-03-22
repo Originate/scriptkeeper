@@ -9,6 +9,7 @@ use crate::tracer::{tracee_memory, SyscallMock};
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::R;
 use checker_result::CheckerResult;
+use executable_mock::ExecutableMock;
 use libc::{c_ulonglong, user_regs_struct};
 use nix::sys::ptrace;
 use nix::unistd::Pid;
@@ -22,7 +23,7 @@ pub struct TestChecker {
     pub test: Test,
     pub unmocked_commands: Vec<PathBuf>,
     pub result: CheckerResult,
-    temporary_executables: Vec<ShortTempFile>,
+    temporary_executables: Vec<ExecutableMock>,
 }
 
 impl TestChecker {
@@ -62,11 +63,9 @@ impl TestChecker {
                 TestChecker::allow_failing_scripts_to_continue()
             }
         };
-        let mock_executable_contents =
-            executable_mock::create_mock_executable(&self.context, mock_config)?;
-        let temp_executable = ShortTempFile::new(&mock_executable_contents)?;
-        let path = temp_executable.path();
-        self.temporary_executables.push(temp_executable);
+        let executable_mock = ExecutableMock::new(&self.context, mock_config)?;
+        let path = executable_mock.path();
+        self.temporary_executables.push(executable_mock);
         Ok(path)
     }
 
@@ -102,15 +101,11 @@ impl SyscallMock for TestChecker {
             .iter()
             .any(|unmocked_command| test_spec::compare_executables(unmocked_command, &executable));
         if !is_unmocked_command {
-            let mock_executable_path = self.handle_step(test_spec::Command {
+            let executable_mock_path = self.handle_step(test_spec::Command {
                 executable,
                 arguments,
             })?;
-            tracee_memory::poke_single_word_string(
-                pid,
-                registers.rdi,
-                &mock_executable_path.as_os_str().as_bytes(),
-            )?;
+            ExecutableMock::poke_for_execve_syscall(pid, registers, executable_mock_path)?;
         }
         Ok(())
     }
