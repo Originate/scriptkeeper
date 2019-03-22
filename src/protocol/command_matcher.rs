@@ -4,33 +4,6 @@ use crate::R;
 use regex::Regex;
 use std::str;
 
-#[derive(Debug, Clone)]
-pub struct AnchoredRegex {
-    original_string: String,
-    regex: Regex,
-}
-
-impl PartialEq for AnchoredRegex {
-    fn eq(&self, other: &AnchoredRegex) -> bool {
-        self.original_string == other.original_string
-    }
-}
-
-impl Eq for AnchoredRegex {}
-
-impl AnchoredRegex {
-    pub fn new(raw_regex: &str) -> R<AnchoredRegex> {
-        Ok(AnchoredRegex {
-            original_string: raw_regex.to_string(),
-            regex: Regex::new(&format!("^{}$", raw_regex))?,
-        })
-    }
-
-    pub fn is_match(&self, other: &str) -> bool {
-        self.regex.is_match(other)
-    }
-}
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum CommandMatcher {
     ExactMatch(Command),
@@ -55,6 +28,33 @@ impl CommandMatcher {
                 original_string, ..
             }) => original_string.clone(),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AnchoredRegex {
+    original_string: String,
+    regex: Regex,
+}
+
+impl PartialEq for AnchoredRegex {
+    fn eq(&self, other: &AnchoredRegex) -> bool {
+        self.original_string == other.original_string
+    }
+}
+
+impl Eq for AnchoredRegex {}
+
+impl AnchoredRegex {
+    pub fn new(raw_regex: &str) -> R<AnchoredRegex> {
+        Ok(AnchoredRegex {
+            original_string: raw_regex.to_string(),
+            regex: Regex::new(&format!("^{}$", raw_regex))?,
+        })
+    }
+
+    pub fn is_match(&self, other: &str) -> bool {
+        self.regex.is_match(other)
     }
 }
 
