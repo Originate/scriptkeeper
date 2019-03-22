@@ -63,7 +63,7 @@ impl SyscallMock for Recorder {
         if let Some(command) = self.command.clone() {
             self.command = None;
             self.protocol.steps.push_back(Step {
-                command_matcher: CommandMatcher::Exact(command),
+                command_matcher: CommandMatcher::ExactMatch(command),
                 stdout: vec![],
                 exitcode,
             });

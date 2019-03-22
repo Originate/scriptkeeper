@@ -5,28 +5,41 @@ use regex::Regex;
 use std::str;
 
 #[derive(Debug, Clone)]
-pub enum CommandMatcher {
-    Exact(Command),
-    RegexMatch(Regex),
-}
+pub struct AnchoredRegex(String, Regex);
 
-impl PartialEq for CommandMatcher {
-    fn eq(&self, other: &CommandMatcher) -> bool {
-        use CommandMatcher::*;
+impl PartialEq for AnchoredRegex {
+    fn eq(&self, other: &AnchoredRegex) -> bool {
         match (self, other) {
-            (Exact(a), Exact(b)) => a == b,
-            (RegexMatch(a), RegexMatch(b)) => a.as_str() == b.as_str(),
-            _ => false,
+            (AnchoredRegex(a, _), AnchoredRegex(b, _)) => a == b,
         }
     }
 }
 
-impl Eq for CommandMatcher {}
+impl Eq for AnchoredRegex {}
+
+impl AnchoredRegex {
+    pub fn new(raw_regex: &str) -> R<AnchoredRegex> {
+        Ok(AnchoredRegex(
+            raw_regex.to_string(),
+            Regex::new(&format!("^{}$", raw_regex))?,
+        ))
+    }
+
+    pub fn is_match(&self, other: &str) -> bool {
+        self.1.is_match(other)
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum CommandMatcher {
+    ExactMatch(Command),
+    RegexMatch(AnchoredRegex),
+}
 
 impl CommandMatcher {
     pub fn matches(&self, received: &Command) -> bool {
         match self {
-            CommandMatcher::Exact(command) => {
+            CommandMatcher::ExactMatch(command) => {
                 executable_path::compare_executables(&command.executable, &received.executable)
                     && command.arguments == received.arguments
             }
@@ -36,20 +49,9 @@ impl CommandMatcher {
 
     pub fn format(&self) -> String {
         match self {
-            CommandMatcher::Exact(command) => command.format(),
-            CommandMatcher::RegexMatch(regex) => regex.as_str().to_string(),
+            CommandMatcher::ExactMatch(command) => command.format(),
+            CommandMatcher::RegexMatch(AnchoredRegex(string, _)) => string.clone(),
         }
-    }
-
-    pub fn regex_match(string: &str) -> R<CommandMatcher> {
-        Ok(CommandMatcher::RegexMatch(Regex::new(&format!(
-            "^{}$",
-            string
-        ))?))
-    }
-
-    pub fn exact_match(command: &str) -> R<CommandMatcher> {
-        Ok(CommandMatcher::Exact(Command::new(command)?))
     }
 }
 
@@ -59,18 +61,19 @@ mod command_matcher {
 
     #[test]
     fn exact_command_matches_received() -> R<()> {
-        assert!(CommandMatcher::exact_match("cp ./")?.matches(&Command::new("cp ./")?));
+        assert!(CommandMatcher::ExactMatch(Command::new("cp ./")?).matches(&Command::new("cp ./")?));
         Ok(())
     }
 
     #[test]
     fn exact_command_doesnt_match_different_command() -> R<()> {
-        assert!(!CommandMatcher::exact_match("cp ./")?.matches(&Command::new("bar")?));
+        assert!(!CommandMatcher::ExactMatch(Command::new("cp ./")?).matches(&Command::new("bar")?));
         Ok(())
     }
 
     fn test_regex_matches_command(regex: &str, command: &str) -> R<bool> {
-        let result = CommandMatcher::regex_match(regex)?.matches(&Command::new(command)?);
+        let result =
+            CommandMatcher::RegexMatch(AnchoredRegex::new(regex)?).matches(&Command::new(command)?);
         Ok(result)
     }
 

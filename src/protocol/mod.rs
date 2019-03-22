@@ -12,7 +12,7 @@ use crate::protocol::yaml::*;
 use crate::utils::{path_to_string, with_has_more};
 use crate::R;
 pub use command::Command;
-pub use command_matcher::CommandMatcher;
+pub use command_matcher::{AnchoredRegex, CommandMatcher};
 use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, VecDeque};
 use std::ffi::OsString;
@@ -37,7 +37,7 @@ impl Step {
     }
 
     fn from_string(string: &str) -> R<Step> {
-        Ok(Step::new(CommandMatcher::exact_match(string)?))
+        Ok(Step::new(CommandMatcher::ExactMatch(Command::new(string)?)))
     }
 
     fn add_exitcode(&mut self, object: &Hash) -> R<()> {
@@ -62,9 +62,9 @@ impl Step {
                 let mut step = match (object.expect_field("command"), object.expect_field("regex"))
                 {
                     (Ok(command_field), Err(_)) => Step::from_string(command_field.expect_str()?)?,
-                    (Err(_), Ok(regex_field)) => {
-                        Step::new(CommandMatcher::regex_match(regex_field.expect_str()?)?)
-                    }
+                    (Err(_), Ok(regex_field)) => Step::new(CommandMatcher::RegexMatch(
+                        AnchoredRegex::new(regex_field.expect_str()?)?,
+                    )),
                     _ => Err("please provide either a 'command' or 'regex' but not both")?,
                 };
                 step.add_stdout(object)?;
@@ -108,7 +108,7 @@ mod parse_step {
     fn parses_strings_to_steps() -> R<()> {
         assert_eq!(
             test_parse_step(r#""foo""#)?,
-            Step::new(CommandMatcher::Exact(Command {
+            Step::new(CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![],
             })),
@@ -120,7 +120,7 @@ mod parse_step {
     fn parses_arguments() -> R<()> {
         assert_eq!(
             test_parse_step(r#""foo bar""#)?.command_matcher,
-            CommandMatcher::Exact(Command {
+            CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![OsString::from("bar")],
             }),
@@ -132,7 +132,7 @@ mod parse_step {
     fn parses_objects_to_steps() -> R<()> {
         assert_eq!(
             test_parse_step(r#"{command: "foo"}"#)?,
-            Step::new(CommandMatcher::Exact(Command {
+            Step::new(CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![],
             })),
@@ -144,7 +144,7 @@ mod parse_step {
     fn allows_to_put_arguments_in_the_command_field() -> R<()> {
         assert_eq!(
             test_parse_step(r#"{command: "foo bar"}"#)?.command_matcher,
-            CommandMatcher::Exact(Command {
+            CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![OsString::from("bar")],
             }),
@@ -523,7 +523,7 @@ mod load {
                     |  - /bin/true
                 ",
             )?,
-            Protocol::new(vec![Step::new(CommandMatcher::Exact(Command {
+            Protocol::new(vec![Step::new(CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("/bin/true"),
                 arguments: vec![],
             }))]),
@@ -620,7 +620,7 @@ mod load {
 
     fn get_exact(step: Step) -> Command {
         match step.command_matcher {
-            CommandMatcher::Exact(command) => command,
+            CommandMatcher::ExactMatch(command) => command,
             CommandMatcher::RegexMatch(_) => panic!("expected Exact"),
         }
     }
@@ -667,7 +667,7 @@ mod load {
                     |  - /bin/true
                 "
             )?,
-            Protocol::new(vec![Step::new(CommandMatcher::Exact(Command {
+            Protocol::new(vec![Step::new(CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("/bin/true"),
                 arguments: vec![],
             }))]),
@@ -1055,7 +1055,7 @@ mod load {
             .steps[0]
                 .clone();
             match step.command_matcher {
-                CommandMatcher::RegexMatch(regex) => assert_eq!(regex.as_str(), "^\\d$"),
+                CommandMatcher::RegexMatch(regex) => assert_eq!(regex, AnchoredRegex::new("\\d")?),
                 _ => panic!("expected regex match, got: {:?}", step.command_matcher),
             }
             Ok(())
@@ -1201,7 +1201,7 @@ mod serialize {
     #[test]
     fn includes_the_step_exitcodes() -> R<()> {
         let protocol = Protocol::new(vec![Step {
-            command_matcher: CommandMatcher::exact_match("cp")?,
+            command_matcher: CommandMatcher::ExactMatch(Command::new("cp")?),
             stdout: vec![],
             exitcode: 42,
         }]);
