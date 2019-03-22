@@ -65,7 +65,7 @@ impl Step {
                     (Err(_), Ok(regex_field)) => Step::new(CommandMatcher::RegexMatch(
                         AnchoredRegex::new(regex_field.expect_str()?)?,
                     )),
-                    _ => Err("please provide either a 'command' or 'regex' but not both")?,
+                    _ => Err("please provide either a 'command' or 'regex' field but not both")?,
                 };
                 step.add_stdout(object)?;
                 step.add_exitcode(object)?;
@@ -1076,7 +1076,7 @@ mod load {
                 ),
                 format!(
                     "error in {}.protocols.yaml: \
-                     please provide either a 'command' or 'regex' but not both",
+                     please provide either a 'command' or 'regex' field but not both",
                     path_to_string(&tempfile.path())?
                 )
             );
