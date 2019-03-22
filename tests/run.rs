@@ -104,38 +104,42 @@ fn can_specify_interpreter() -> R<()> {
     Ok(())
 }
 
-#[test]
-fn allows_to_match_command_arguments_by_regex() -> R<()> {
-    test_run(
-        r"
-            |#!/usr/bin/env bash
-            |cp foo bar
-        ",
-        r#"
-            |protocols:
-            |  - protocol:
-            |    - regex: cp foo \w+
-        "#,
-        Ok(()),
-    )?;
-    Ok(())
-}
+mod regex_commands {
+    use super::*;
 
-#[test]
-fn allows_to_match_commands_by_regex() -> R<()> {
-    test_run(
-        r"
-            |#!/usr/bin/env bash
-            |cp foo bar
-        ",
-        r#"
-            |protocols:
-            |  - protocol:
-            |    - regex: \w+ foo bar
-        "#,
-        Ok(()),
-    )?;
-    Ok(())
+    #[test]
+    fn allows_to_match_command_arguments() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |cp foo bar
+            ",
+            r#"
+                |protocols:
+                |  - protocol:
+                |    - regex: cp foo \w+
+            "#,
+            Ok(()),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn allows_to_match_command_executable() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |cp foo bar
+            ",
+            r#"
+                |protocols:
+                |  - protocol:
+                |    - regex: \w+ foo bar
+            "#,
+            Ok(()),
+        )?;
+        Ok(())
+    }
 }
 
 mod yaml_parse_errors {
