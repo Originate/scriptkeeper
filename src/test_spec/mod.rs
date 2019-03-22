@@ -77,15 +77,23 @@ impl Step {
 
     fn serialize(&self) -> Yaml {
         let command = Yaml::String(self.command_matcher.format());
-        if self.exitcode == 0 {
+        if self.exitcode == 0 && self.stdout.is_empty() {
             command
         } else {
             let mut step = LinkedHashMap::new();
             step.insert(Yaml::from_str("command"), command);
-            step.insert(
-                Yaml::from_str("exitcode"),
-                Yaml::Integer(i64::from(self.exitcode)),
-            );
+            if !self.stdout.is_empty() {
+                step.insert(
+                    Yaml::from_str("stdout"),
+                    Yaml::String(String::from_utf8_lossy(&self.stdout).into_owned()),
+                );
+            }
+            if self.exitcode != 0 {
+                step.insert(
+                    Yaml::from_str("exitcode"),
+                    Yaml::Integer(i64::from(self.exitcode)),
+                );
+            }
             Yaml::Hash(step)
         }
     }
@@ -1160,6 +1168,7 @@ mod load {
 mod serialize {
     use super::*;
     use pretty_assertions::assert_eq;
+    use test_utils::trim_margin;
 
     fn roundtrip(tests: Tests) -> R<()> {
         let yaml = tests.serialize()?;
@@ -1208,14 +1217,87 @@ mod serialize {
         roundtrip(Tests::new(vec![test]))
     }
 
-    #[test]
-    fn includes_the_step_exitcodes() -> R<()> {
-        let test = Test::new(vec![Step {
-            command_matcher: CommandMatcher::ExactMatch(Command::new("cp")?),
-            stdout: vec![],
-            exitcode: 42,
-        }]);
-        roundtrip(Tests::new(vec![test]))
+    mod steps {
+        use super::*;
+
+        #[test]
+        fn includes_the_step_exitcodes() -> R<()> {
+            let test = Test::new(vec![Step {
+                command_matcher: CommandMatcher::ExactMatch(Command::new("cp")?),
+                stdout: vec![],
+                exitcode: 42,
+            }]);
+            roundtrip(Tests::new(vec![test]))
+        }
+
+        #[test]
+        fn includes_stdout_of_steps() -> R<()> {
+            let protocol = Test::new(vec![Step {
+                command_matcher: CommandMatcher::ExactMatch(Command::new("cp")?),
+                stdout: b"foo".to_vec(),
+                exitcode: 0,
+            }]);
+            roundtrip(Tests::new(vec![protocol]))
+        }
+
+        mod when_serialized_as_object {
+            use super::*;
+            use pretty_assertions::assert_eq;
+            use std::io::Cursor;
+            use test_utils::assert_eq_yaml;
+
+            #[test]
+            fn does_not_include_exitcode_when_zero() -> R<()> {
+                let mut buffer = Cursor::new(vec![]);
+                write_yaml(
+                    &mut buffer,
+                    &Tests::new(vec![Test::new(vec![Step {
+                        command_matcher: CommandMatcher::ExactMatch(Command::new("cp")?),
+                        stdout: b"foo".to_vec(),
+                        exitcode: 0,
+                    }])])
+                    .serialize()?,
+                )?;
+                assert_eq_yaml(
+                    &String::from_utf8(buffer.into_inner())?,
+                    &trim_margin(
+                        "
+                            |tests:
+                            |  - steps:
+                            |      - command: cp
+                            |        stdout: foo
+                        ",
+                    )?,
+                )?;
+                Ok(())
+            }
+
+            #[test]
+            fn does_not_include_stdout_when_empty() -> R<()> {
+                let mut buffer = Cursor::new(vec![]);
+                write_yaml(
+                    &mut buffer,
+                    &Tests::new(vec![Test::new(vec![Step {
+                        command_matcher: CommandMatcher::ExactMatch(Command::new("cp")?),
+                        stdout: vec![],
+                        exitcode: 1,
+                    }])])
+                    .serialize()?,
+                )?;
+                assert_eq_yaml(
+                    &String::from_utf8(buffer.into_inner())?,
+                    &trim_margin(
+                        "
+                            |tests:
+                            |  - steps:
+                            |      - command: cp
+                            |        exitcode: 1
+                        ",
+                    )?,
+                )?;
+                Ok(())
+            }
+        }
     }
 
     #[test]
