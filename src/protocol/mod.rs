@@ -1082,6 +1082,27 @@ mod load {
             );
             Ok(())
         }
+
+        #[test]
+        fn fails_to_parse_with_bad_regex() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_error!(
+                test_parse(
+                    &tempfile,
+                    r"
+                        |protocols:
+                        |  - protocol:
+                        |      - regex: \x
+                    ",
+                ),
+                format!(
+                    "error in {}.protocols.yaml: \
+                     regex parse error:\n    ^\\x$\n       ^\nerror: invalid hexadecimal digit",
+                    path_to_string(&tempfile.path())?
+                )
+            );
+            Ok(())
+        }
     }
 
     mod holes {
