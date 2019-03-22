@@ -62,57 +62,71 @@ impl AnchoredRegex {
 mod command_matcher {
     use super::*;
 
-    #[test]
-    fn exact_command_matches_received() -> R<()> {
-        assert!(CommandMatcher::ExactMatch(Command::new("cp ./")?).matches(&Command::new("cp ./")?));
-        Ok(())
+    mod exact_match {
+        use super::*;
+
+        #[test]
+        fn matches_command_executable() -> R<()> {
+            assert!(
+                CommandMatcher::ExactMatch(Command::new("cp ./")?).matches(&Command::new("cp ./")?)
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn doesnt_match_a_different_command() -> R<()> {
+            assert!(
+                !CommandMatcher::ExactMatch(Command::new("cp ./")?).matches(&Command::new("bar")?)
+            );
+            Ok(())
+        }
+
     }
 
-    #[test]
-    fn exact_command_doesnt_match_different_command() -> R<()> {
-        assert!(!CommandMatcher::ExactMatch(Command::new("cp ./")?).matches(&Command::new("bar")?));
-        Ok(())
+    mod regex_match {
+        use super::*;
+
+        fn test_regex_matches_command(regex: &str, command: &str) -> R<bool> {
+            let result = CommandMatcher::RegexMatch(AnchoredRegex::new(regex)?)
+                .matches(&Command::new(command)?);
+            Ok(result)
+        }
+
+        #[test]
+        fn matches_received() -> R<()> {
+            assert!(test_regex_matches_command("cp \\w", "cp a")?);
+            Ok(())
+        }
+
+        #[test]
+        fn doesnt_match_received_if_regex_doesnt_match() -> R<()> {
+            assert!(!test_regex_matches_command("cp \\d", "cp a")?);
+            Ok(())
+        }
+
+        #[test]
+        fn only_matches_if_entire_command_is_a_match() -> R<()> {
+            assert!(!test_regex_matches_command("cp \\d", "cp 1 2")?);
+            Ok(())
+        }
+
+        #[test]
+        fn still_matches_if_both_anchors_are_included() -> R<()> {
+            assert!(test_regex_matches_command("^cp \\d$", "cp 1")?);
+            Ok(())
+        }
+
+        #[test]
+        fn still_matches_if_front_anchor_is_included() -> R<()> {
+            assert!(test_regex_matches_command("^cp \\d", "cp 1")?);
+            Ok(())
+        }
+
+        #[test]
+        fn still_matches_if_end_anchor_is_included() -> R<()> {
+            assert!(test_regex_matches_command("cp \\d$", "cp 1")?);
+            Ok(())
+        }
     }
 
-    fn test_regex_matches_command(regex: &str, command: &str) -> R<bool> {
-        let result =
-            CommandMatcher::RegexMatch(AnchoredRegex::new(regex)?).matches(&Command::new(command)?);
-        Ok(result)
-    }
-
-    #[test]
-    fn regex_matches_received() -> R<()> {
-        assert!(test_regex_matches_command("cp \\w", "cp a")?);
-        Ok(())
-    }
-
-    #[test]
-    fn regex_doesnt_match_received_if_regex_doesnt_match() -> R<()> {
-        assert!(!test_regex_matches_command("cp \\d", "cp a")?);
-        Ok(())
-    }
-
-    #[test]
-    fn regex_only_matches_if_entire_command_is_a_match() -> R<()> {
-        assert!(!test_regex_matches_command("cp \\d", "cp 1 2")?);
-        Ok(())
-    }
-
-    #[test]
-    fn regex_still_matches_if_both_anchors_are_included() -> R<()> {
-        assert!(test_regex_matches_command("^cp \\d$", "cp 1")?);
-        Ok(())
-    }
-
-    #[test]
-    fn regex_still_matches_if_front_anchor_is_included() -> R<()> {
-        assert!(test_regex_matches_command("^cp \\d", "cp 1")?);
-        Ok(())
-    }
-
-    #[test]
-    fn regex_still_matches_if_end_anchor_is_included() -> R<()> {
-        assert!(test_regex_matches_command("cp \\d$", "cp 1")?);
-        Ok(())
-    }
 }
