@@ -32,13 +32,11 @@ pub fn run(context: &Context, executable_mock_path: &Path) -> R<ExitCode> {
     Ok(ExitCode(config.exitcode))
 }
 
-const NEWLINE: u8 = 0x0A;
-
 fn skip_hashbang_line(input: Vec<u8>) -> Vec<u8> {
     input
         .clone()
         .into_iter()
-        .skip_while(|char: &u8| *char != NEWLINE)
+        .skip_while(|char: &u8| *char != b'\n')
         .skip(1)
         .collect()
 }
