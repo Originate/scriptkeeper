@@ -94,13 +94,13 @@ mod command_matcher {
 
         #[test]
         fn matches_received() -> R<()> {
-            assert!(test_regex_matches_command("cp \\w", "cp a")?);
+            assert!(test_regex_matches_command("cp", "cp")?);
             Ok(())
         }
 
         #[test]
         fn doesnt_match_received_if_regex_doesnt_match() -> R<()> {
-            assert!(!test_regex_matches_command("cp \\d", "cp a")?);
+            assert!(!test_regex_matches_command("foo", "bar")?);
             Ok(())
         }
 
@@ -112,19 +112,19 @@ mod command_matcher {
 
         #[test]
         fn still_matches_if_both_anchors_are_included() -> R<()> {
-            assert!(test_regex_matches_command("^cp \\d$", "cp 1")?);
+            assert!(test_regex_matches_command("^cp$", "cp")?);
             Ok(())
         }
 
         #[test]
         fn still_matches_if_front_anchor_is_included() -> R<()> {
-            assert!(test_regex_matches_command("^cp \\d", "cp 1")?);
+            assert!(test_regex_matches_command("^cp", "cp")?);
             Ok(())
         }
 
         #[test]
         fn still_matches_if_end_anchor_is_included() -> R<()> {
-            assert!(test_regex_matches_command("cp \\d$", "cp 1")?);
+            assert!(test_regex_matches_command("cp$", "cp")?);
             Ok(())
         }
     }
