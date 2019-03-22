@@ -10,8 +10,7 @@ mod utils;
 
 use scriptkeeper::context::Context;
 use scriptkeeper::{cli, run_main, R};
-use test_utils::{trim_margin, TempFile};
-use utils::assert_eq_yaml;
+use test_utils::{assert_eq_yaml, trim_margin, TempFile};
 
 mod yaml_formatting {
     use super::*;

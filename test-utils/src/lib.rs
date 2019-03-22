@@ -1,11 +1,13 @@
 #![deny(clippy::all)]
 
+use pretty_assertions::assert_eq;
 use std::collections::VecDeque;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use tempdir::TempDir;
 use trim_margin::MarginTrimmable;
+use yaml_rust::YamlLoader;
 
 type R<A> = Result<A, Box<std::error::Error>>;
 
@@ -74,4 +76,13 @@ macro_rules! assert_error {
     ($result:expr, $expected:expr) => {
         assert_eq!(format!("{}", $result.unwrap_err()), $expected);
     };
+}
+
+pub fn assert_eq_yaml(result: &str, expected: &str) -> R<()> {
+    let result =
+        YamlLoader::load_from_str(result).map_err(|error| format!("{}\n({})", error, result))?;
+    let expected = YamlLoader::load_from_str(expected)
+        .map_err(|error| format!("{}\n({})", error, expected))?;
+    assert_eq!(result, expected);
+    Ok(())
 }

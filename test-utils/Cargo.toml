@@ -7,3 +7,5 @@ edition = "2018"
 [dependencies]
 tempdir = "*"
 trim-margin = "*"
+yaml-rust = "*"
+pretty_assertions = "*"
