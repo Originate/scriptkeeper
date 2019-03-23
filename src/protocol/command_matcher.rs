@@ -68,15 +68,35 @@ mod command_matcher {
         #[test]
         fn matches_command_executable() -> R<()> {
             assert!(
-                CommandMatcher::ExactMatch(Command::new("cp ./")?).matches(&Command::new("cp ./")?)
+                CommandMatcher::ExactMatch(Command::new("true")?).matches(&Command::new("true")?)
             );
+            Ok(())
+        }
+
+        #[test]
+        fn matches_command_with_arguments() -> R<()> {
+            assert!(CommandMatcher::ExactMatch(Command::new("echo 1")?)
+                .matches(&Command::new("echo 1")?));
+            Ok(())
+        }
+
+        #[test]
+        fn matches_command_even_if_it_doesnt_exist() -> R<()> {
+            assert!(CommandMatcher::ExactMatch(Command::new("foo")?).matches(&Command::new("foo")?));
+            Ok(())
+        }
+
+        #[test]
+        fn matches_command_with_full_path() -> R<()> {
+            assert!(CommandMatcher::ExactMatch(Command::new("/bin/true")?)
+                .matches(&Command::new("/bin/true")?));
             Ok(())
         }
 
         #[test]
         fn doesnt_match_a_different_command() -> R<()> {
             assert!(
-                !CommandMatcher::ExactMatch(Command::new("cp ./")?).matches(&Command::new("bar")?)
+                !CommandMatcher::ExactMatch(Command::new("foo")?).matches(&Command::new("bar")?)
             );
             Ok(())
         }
