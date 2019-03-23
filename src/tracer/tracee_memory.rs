@@ -12,7 +12,7 @@ fn cast_to_four_byte_array(x: c_uint) -> [u8; 4] {
     ]
 }
 
-fn cast_to_eight_byte_array(x: c_ulonglong) -> [u8; 8] {
+pub fn cast_to_eight_byte_array(x: c_ulonglong) -> [u8; 8] {
     [
         (x & 0xff) as u8,
         ((x >> 8) & 0xff) as u8,
@@ -36,8 +36,26 @@ fn cast_to_eight_byte_word(bytes: [u8; 8]) -> c_ulonglong {
         + (u64::from(bytes[7]) << 56)
 }
 
-fn peekdata(pid: Pid, address: c_ulonglong) -> R<c_ulonglong> {
+pub fn cast_to_four_byte_word(bytes: [u8; 4]) -> c_uint {
+    u32::from(bytes[0])
+        + (u32::from(bytes[1]) << 8)
+        + (u32::from(bytes[2]) << 16)
+        + (u32::from(bytes[3]) << 24)
+}
+
+pub fn peekdata(pid: Pid, address: c_ulonglong) -> R<c_ulonglong> {
     Ok(ptrace::read(pid, address as *mut c_void)? as c_ulonglong)
+}
+
+pub fn peek_four_bytes(pid: Pid, address: c_ulonglong) -> R<c_uint> {
+    let word = peekdata(pid, address)?;
+    let eight_bytes = cast_to_eight_byte_array(word);
+    let mut four_bytes: [u8; 4] = [0, 0, 0, 0];
+    for i in 0..4 {
+        four_bytes[i] = eight_bytes[i];
+    }
+
+    Ok(cast_to_four_byte_word(four_bytes))
 }
 
 fn peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = R<c_ulonglong>> {
@@ -74,6 +92,18 @@ fn data_to_string(data: impl Iterator<Item = R<c_ulonglong>>) -> R<Vec<u8>> {
 
 pub fn peek_string(pid: Pid, address: c_ulonglong) -> R<Vec<u8>> {
     data_to_string(peekdata_iter(pid, address))
+}
+
+pub fn peek_string_length(pid: Pid, address: c_ulonglong, length: u64) -> R<Vec<u8>> {
+    let mut result = vec![];
+    peekdata_iter(pid, address)
+        .take((length as f64 / 8.0).ceil() as usize)
+        .for_each(|word| {
+            for byte in cast_to_eight_byte_array(word.unwrap()).iter() {
+                result.push(*byte)
+            }
+        });
+    Ok(result)
 }
 
 pub fn peek_string_array(pid: Pid, address: c_ulonglong) -> R<Vec<Vec<u8>>> {
@@ -264,13 +294,6 @@ mod poking {
     mod roundtrip {
         use super::*;
         use libc::user_regs_struct;
-
-        fn cast_to_four_byte_word(bytes: [u8; 4]) -> c_uint {
-            u32::from(bytes[0])
-                + (u32::from(bytes[1]) << 8)
-                + (u32::from(bytes[2]) << 16)
-                + (u32::from(bytes[3]) << 24)
-        }
 
         fn run_roundtrip_test(test: fn(child: Pid, registers: user_regs_struct) -> R<()>) -> R<()> {
             fork_with_child_errors(

@@ -104,6 +104,25 @@ fn can_specify_interpreter() -> R<()> {
     Ok(())
 }
 
+#[test]
+fn can_dir_glob() -> R<()> {
+    test_run(
+        r#"
+            |fail unless Dir.glob("/var/*").length == 1
+        "#,
+        r#"
+            |protocols:
+            |  - protocol: []
+            |    mockedFiles:
+            |      - /foo/
+            |      - /foo/bar
+            |interpreter: /usr/bin/ruby
+        "#,
+        Ok(()),
+    )?;
+    Ok(())
+}
+
 mod yaml_parse_errors {
     use super::*;
     use pretty_assertions::assert_eq;

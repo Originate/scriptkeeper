@@ -263,6 +263,41 @@ impl Tracer {
                 )?));
                 syscall_mock.handle_stat_exit(pid, registers, filename)?
             }
+            (Syscall::Fstat, SyscallStop::Exit) => {
+                let statbuf_ptr = registers.rsi;
+                let four_byte_word = tracee_memory::peek_four_bytes(
+                    pid,
+                    statbuf_ptr + (offset_of!(libc::stat, st_mode) as u64),
+                )?;
+
+                println!(
+                    "fstat: mode: {:?} , fd: {:?}",
+                    four_byte_word, registers.rdi
+                );
+            }
+            (Syscall::Getdents, SyscallStop::Exit) => {
+                // * ? check if fd points to a folder we mock
+                // * need to alter registers.rsi, which is an array of dirent structs, which have a variable
+                //   length adding extra entries. doublecheck that rsi isn't truncated after enter!
+                // * for each struct size added to rsi, add that many bytes to registers.rax
+                // * ensure that fstat/lstat calls work any added files/folders
+                // * figure out what the hell d_off actually means
+
+                let dirent_ptr = registers.rsi;
+                let offset = (offset_of!(libc::dirent64, d_name) as u64);
+                let filename = tracee_memory::peek_string(pid, dirent_ptr + offset)?;
+
+                let long_bytes =
+                    tracee_memory::peek_string_length(pid, registers.rsi, registers.rax);
+                // let long_string =
+                //     long_bytes.map(|string| String::from_utf8_lossy(&string).to_string());
+
+                println!(
+                    "getdents: filename: {:?}, alldata:\n\n{:?}\n\n",
+                    String::from_utf8_lossy(&filename),
+                    long_bytes
+                );
+            }
             _ => {}
         }
         Ok(())
