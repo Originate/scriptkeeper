@@ -88,22 +88,10 @@ impl Debugger {
                 ("cmd", format!("{:?}", FcntlCmd::from(registers.rsi))),
             ],
             Openat => vec![("filename", Debugger::string(pid, registers.rsi))],
-            Getdents => {
-                let reclen_offset = offset_of!(libc::dirent64, d_reclen) as u64;
-                let struct_length = tracee_memory::peekdata(pid, registers.rsi + reclen_offset)
-                    .map(tracee_memory::cast_to_eight_byte_array);
-                let d_ino = tracee_memory::peekdata(pid, registers.rsi);
-                let d_off = tracee_memory::peekdata(pid, registers.rsi + 8);
-
-                vec![
-                    ("fd", registers.rdi.to_string()),
-                    ("reclen", format!("{:?}", struct_length)),
-                    ("reclen_offset", reclen_offset.to_string()),
-                    ("d_ino", format!("{:?}", d_ino)),
-                    ("d_off", format!("{:?}", d_off)),
-                    ("count", registers.rdx.to_string()),
-                ]
-            }
+            Getdents => vec![
+                ("fd", registers.rdi.to_string()),
+                ("total bytes returned", registers.rdx.to_string()),
+            ],
             _ => vec![],
         }
     }

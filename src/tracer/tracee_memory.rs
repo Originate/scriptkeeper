@@ -1,7 +1,11 @@
 use crate::R;
-use libc::{c_uint, c_ulonglong, c_void};
+use libc::{c_uint, c_ulonglong, c_ushort, c_void};
 use nix::sys::ptrace;
 use nix::unistd::Pid;
+
+fn cast_to_two_byte_array(x: c_ushort) -> [u8; 2] {
+    [(x & 0xff) as u8, ((x >> 8) & 0xff) as u8]
+}
 
 fn cast_to_four_byte_array(x: c_uint) -> [u8; 4] {
     [
@@ -25,6 +29,17 @@ pub fn cast_to_eight_byte_array(x: c_ulonglong) -> [u8; 8] {
     ]
 }
 
+pub fn cast_to_two_byte_word(bytes: [u8; 2]) -> c_ushort {
+    u16::from(bytes[0]) + (u16::from(bytes[1]) << 8)
+}
+
+pub fn cast_to_four_byte_word(bytes: [u8; 4]) -> c_uint {
+    u32::from(bytes[0])
+        + (u32::from(bytes[1]) << 8)
+        + (u32::from(bytes[2]) << 16)
+        + (u32::from(bytes[3]) << 24)
+}
+
 fn cast_to_eight_byte_word(bytes: [u8; 8]) -> c_ulonglong {
     u64::from(bytes[0])
         + (u64::from(bytes[1]) << 8)
@@ -34,13 +49,6 @@ fn cast_to_eight_byte_word(bytes: [u8; 8]) -> c_ulonglong {
         + (u64::from(bytes[5]) << 40)
         + (u64::from(bytes[6]) << 48)
         + (u64::from(bytes[7]) << 56)
-}
-
-pub fn cast_to_four_byte_word(bytes: [u8; 4]) -> c_uint {
-    u32::from(bytes[0])
-        + (u32::from(bytes[1]) << 8)
-        + (u32::from(bytes[2]) << 16)
-        + (u32::from(bytes[3]) << 24)
 }
 
 pub fn peekdata(pid: Pid, address: c_ulonglong) -> R<c_ulonglong> {
@@ -56,6 +64,14 @@ pub fn peek_four_bytes(pid: Pid, address: c_ulonglong) -> R<c_uint> {
     }
 
     Ok(cast_to_four_byte_word(four_bytes))
+}
+
+pub fn peek_two_bytes(pid: Pid, address: c_ulonglong) -> R<c_ushort> {
+    let word = peekdata(pid, address)?;
+    let eight_bytes = cast_to_eight_byte_array(word);
+    let mut peek_two_bytes: [u8; 2] = [eight_bytes[0], eight_bytes[1]];
+
+    Ok(cast_to_two_byte_word(peek_two_bytes))
 }
 
 fn peekdata_iter(pid: Pid, address: c_ulonglong) -> impl Iterator<Item = R<c_ulonglong>> {
@@ -155,6 +171,17 @@ mod peeking {
         .map(Ok);
         assert_eq!(data_to_string(data).unwrap(), b"abcdefgh");
     }
+}
+
+pub fn poke_two_bytes(pid: Pid, address: c_ulonglong, short_word: c_ushort) -> R<()> {
+    let existing_word: c_ulonglong = peekdata(pid, address)?;
+    let mut overlapping_data_array: [u8; 8] = cast_to_eight_byte_array(existing_word);
+
+    let first_two_bytes: [u8; 2] = cast_to_two_byte_array(short_word);
+    overlapping_data_array[..2].clone_from_slice(&first_two_bytes);
+
+    let new_word: c_ulonglong = cast_to_eight_byte_word(overlapping_data_array);
+    pokedata(pid, address, new_word)
 }
 
 pub fn poke_four_bytes(pid: Pid, address: c_ulonglong, small_word: c_uint) -> R<()> {
@@ -335,6 +362,23 @@ mod poking {
         #[test]
         fn run_roundtrip_test_runs_the_given_test() {
             assert_error!(run_roundtrip_test(|_, _| Err("foo")?), "foo");
+        }
+
+        #[test]
+        fn roundtrip_for_two_byte_word_doesnt_clobber_adjacent_six_bytes() -> R<()> {
+            run_roundtrip_test(|child, registers| {
+                let eight_bytes: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+                let two_bytes: [u8; 2] = [10, 20];
+
+                pokedata(child, registers.rdi, cast_to_eight_byte_word(eight_bytes))?;
+                poke_two_bytes(child, registers.rdi, cast_to_two_byte_word(two_bytes))?;
+
+                assert_eq!(
+                    cast_to_eight_byte_array(peekdata(child, registers.rdi)?),
+                    [10, 20, 3, 4, 5, 6, 7, 8],
+                );
+                Ok(())
+            })
         }
 
         #[test]

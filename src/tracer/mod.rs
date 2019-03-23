@@ -286,16 +286,30 @@ impl Tracer {
                 let dirent_ptr = registers.rsi;
                 let offset = (offset_of!(libc::dirent64, d_name) as u64);
                 let filename = tracee_memory::peek_string(pid, dirent_ptr + offset)?;
+                let firstword = tracee_memory::cast_to_eight_byte_array(tracee_memory::peekdata(
+                    pid, dirent_ptr,
+                )?);
+                let third = tracee_memory::cast_to_eight_byte_array(tracee_memory::peekdata(
+                    pid,
+                    dirent_ptr + offset_of!(libc::dirent64, d_reclen) as u64,
+                )?);
+                let struct_length = tracee_memory::peek_two_bytes(
+                    pid,
+                    dirent_ptr + offset_of!(libc::dirent64, d_reclen) as u64,
+                )?;
 
-                let long_bytes =
-                    tracee_memory::peek_string_length(pid, registers.rsi, registers.rax);
+                let long_bytes = tracee_memory::peek_string_length(pid, registers.rsi, 344);
                 // let long_string =
                 //     long_bytes.map(|string| String::from_utf8_lossy(&string).to_string());
 
                 println!(
-                    "getdents: filename: {:?}, alldata:\n\n{:?}\n\n",
+                    "getdents: filename: {:?}, firstword: {:?}, second: {:?}, nameoffset: {:?}, structlen: {:?} alldata:\n\n{:?}\n\n",
                     String::from_utf8_lossy(&filename),
-                    long_bytes
+                    firstword,
+                    third,
+                    offset_of!(libc::dirent64, d_name),
+                    struct_length.to_string(),
+                    long_bytes,
                 );
             }
             _ => {}
