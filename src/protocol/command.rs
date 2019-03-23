@@ -20,6 +20,11 @@ impl Command {
         }
     }
 
+    pub fn compare(&self, other: &Command) -> bool {
+        executable_path::compare_executables(&self.executable, &other.executable)
+            && self.arguments == other.arguments
+    }
+
     fn escape(word: String) -> String {
         fn escape_char(char: char) -> String {
             match char {

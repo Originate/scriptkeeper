@@ -1,5 +1,4 @@
 use super::command::Command;
-use super::executable_path;
 use crate::R;
 use regex::Regex;
 use std::str;
@@ -11,13 +10,10 @@ pub enum CommandMatcher {
 }
 
 impl CommandMatcher {
-    pub fn matches(&self, received: &Command) -> bool {
+    pub fn matches(&self, other: &Command) -> bool {
         match self {
-            CommandMatcher::ExactMatch(command) => {
-                executable_path::compare_executables(&command.executable, &received.executable)
-                    && command.arguments == received.arguments
-            }
-            CommandMatcher::RegexMatch(regex) => regex.is_match(&received.format()),
+            CommandMatcher::ExactMatch(command) => command.compare(other),
+            CommandMatcher::RegexMatch(regex) => regex.is_match(&other.format()),
         }
     }
 
@@ -113,13 +109,13 @@ mod command_matcher {
         }
 
         #[test]
-        fn matches_received() -> R<()> {
+        fn matches_a_command() -> R<()> {
             assert!(test_regex_matches_command("cp", "cp")?);
             Ok(())
         }
 
         #[test]
-        fn doesnt_match_received_if_regex_doesnt_match() -> R<()> {
+        fn doesnt_match_a_command_if_regex_doesnt_match() -> R<()> {
             assert!(!test_regex_matches_command("foo", "bar")?);
             Ok(())
         }
@@ -130,23 +126,28 @@ mod command_matcher {
             Ok(())
         }
 
-        #[test]
-        fn still_matches_if_both_anchors_are_included() -> R<()> {
-            assert!(test_regex_matches_command("^cp$", "cp")?);
-            Ok(())
+        mod anchoring {
+            use super::*;
+
+            #[test]
+            fn matches_if_both_anchors_are_included() -> R<()> {
+                assert!(test_regex_matches_command("^cp$", "cp")?);
+                Ok(())
+            }
+
+            #[test]
+            fn matches_if_front_anchor_is_included() -> R<()> {
+                assert!(test_regex_matches_command("^cp", "cp")?);
+                Ok(())
+            }
+
+            #[test]
+            fn matches_if_end_anchor_is_included() -> R<()> {
+                assert!(test_regex_matches_command("cp$", "cp")?);
+                Ok(())
+            }
         }
 
-        #[test]
-        fn still_matches_if_front_anchor_is_included() -> R<()> {
-            assert!(test_regex_matches_command("^cp", "cp")?);
-            Ok(())
-        }
-
-        #[test]
-        fn still_matches_if_end_anchor_is_included() -> R<()> {
-            assert!(test_regex_matches_command("cp$", "cp")?);
-            Ok(())
-        }
     }
 
 }
