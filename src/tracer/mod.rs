@@ -231,6 +231,36 @@ impl Tracer {
         })
     }
 
+    fn fd_to_path(pid: &Pid, fd: u64) -> R<Vec<u8>> {
+        use std::ffi::CString;
+        let fd_link_path = CString::new(format!("/proc/{}/fd/{}", pid.to_string(), fd))?;
+
+        let rust_buffer: Vec<u8> = [1; libc::PATH_MAX as usize].to_vec();
+        let buffer = CString::new(rust_buffer)?;
+        let mut_buffer_ptr = buffer.into_raw();
+
+        unsafe {
+            let recaptured_buffer = CString::from_raw(mut_buffer_ptr);
+
+            let bytes_written = libc::readlink(
+                fd_link_path.as_ptr(),
+                mut_buffer_ptr,
+                libc::PATH_MAX as usize,
+            );
+
+            if bytes_written < 0 {
+                Err(nix::errno::from_i32(nix::errno::errno()).to_string())?
+            } else {
+                Ok(recaptured_buffer
+                    .into_bytes()
+                    .iter()
+                    .take(bytes_written as usize)
+                    .cloned()
+                    .collect())
+            }
+        }
+    }
+
     fn handle_syscall<MockResult>(
         &mut self,
         syscall_mock: &mut SyscallMock<Result = MockResult>,
@@ -263,20 +293,22 @@ impl Tracer {
                 )?));
                 syscall_mock.handle_stat_exit(pid, registers, filename)?
             }
+            // * mock Open(mockedFilePath) and give back a fd that we keep track of?
             (Syscall::Fstat, SyscallStop::Exit) => {
                 let statbuf_ptr = registers.rsi;
                 let four_byte_word = tracee_memory::peek_four_bytes(
                     pid,
                     statbuf_ptr + (offset_of!(libc::stat, st_mode) as u64),
                 )?;
-
+                let filename = Tracer::fd_to_path(&pid, registers.rdi)
+                    .map(|filename_bytes| PathBuf::from(OsString::from_vec(filename_bytes)));
                 println!(
-                    "fstat: mode: {:?} , fd: {:?}",
-                    four_byte_word, registers.rdi
+                    "fstat: mode: {:?} , fd: {:?} , path: {:?}",
+                    four_byte_word, registers.rdi, filename
                 );
+                // * ? check if fd points to a folder we mock
             }
             (Syscall::Getdents, SyscallStop::Exit) => {
-                // * ? check if fd points to a folder we mock
                 // * need to alter registers.rsi, which is an array of dirent structs, which have a variable
                 //   length adding extra entries. doublecheck that rsi isn't truncated after enter!
                 // * for each struct size added to rsi, add that many bytes to registers.rax
