@@ -3,11 +3,11 @@ use libc::{c_uint, c_ulonglong, c_ushort, c_void};
 use nix::sys::ptrace;
 use nix::unistd::Pid;
 
-fn cast_to_two_byte_array(x: c_ushort) -> [u8; 2] {
+pub fn cast_to_two_byte_array(x: c_ushort) -> [u8; 2] {
     [(x & 0xff) as u8, ((x >> 8) & 0xff) as u8]
 }
 
-fn cast_to_four_byte_array(x: c_uint) -> [u8; 4] {
+pub fn cast_to_four_byte_array(x: c_uint) -> [u8; 4] {
     [
         (x & 0xff) as u8,
         ((x >> 8) & 0xff) as u8,
@@ -40,7 +40,7 @@ pub fn cast_to_four_byte_word(bytes: [u8; 4]) -> c_uint {
         + (u32::from(bytes[3]) << 24)
 }
 
-fn cast_to_eight_byte_word(bytes: [u8; 8]) -> c_ulonglong {
+pub fn cast_to_eight_byte_word(bytes: [u8; 8]) -> c_ulonglong {
     u64::from(bytes[0])
         + (u64::from(bytes[1]) << 8)
         + (u64::from(bytes[2]) << 16)
@@ -69,7 +69,7 @@ pub fn peek_four_bytes(pid: Pid, address: c_ulonglong) -> R<c_uint> {
 pub fn peek_two_bytes(pid: Pid, address: c_ulonglong) -> R<c_ushort> {
     let word = peekdata(pid, address)?;
     let eight_bytes = cast_to_eight_byte_array(word);
-    let mut peek_two_bytes: [u8; 2] = [eight_bytes[0], eight_bytes[1]];
+    let peek_two_bytes: [u8; 2] = [eight_bytes[0], eight_bytes[1]];
 
     Ok(cast_to_two_byte_word(peek_two_bytes))
 }
