@@ -158,12 +158,12 @@ impl OldDirent {
     pub fn new_with_name(name: Vec<u8>) -> OldDirent {
         let d_reclen = (((name.len() as f32 - 4.0) / 8.0).ceil() as u16) * 8 + 24;
         OldDirent {
-            d_ino: 0,
+            d_ino: 1, // can't be 0
             d_off: 0,
             d_reclen,
             d_name: name,
             pad: 0,
-            d_type: libc::DT_REG,
+            d_type: libc::DT_REG, // can be DT_DIR as well, doesn't affect
         }
     }
 

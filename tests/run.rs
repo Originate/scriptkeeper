@@ -1016,21 +1016,27 @@ mod file_mocking {
         Ok(())
     }
 
-    #[test]
-    fn allows_to_mock_directory_listing() -> R<()> {
-        test_run(
-            r#"
-                |fail unless Dir.glob("/root/*").length == 1
-            "#,
-            r#"
-                |protocols:
-                |  - protocol: []
-                |    mockedFiles:
-                |      - /var/test
-                |interpreter: /usr/bin/ruby
-            "#,
-            Ok(()),
-        )?;
-        Ok(())
+    mod directory_listings {
+        use super::*;
+
+        #[test]
+        fn mocks_specified_files_absolutely() -> R<()> {
+            test_run(
+                r#"
+                    |fail unless Dir.glob("/var/*").include?("/var/foo")
+                "#,
+                r#"
+                    |protocols:
+                    |  - protocol: []
+                    |    mockedFiles:
+                    |      - /var
+                    |      - /var/foo
+                    |interpreter: /usr/bin/ruby
+                "#,
+                Ok(()),
+            )?;
+            Ok(())
+        }
     }
+
 }

@@ -4,6 +4,7 @@ pub mod executable_mock;
 use crate::context::Context;
 use crate::protocol;
 use crate::protocol::Protocol;
+use crate::tracer::directory_entry;
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::{tracee_memory, SyscallMock};
 use crate::utils::short_temp_files::ShortTempFile;
@@ -129,6 +130,35 @@ impl SyscallMock for ProtocolChecker {
             registers.rax = mock_cwd.len() as c_ulonglong + 1;
             ptrace::setregs(pid, registers)?;
         }
+        Ok(())
+    }
+
+    fn handle_getdents_exit(
+        &self,
+        pid: Pid,
+        registers: &user_regs_struct,
+        filename: PathBuf,
+    ) -> R<()> {
+        // fixme: on the first call to a folder that doesn't exist, rax will be an error code
+        if registers.rax > 0 && self.protocol.mocked_files.contains(&filename) {
+            println!("here: {:?}", filename);
+            let dirent_ptr = registers.rsi;
+            let bytes_written = registers.rax;
+            let serialized =
+                directory_entry::OldDirent::new_with_name("foo".as_bytes().to_vec()).to_bytes();
+            let new_bytes_to_write = serialized.len() as u64;
+            tracee_memory::poke_string(
+                pid,
+                dirent_ptr + bytes_written,
+                &serialized,
+                new_bytes_to_write + 1,
+            )?;
+
+            let mut registers = *registers;
+            registers.rax = bytes_written + new_bytes_to_write;
+            ptrace::setregs(pid, registers)?
+        }
+
         Ok(())
     }
 
