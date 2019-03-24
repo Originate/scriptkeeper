@@ -1,4 +1,5 @@
 mod debugging;
+pub mod directory_entry;
 pub mod stdio_redirecting;
 pub mod syscall;
 pub mod tracee_memory;
