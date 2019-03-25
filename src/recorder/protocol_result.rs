@@ -45,6 +45,7 @@ impl ProtocolResult {
         program: &Path,
         protocols: Vec<Protocol>,
         unmocked_commands: &[PathBuf],
+        mocked_executables: &[PathBuf],
     ) -> R<Vec<ProtocolResult>> {
         let mut results = vec![];
         for protocol in protocols.into_iter() {
@@ -53,6 +54,7 @@ impl ProtocolResult {
                 &interpreter,
                 program,
                 unmocked_commands,
+                mocked_executables,
                 protocol,
             )?);
         }
@@ -119,6 +121,7 @@ fn run_against_protocol(
     interpreter: &Option<PathBuf>,
     program: &Path,
     unmocked_commands: &[PathBuf],
+    mocked_executables: &[PathBuf],
     protocol: Protocol,
 ) -> R<ProtocolResult> {
     macro_rules! run_against_mock {
@@ -139,11 +142,21 @@ fn run_against_protocol(
         };
     }
     if protocol.ends_with_hole {
-        run_against_mock!(HoleRecorder::new(context, unmocked_commands, protocol))
+        run_against_mock!(HoleRecorder::new(
+            context,
+            unmocked_commands,
+            mocked_executables,
+            protocol
+        ))
     } else {
         Ok(ProtocolResult::Checked(
             protocol.clone(),
-            run_against_mock!(ProtocolChecker::new(context, protocol, unmocked_commands))?,
+            run_against_mock!(ProtocolChecker::new(
+                context,
+                protocol,
+                unmocked_commands,
+                mocked_executables
+            ))?,
         ))
     }
 }

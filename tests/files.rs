@@ -70,3 +70,25 @@ fn does_not_mock_existence_of_unspecified_files() -> R<()> {
     )?;
     Ok(())
 }
+
+#[test]
+fn allows_to_mock_executable_existence() -> R<()> {
+    test_run(
+        r"
+            |#!/usr/bin/env bash
+            |/bin/does_not_exist
+        ",
+        r"
+            |protocols:
+            |  - protocol:
+            |      - /bin/does_not_exist
+            |mockedExecutables:
+            |  - does_not_exist
+        ",
+        Ok(()),
+    )?;
+    Ok(())
+}
+
+#[test]
+fn works_with_absolute_executables() {}

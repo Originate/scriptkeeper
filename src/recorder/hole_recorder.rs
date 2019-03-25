@@ -26,10 +26,16 @@ impl HoleRecorder {
     pub fn new(
         context: &Context,
         unmocked_commands: &[PathBuf],
+        mocked_executables: &[PathBuf],
         protocol: Protocol,
     ) -> HoleRecorder {
         HoleRecorder::Checker {
-            checker: ProtocolChecker::new(context, protocol.clone(), unmocked_commands),
+            checker: ProtocolChecker::new(
+                context,
+                protocol.clone(),
+                unmocked_commands,
+                mocked_executables,
+            ),
             original_protocol: protocol,
         }
     }
@@ -112,7 +118,7 @@ pub fn run_against_protocols(
         protocols,
         unmocked_commands,
         interpreter,
-        ..
+        mocked_executables,
     }: Protocols,
 ) -> R<ExitCode> {
     let results = ProtocolResult::collect_results(
@@ -121,6 +127,7 @@ pub fn run_against_protocols(
         program,
         protocols,
         &unmocked_commands,
+        &mocked_executables,
     )?;
     ProtocolResult::handle_results(context, protocols_file, unmocked_commands, &results)
 }

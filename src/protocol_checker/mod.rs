@@ -21,6 +21,7 @@ pub struct ProtocolChecker {
     context: Context,
     pub protocol: Protocol,
     pub unmocked_commands: Vec<PathBuf>,
+    pub mocked_executables: Vec<PathBuf>,
     pub result: CheckerResult,
     temporary_executables: Vec<ShortTempFile>,
 }
@@ -30,11 +31,13 @@ impl ProtocolChecker {
         context: &Context,
         protocol: Protocol,
         unmocked_commands: &[PathBuf],
+        mocked_executables: &[PathBuf],
     ) -> ProtocolChecker {
         ProtocolChecker {
             context: context.clone(),
             protocol,
             unmocked_commands: unmocked_commands.to_vec(),
+            mocked_executables: mocked_executables.to_vec(),
             result: CheckerResult::Pass,
             temporary_executables: vec![],
         }
@@ -140,6 +143,22 @@ impl SyscallMock for ProtocolChecker {
             } else {
                 libc::S_IFREG
             };
+            #[allow(clippy::forget_copy)]
+            tracee_memory::poke_four_bytes(
+                pid,
+                statbuf_ptr + (offset_of!(libc::stat, st_mode) as u64),
+                mock_mode as u32,
+            )?;
+            let mut registers = *registers;
+            registers.rax = 0;
+            ptrace::setregs(pid, registers)?;
+        } else if self
+            .mocked_executables
+            .iter()
+            .any(|mocked_executable| PathBuf::from("/bin").join(mocked_executable) == filename)
+        {
+            let statbuf_ptr = registers.rsi;
+            let mock_mode = 0;
             #[allow(clippy::forget_copy)]
             tracee_memory::poke_four_bytes(
                 pid,
