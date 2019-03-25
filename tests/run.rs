@@ -1037,6 +1037,24 @@ mod file_mocking {
             )?;
             Ok(())
         }
+
+        #[test]
+        fn mocks_specified_files_relatively() -> R<()> {
+            test_run(
+                r#"
+                    |fail unless Dir.glob("./*").include?("./foo")
+                "#,
+                r#"
+                    |protocols:
+                    |  - protocol: []
+                    |    mockedFiles:
+                    |      - /root
+                    |interpreter: /usr/bin/ruby
+                "#,
+                Ok(()),
+            )?;
+            Ok(())
+        }
     }
 
 }
