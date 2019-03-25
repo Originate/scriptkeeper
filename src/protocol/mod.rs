@@ -2,6 +2,7 @@ extern crate yaml_rust;
 
 mod argument_parser;
 pub mod command;
+pub mod command_matcher;
 mod executable_path;
 pub mod yaml;
 
@@ -11,6 +12,7 @@ use crate::protocol::yaml::*;
 use crate::utils::{path_to_string, with_has_more};
 use crate::R;
 pub use command::Command;
+pub use command_matcher::{AnchoredRegex, CommandMatcher};
 use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, VecDeque};
 use std::ffi::OsString;
@@ -20,22 +22,22 @@ use yaml_rust::{yaml::Hash, Yaml, YamlLoader};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Step {
-    pub command: Command,
+    pub command_matcher: CommandMatcher,
     pub stdout: Vec<u8>,
     pub exitcode: i32,
 }
 
 impl Step {
-    pub fn new(command: Command) -> Step {
+    pub fn new(command_matcher: CommandMatcher) -> Step {
         Step {
-            command,
+            command_matcher,
             stdout: vec![],
             exitcode: 0,
         }
     }
 
     fn from_string(string: &str) -> R<Step> {
-        Ok(Step::new(Command::new(string)?))
+        Ok(Step::new(CommandMatcher::ExactMatch(Command::new(string)?)))
     }
 
     fn add_exitcode(&mut self, object: &Hash) -> R<()> {
@@ -56,8 +58,15 @@ impl Step {
         match yaml {
             Yaml::String(string) => Step::from_string(string),
             Yaml::Hash(object) => {
-                check_keys(&["command", "stdout", "exitcode"], object)?;
-                let mut step = Step::from_string(object.expect_field("command")?.expect_str()?)?;
+                check_keys(&["command", "stdout", "exitcode", "regex"], object)?;
+                let mut step = match (object.expect_field("command"), object.expect_field("regex"))
+                {
+                    (Ok(command_field), Err(_)) => Step::from_string(command_field.expect_str()?)?,
+                    (Err(_), Ok(regex_field)) => Step::new(CommandMatcher::RegexMatch(
+                        AnchoredRegex::new(regex_field.expect_str()?)?,
+                    )),
+                    _ => Err("please provide either a 'command' or 'regex' field but not both")?,
+                };
                 step.add_stdout(object)?;
                 step.add_exitcode(object)?;
                 Ok(step)
@@ -67,7 +76,7 @@ impl Step {
     }
 
     fn serialize(&self) -> Yaml {
-        let command = Yaml::String(self.command.format());
+        let command = Yaml::String(self.command_matcher.format());
         if self.exitcode == 0 {
             command
         } else {
@@ -99,10 +108,10 @@ mod parse_step {
     fn parses_strings_to_steps() -> R<()> {
         assert_eq!(
             test_parse_step(r#""foo""#)?,
-            Step::new(Command {
+            Step::new(CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![],
-            }),
+            })),
         );
         Ok(())
     }
@@ -110,11 +119,11 @@ mod parse_step {
     #[test]
     fn parses_arguments() -> R<()> {
         assert_eq!(
-            test_parse_step(r#""foo bar""#)?.command,
-            Command {
+            test_parse_step(r#""foo bar""#)?.command_matcher,
+            CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![OsString::from("bar")],
-            },
+            }),
         );
         Ok(())
     }
@@ -123,10 +132,10 @@ mod parse_step {
     fn parses_objects_to_steps() -> R<()> {
         assert_eq!(
             test_parse_step(r#"{command: "foo"}"#)?,
-            Step::new(Command {
+            Step::new(CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![],
-            }),
+            })),
         );
         Ok(())
     }
@@ -134,11 +143,11 @@ mod parse_step {
     #[test]
     fn allows_to_put_arguments_in_the_command_field() -> R<()> {
         assert_eq!(
-            test_parse_step(r#"{command: "foo bar"}"#)?.command,
-            Command {
+            test_parse_step(r#"{command: "foo bar"}"#)?.command_matcher,
+            CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("foo"),
                 arguments: vec![OsString::from("bar")],
-            },
+            }),
         );
         Ok(())
     }
@@ -514,10 +523,10 @@ mod load {
                     |  - /bin/true
                 ",
             )?,
-            Protocol::new(vec![Step::new(Command {
+            Protocol::new(vec![Step::new(CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("/bin/true"),
                 arguments: vec![],
-            })]),
+            }))]),
         );
         Ok(())
     }
@@ -598,7 +607,7 @@ mod load {
                 format!(
                     "error in {}.protocols.yaml: \
                      unexpected field 'foo', \
-                     possible values: 'command', 'stdout', 'exitcode'",
+                     possible values: 'command', 'stdout', 'exitcode', 'regex'",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -607,6 +616,13 @@ mod load {
 
         #[test]
         fn multiple_unknown_fields() {}
+    }
+
+    fn get_exact(step: Step) -> Command {
+        match step.command_matcher {
+            CommandMatcher::ExactMatch(command) => command,
+            CommandMatcher::RegexMatch(_) => panic!("expected Exact"),
+        }
     }
 
     #[test]
@@ -620,7 +636,7 @@ mod load {
                 "
             )?
             .steps
-            .map(|step| step.command.executable),
+            .map(|step| get_exact(step).executable.clone()),
             vec![PathBuf::from("/bin/true"), PathBuf::from("/bin/false")],
         );
         Ok(())
@@ -636,7 +652,7 @@ mod load {
                 "
             )?
             .steps
-            .map(|step| step.command.arguments),
+            .map(|step| get_exact(step).arguments.clone()),
             vec![vec![OsString::from("foo"), OsString::from("bar")]],
         );
         Ok(())
@@ -651,10 +667,10 @@ mod load {
                     |  - /bin/true
                 "
             )?,
-            Protocol::new(vec![Step::new(Command {
+            Protocol::new(vec![Step::new(CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("/bin/true"),
                 arguments: vec![],
-            })]),
+            }))]),
         );
         Ok(())
     }
@@ -1023,6 +1039,72 @@ mod load {
         }
     }
 
+    mod regex_matching {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn parses_a_regex_command_matcher() -> R<()> {
+            let step = test_parse_one(
+                r"
+                    |protocols:
+                    |  - protocol:
+                    |      - regex: \d
+                ",
+            )?
+            .steps[0]
+                .clone();
+            match step.command_matcher {
+                CommandMatcher::RegexMatch(regex) => assert_eq!(regex, AnchoredRegex::new("\\d")?),
+                _ => panic!("expected regex match, got: {:?}", step.command_matcher),
+            }
+            Ok(())
+        }
+
+        #[test]
+        fn disallows_a_regex_matcher_and_command() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_error!(
+                test_parse(
+                    &tempfile,
+                    r"
+                        |protocols:
+                        |  - protocol:
+                        |      - command: foo
+                        |        regex: \d
+                    ",
+                ),
+                format!(
+                    "error in {}.protocols.yaml: \
+                     please provide either a 'command' or 'regex' field but not both",
+                    path_to_string(&tempfile.path())?
+                )
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn fails_to_parse_with_bad_regex() -> R<()> {
+            let tempfile = TempFile::new()?;
+            assert_error!(
+                test_parse(
+                    &tempfile,
+                    r"
+                        |protocols:
+                        |  - protocol:
+                        |      - regex: \x
+                    ",
+                ),
+                format!(
+                    "error in {}.protocols.yaml: \
+                     regex parse error:\n    ^\\x$\n       ^\nerror: invalid hexadecimal digit",
+                    path_to_string(&tempfile.path())?
+                )
+            );
+            Ok(())
+        }
+    }
+
     mod holes {
         use super::*;
         use pretty_assertions::assert_eq;
@@ -1140,7 +1222,7 @@ mod serialize {
     #[test]
     fn includes_the_step_exitcodes() -> R<()> {
         let protocol = Protocol::new(vec![Step {
-            command: Command::new("cp")?,
+            command_matcher: CommandMatcher::ExactMatch(Command::new("cp")?),
             stdout: vec![],
             exitcode: 42,
         }]);

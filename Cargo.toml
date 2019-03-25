@@ -23,6 +23,7 @@ serde_derive = "*"
 serde = "*"
 memoffset = "*"
 clap = "*"
+regex = "*"
 
 [build-dependencies]
 trim-margin = "*"

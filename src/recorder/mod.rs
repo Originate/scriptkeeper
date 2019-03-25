@@ -2,6 +2,7 @@ pub mod hole_recorder;
 mod protocol_result;
 
 use crate::protocol::command::Command;
+use crate::protocol::command_matcher::CommandMatcher;
 use crate::protocol::{compare_executables, Protocol, Step};
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::SyscallMock;
@@ -62,7 +63,7 @@ impl SyscallMock for Recorder {
         if let Some(command) = self.command.clone() {
             self.command = None;
             self.protocol.steps.push_back(Step {
-                command,
+                command_matcher: CommandMatcher::ExactMatch(command),
                 stdout: vec![],
                 exitcode,
             });

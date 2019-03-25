@@ -104,6 +104,23 @@ fn can_specify_interpreter() -> R<()> {
     Ok(())
 }
 
+#[test]
+fn allows_to_match_command_with_regex() -> R<()> {
+    test_run(
+        r"
+            |#!/usr/bin/env bash
+            |cp 1
+        ",
+        r#"
+            |protocols:
+            |  - protocol:
+            |    - regex: cp \d
+        "#,
+        Ok(()),
+    )?;
+    Ok(())
+}
+
 mod yaml_parse_errors {
     use super::*;
     use pretty_assertions::assert_eq;

@@ -101,9 +101,15 @@ protocols:
       # Default: 0.
     protocol:
       # List of commands that your script is expected to execute.
-      - command: string
-          # the executable, followed by its arguments, separated by spaces.
+      - command|regex: string
+          # One of either `command` or `regex` is required
+          #
+          # command: the executable, followed by its arguments, separated by spaces.
           # Example: /bin/chmod +x foo.sh
+          #
+          # regex: a regular expression (for valid syntax, see: https://docs.rs/regex/1.1.2/regex/#syntax)
+          # Note that the regex is automatically anchored, so it must match the entire command and its arguments
+          # Example: /bin/echo \d+
         stdout?: string
           # Mocked output of this command.
           # Default: ""
