@@ -354,7 +354,7 @@ pub fn fork_with_child_errors<A>(
     child_action: impl FnOnce() -> R<()> + panic::UnwindSafe,
     parent_action: impl FnOnce(Pid) -> R<A>,
 ) -> R<A> {
-    let tempdir = TempDir::new("check-protocols")?;
+    let tempdir = TempDir::new("scriptkeeper")?;
     let error_file_path = tempdir.path().join("error");
     fs::write(&error_file_path, "")?;
     match fork()? {

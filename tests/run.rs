@@ -8,8 +8,8 @@
 #[path = "./utils.rs"]
 mod utils;
 
-use check_protocols::utils::path_to_string;
-use check_protocols::{context::Context, run_check_protocols, R};
+use scriptkeeper::utils::path_to_string;
+use scriptkeeper::{context::Context, run_scriptkeeper, R};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -53,7 +53,7 @@ fn does_not_execute_the_commands() -> R<()> {
         ),
     )?;
     let context = Context::new_mock();
-    run_check_protocols(&context, &script.path())?;
+    run_scriptkeeper(&context, &script.path())?;
     assert_eq!(context.get_captured_stdout(), "All tests passed.\n");
     assert!(!testfile.path().exists(), "touch was executed");
     Ok(())
@@ -82,7 +82,7 @@ fn works_for_longer_file_names() -> R<()> {
         ),
     )?;
     let context = Context::new_mock();
-    run_check_protocols(&context, &script.path())?;
+    run_scriptkeeper(&context, &script.path())?;
     assert_eq!(context.get_captured_stdout(), "All tests passed.\n");
     Ok(())
 }
@@ -240,7 +240,7 @@ mod nice_user_errors {
     #[test]
     fn nice_error_when_script_does_not_exist() {
         assert_error!(
-            run_check_protocols(&Context::new_mock(), &PathBuf::from("./does-not-exist")),
+            run_scriptkeeper(&Context::new_mock(), &PathBuf::from("./does-not-exist")),
             "executable file not found: ./does-not-exist"
         );
     }

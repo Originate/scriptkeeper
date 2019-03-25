@@ -1,5 +1,5 @@
 [package]
-name = "check-protocols"
+name = "scriptkeeper"
 version = "0.1.0"
 authors = ["soenkehahn <SoenkeHahn@gmail.com>"]
 edition = "2018"
@@ -8,7 +8,7 @@ edition = "2018"
 doctest = false
 
 [[bin]]
-name = "check-protocols"
+name = "scriptkeeper"
 path = "src/main.rs"
 
 [dependencies]

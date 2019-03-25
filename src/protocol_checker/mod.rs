@@ -169,7 +169,7 @@ impl SyscallMock for ProtocolChecker {
         }
         if let Some(expected_stderr) = &self.protocol.stderr {
             match redirector.stderr.captured()? {
-                None => panic!("check-protocols bug: stderr expected, but not captured"),
+                None => panic!("scriptkeeper bug: stderr expected, but not captured"),
                 Some(captured_stderr) => {
                     if &captured_stderr != expected_stderr {
                         self.register_error(format!(

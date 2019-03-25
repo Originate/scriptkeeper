@@ -8,7 +8,7 @@
 #[path = "./utils.rs"]
 mod utils;
 
-use check_protocols::{context::Context, R};
+use scriptkeeper::{context::Context, R};
 use test_utils::{trim_margin, TempFile};
 use utils::{test_run, test_run_with_context, test_run_with_tempfile};
 

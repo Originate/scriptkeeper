@@ -5,7 +5,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone)]
 pub enum Context {
     Context {
-        check_protocols_executable: PathBuf,
+        scriptkeeper_executable: PathBuf,
     },
     #[cfg(feature = "test")]
     TestContext {
@@ -17,7 +17,7 @@ pub enum Context {
 impl Context {
     pub fn new() -> R<Context> {
         Ok(Context::Context {
-            check_protocols_executable: std::env::current_exe()?,
+            scriptkeeper_executable: std::env::current_exe()?,
         })
     }
 
@@ -29,15 +29,15 @@ impl Context {
         }
     }
 
-    pub fn check_protocols_executable(&self) -> PathBuf {
+    pub fn scriptkeeper_executable(&self) -> PathBuf {
         match self {
             Context::Context {
-                check_protocols_executable,
-            } => check_protocols_executable.clone(),
+                scriptkeeper_executable,
+            } => scriptkeeper_executable.clone(),
             #[cfg(feature = "test")]
             Context::TestContext { .. } => {
                 let cwd = std::env::current_dir().unwrap();
-                cwd.join("./target/debug/check-protocols")
+                cwd.join("./target/debug/scriptkeeper")
             }
         }
     }

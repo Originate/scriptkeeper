@@ -8,10 +8,10 @@
 #[path = "./utils.rs"]
 mod utils;
 
-use check_protocols::context::Context;
-use check_protocols::utils::path_to_string;
-use check_protocols::{cli, run_main, R};
 use pretty_assertions::assert_eq;
+use scriptkeeper::context::Context;
+use scriptkeeper::utils::path_to_string;
+use scriptkeeper::{cli, run_main, R};
 use std::fs;
 use test_utils::trim_margin;
 use utils::{assert_eq_yaml, prepare_script};
@@ -20,7 +20,7 @@ fn test_holes(script_code: &str, existing: &str, expected: &str) -> R<()> {
     let (script, protocols_file) = prepare_script(script_code, existing)?;
     run_main(
         &Context::new_mock(),
-        &cli::Args::CheckProtocols {
+        &cli::Args::Scriptkeeper {
             script_path: script.path(),
             record: false,
         },
@@ -68,7 +68,7 @@ fn indicates_on_stdout_that_the_protocols_file_was_written_to() -> R<()> {
     let context = Context::new_mock();
     run_main(
         &context,
-        &cli::Args::CheckProtocols {
+        &cli::Args::Scriptkeeper {
             script_path: script.path(),
             record: false,
         },
@@ -99,7 +99,7 @@ fn does_not_modify_files_without_holes() -> R<()> {
     let old_modification_time = fs::metadata(&protocols_file)?.modified()?;
     run_main(
         &Context::new_mock(),
-        &cli::Args::CheckProtocols {
+        &cli::Args::Scriptkeeper {
             script_path: script.path(),
             record: false,
         },
@@ -214,7 +214,7 @@ mod errors_in_protocols {
         let context = Context::new_mock();
         run_main(
             &context,
-            &cli::Args::CheckProtocols {
+            &cli::Args::Scriptkeeper {
                 script_path: script.path(),
                 record: false,
             },
@@ -249,7 +249,7 @@ mod errors_in_protocols {
         let context = Context::new_mock();
         run_main(
             &context,
-            &cli::Args::CheckProtocols {
+            &cli::Args::Scriptkeeper {
                 script_path: script.path(),
                 record: false,
             },

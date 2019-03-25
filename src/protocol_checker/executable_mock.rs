@@ -16,7 +16,7 @@ pub fn create_mock_executable(context: &Context, config: Config) -> R<Vec<u8>> {
     let mut result = b"#!".to_vec();
     result.append(
         &mut context
-            .check_protocols_executable()
+            .scriptkeeper_executable()
             .as_os_str()
             .as_bytes()
             .to_vec(),
@@ -32,13 +32,11 @@ pub fn run(context: &Context, executable_mock_path: &Path) -> R<ExitCode> {
     Ok(ExitCode(config.exitcode))
 }
 
-const NEWLINE: u8 = 0x0A;
-
 fn skip_hashbang_line(input: Vec<u8>) -> Vec<u8> {
     input
         .clone()
         .into_iter()
-        .skip_while(|char: &u8| *char != NEWLINE)
+        .skip_while(|char: &u8| *char != b'\n')
         .skip(1)
         .collect()
 }
