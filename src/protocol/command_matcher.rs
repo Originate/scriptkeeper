@@ -97,6 +97,12 @@ mod command_matcher {
             Ok(())
         }
 
+        #[test]
+        fn doesnt_match_with_the_same_executable_but_different_arguments() -> R<()> {
+            assert!(!CommandMatcher::ExactMatch(Command::new("foo 1")?)
+                .matches(&Command::new("foo 2")?));
+            Ok(())
+        }
     }
 
     mod regex_match {
@@ -110,7 +116,7 @@ mod command_matcher {
 
         #[test]
         fn matches_a_command() -> R<()> {
-            assert!(test_regex_matches_command("cp", "cp")?);
+            assert!(test_regex_matches_command("cp .*_bar", "cp foo_bar")?);
             Ok(())
         }
 
@@ -122,7 +128,7 @@ mod command_matcher {
 
         #[test]
         fn only_matches_if_entire_command_is_a_match() -> R<()> {
-            assert!(!test_regex_matches_command("cp \\d", "cp 1 2")?);
+            assert!(!test_regex_matches_command("cp", "cp foo")?);
             Ok(())
         }
 
@@ -147,7 +153,5 @@ mod command_matcher {
                 Ok(())
             }
         }
-
     }
-
 }
