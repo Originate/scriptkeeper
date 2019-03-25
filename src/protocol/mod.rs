@@ -369,6 +369,7 @@ pub struct Protocols {
     pub protocols: Vec<Protocol>,
     pub unmocked_commands: Vec<PathBuf>,
     pub interpreter: Option<PathBuf>,
+    pub mocked_executables: Vec<PathBuf>,
 }
 
 impl Protocols {
@@ -377,6 +378,7 @@ impl Protocols {
             protocols,
             unmocked_commands: vec![],
             interpreter: None,
+            mocked_executables: vec![],
         }
     }
 
@@ -405,6 +407,16 @@ impl Protocols {
         Ok(())
     }
 
+    fn add_mocked_executables(&mut self, object: &Hash) -> R<()> {
+        if let Ok(mocked_executables) = object.expect_field("mockedExecutables") {
+            for mocked_executable in mocked_executables.expect_array()? {
+                self.mocked_executables
+                    .push(PathBuf::from(mocked_executable.expect_str()?));
+            }
+        }
+        Ok(())
+    }
+
     fn parse(yaml: Yaml) -> R<Protocols> {
         Ok(match &yaml {
             Yaml::Array(array) => Protocols::from_array(&array)?,
@@ -413,10 +425,19 @@ impl Protocols {
                 object.expect_field("protocol"),
             ) {
                 (Ok(protocols), _) => {
-                    check_keys(&["protocols", "interpreter", "unmockedCommands"], object)?;
+                    check_keys(
+                        &[
+                            "protocols",
+                            "interpreter",
+                            "unmockedCommands",
+                            "mockedExecutables",
+                        ],
+                        object,
+                    )?;
                     let mut protocols = Protocols::from_array(protocols.expect_array()?)?;
                     protocols.add_unmocked_commands(object)?;
                     protocols.add_interpreter(object)?;
+                    protocols.add_mocked_executables(object)?;
                     protocols
                 }
                 (Err(_), Ok(_)) => Protocols::new(vec![Protocol::from_object(&object)?]),
@@ -559,7 +580,8 @@ mod load {
                 format!(
                     "error in {}.protocols.yaml: \
                      unexpected field 'foo', \
-                     possible values: 'protocols', 'interpreter', 'unmockedCommands'",
+                     possible values: 'protocols', 'interpreter', 'unmockedCommands', \
+                     'mockedExecutables'",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -999,7 +1021,27 @@ mod load {
             )?
             .mocked_files
             .map(|path| path.to_string_lossy().to_string()),
-            vec![("/foo")]
+            vec!["/foo"]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn allows_to_specify_mocked_executables() -> R<()> {
+        let tempfile = TempFile::new()?;
+        assert_eq!(
+            test_parse(
+                &tempfile,
+                r"
+                    |protocols:
+                    |  - protocol: []
+                    |mockedExecutables:
+                    |  - foo
+                "
+            )?
+            .mocked_executables
+            .map(|path| path.to_string_lossy().to_string()),
+            vec!["foo"]
         );
         Ok(())
     }

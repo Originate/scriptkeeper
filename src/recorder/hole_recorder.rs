@@ -112,6 +112,7 @@ pub fn run_against_protocols(
         protocols,
         unmocked_commands,
         interpreter,
+        ..
     }: Protocols,
 ) -> R<ExitCode> {
     let results = ProtocolResult::collect_results(

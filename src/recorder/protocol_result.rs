@@ -100,6 +100,7 @@ impl ProtocolResult {
                     protocols: results.iter().map(|result| result.get_protocol()).collect(),
                     unmocked_commands,
                     interpreter: None,
+                    mocked_executables: vec![],
                 }
                 .serialize()?,
             )?;
