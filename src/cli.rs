@@ -47,15 +47,17 @@ mod parse_args_safe {
     use super::*;
     use crate::R;
     use pretty_assertions::assert_eq;
+    use unsafe_get::get;
 
     #[test]
     fn returns_the_given_script() -> R<()> {
         assert_eq!(
-            parse_args_safe(vec!["program", "file"].into_iter().map(String::from))?,
-            Args::Scriptkeeper {
-                script_path: PathBuf::from("file"),
-                record: false
-            }
+            get!(
+                parse_args_safe(vec!["program", "file"].into_iter().map(String::from))?,
+                Args::Scriptkeeper,
+                script_path
+            ),
+            PathBuf::from("file")
         );
         Ok(())
     }
@@ -70,15 +72,16 @@ mod parse_args_safe {
     #[test]
     fn respects_the_record_flag() -> R<()> {
         assert_eq!(
-            parse_args_safe(
-                vec!["program", "--record", "file"]
-                    .into_iter()
-                    .map(String::from),
-            )?,
-            Args::Scriptkeeper {
-                script_path: PathBuf::from("file"),
-                record: true
-            }
+            get!(
+                parse_args_safe(
+                    vec!["program", "--record", "file"]
+                        .into_iter()
+                        .map(String::from),
+                )?,
+                Args::Scriptkeeper,
+                record
+            ),
+            true
         );
         Ok(())
     }
