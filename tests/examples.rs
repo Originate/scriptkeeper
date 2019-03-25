@@ -42,3 +42,4 @@ macro_rules! example {
 
 example!(simple);
 example!(bigger);
+example!(heroku_deploy);

@@ -1,0 +1,45 @@
+tests:
+  # exits when the git repo is not clean
+  - env: &env
+      PATH: /snap/bin:~/.cargo/bin:/usr/local/cargo/bin/:/usr/bin:/bin
+    arguments: test-heroku-app
+    steps:
+      - command: git status --porcelain
+        stdout: " M some-changed-file\n"
+    stderr: "exiting, git repo not clean\n"
+    exitcode: 1
+
+  # exits and prints a usage message when no arguments given
+  - env: *env
+    steps: []
+    stderr: "please, pass in the heroku app as an argument\n"
+    exitcode: 1
+
+  # exits when the tests don't pass
+  - env: *env
+    arguments: test-heroku-app
+    steps:
+      - git status --porcelain
+      - command: cargo test
+        exitcode: 1
+    stderr: "exiting, tests don't pass\n"
+    exitcode: 1
+
+  # builds and deploys to heroku
+  - env: *env
+    arguments: test-heroku-app
+    steps:
+      - git status --porcelain
+      - cargo test
+      - heroku container:push web --app test-heroku-app
+      - heroku container:release web --app test-heroku-app
+
+  # allows to force deploying of dirty git repo
+  - env: *env
+    arguments: test-heroku-app --force
+    steps:
+      - command: git status --porcelain
+        stdout: " M some-changed-file\n"
+      - cargo test
+      - heroku container:push web --app test-heroku-app
+      - heroku container:release web --app test-heroku-app
