@@ -23,6 +23,8 @@ pub fn test_run_from_directory(directory: &str) -> R<()> {
         fs::read(&expected_file)
             .map_err(|error| format!("error reading {:?}: {}", &expected_file, error))?,
     )?;
+    print!("{}", context.get_captured_stdout());
+    eprintln!("{}", context.get_captured_stderr());
     assert_eq!(exitcode, ExitCode(0));
     assert_eq!(context.get_captured_stdout(), expected);
     Ok(())
