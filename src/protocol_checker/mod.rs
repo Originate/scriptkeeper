@@ -139,9 +139,18 @@ impl SyscallMock for ProtocolChecker {
         registers: &user_regs_struct,
         filename: PathBuf,
     ) -> R<()> {
+        // println!(
+        //     "getdents: {:?} mocked: {:?} return: {:?}",
+        //     filename, self.protocol.mocked_files, registers.rax
+        // );
         // fixme: on the first call to a folder that doesn't exist, rax will be an error code
+        // fixme: on successive calls, we don't want to readd the same files
+        // fixme: need to check if successive calls write over the memory in dirent_ptr or append to it
+        // fixme: figure out how to handle relative lstat calls
+        // fixme: need to check if current folder path (filename) matches any folders that are mocked
+        // fixme: need to mock "." and ".." for mocked folders
+        // fixme: set the file type flag on dirent for written entries
         if registers.rax > 0 && self.protocol.mocked_files.contains(&filename) {
-            println!("here: {:?}", filename);
             let dirent_ptr = registers.rsi;
             let bytes_written = registers.rax;
             let serialized =

@@ -310,7 +310,8 @@ impl Tracer {
                 )?));
                 syscall_mock.handle_stat_exit(pid, registers, filename)?
             }
-            // * mock Open(mockedFilePath) and give back a fd that we keep track of?
+            // fixme: before getdents, an open => write to fd occurs, which needs to be mocked
+            // fixme: fstat needs to handle mocked files as well, it gets called on the fd from the open syscall
             (Syscall::Fstat, SyscallStop::Exit) => {
                 let statbuf_ptr = registers.rsi;
                 let four_byte_word = tracee_memory::peek_four_bytes(
@@ -323,46 +324,24 @@ impl Tracer {
                     "fstat: mode: {:?} , fd: {:?} , path: {:?}",
                     four_byte_word, registers.rdi, filename
                 );
-                // * ? check if fd points to a folder we mock
             }
+            // fixme: check whether dirent pointer gets truncated on entry/successive calls to getdents
             (Syscall::Getdents, SyscallStop::Exit) => {
                 let filename = Tracer::fd_to_path(&pid, registers.rdi)
                     .map(|filename_bytes| PathBuf::from(OsString::from_vec(filename_bytes)))?;
                 syscall_mock.handle_getdents_exit(pid, registers, filename)?;
-                // * need to alter registers.rsi, which is an array of dirent structs, which have a variable
-                //   length adding extra entries. doublecheck that rsi isn't truncated after enter!
-                // * for each struct size added to rsi, add that many bytes to registers.rax
-                // * ensure that fstat/lstat calls work any added files/folders
-                // * figure out what the hell d_off actually means
 
+                // let bytes_written = registers.rax;
                 // let dirent_ptr = registers.rsi;
-                // let offset = (offset_of!(libc::dirent64, d_name) as u64);
-                // let filename = tracee_memory::peek_string(pid, dirent_ptr + offset)?;
-                // let firstword = tracee_memory::cast_to_eight_byte_array(tracee_memory::peekdata(
-                //     pid, dirent_ptr,
-                // )?);
-                // let third = tracee_memory::cast_to_eight_byte_array(tracee_memory::peekdata(
-                //     pid,
-                //     dirent_ptr + offset_of!(libc::dirent64, d_reclen) as u64,
-                // )?);
-                // let struct_length = tracee_memory::peek_two_bytes(
-                //     pid,
-                //     dirent_ptr + offset_of!(libc::dirent64, d_reclen) as u64,
-                // )?;
-
-                // let long_bytes = tracee_memory::peek_string_length(pid, registers.rsi, 344);
-                // // let long_string =
-                // //     long_bytes.map(|string| String::from_utf8_lossy(&string).to_string());
-
-                // println!(
-                //     "getdents: filename: {:?}, firstword: {:?}, second: {:?}, nameoffset: {:?}, structlen: {:?} alldata:\n\n{:?}\n\n",
-                //     String::from_utf8_lossy(&filename),
-                //     firstword,
-                //     third,
-                //     offset_of!(libc::dirent64, d_name),
-                //     struct_length.to_string(),
-                //     long_bytes,
-                // );
+                // let buffer = tracee_memory::peek_string_length(pid, dirent_ptr, bytes_written)?;
+                // let dirent_structs =
+                //     directory_entry::DirectoryEntry::new_collection_from_buffer(&buffer)?;
+                // let file_names = dirent_structs
+                //     .iter()
+                //     .map(|dirent| dirent.name())
+                //     .collect::<Vec<String>>()
+                //     .join("\n");
+                // println!("files: \n\n{}\n\n", file_names);
             }
             _ => {}
         }
