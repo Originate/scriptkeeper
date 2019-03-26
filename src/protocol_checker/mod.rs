@@ -53,10 +53,15 @@ impl ProtocolChecker {
     fn handle_step(&mut self, received: protocol::Command) -> R<PathBuf> {
         let mock_config = match self.protocol.steps.pop_front() {
             Some(next_protocol_step) => {
-                if !next_protocol_step.command_matcher.matches(&received) {
+                if !next_protocol_step
+                    .command_matcher
+                    .matches(&self.mocked_executables, &received)
+                {
                     self.register_step_error(
-                        &next_protocol_step.command_matcher.format(),
-                        &received.format(),
+                        &next_protocol_step
+                            .command_matcher
+                            .format(&self.mocked_executables),
+                        &received.format(&self.mocked_executables),
                     );
                 }
                 executable_mock::Config {
@@ -65,7 +70,10 @@ impl ProtocolChecker {
                 }
             }
             None => {
-                self.register_step_error("<protocol end>", &received.format());
+                self.register_step_error(
+                    "<protocol end>",
+                    &received.format(&self.mocked_executables),
+                );
                 ProtocolChecker::allow_failing_scripts_to_continue()
             }
         };
@@ -104,10 +112,9 @@ impl SyscallMock for ProtocolChecker {
         executable: PathBuf,
         arguments: Vec<OsString>,
     ) -> R<()> {
-        let is_unmocked_command = self
-            .unmocked_commands
-            .iter()
-            .any(|unmocked_command| protocol::compare_executables(unmocked_command, &executable));
+        let is_unmocked_command = self.unmocked_commands.iter().any(|unmocked_command| {
+            protocol::compare_executables(&self.mocked_executables, unmocked_command, &executable)
+        });
         if !is_unmocked_command {
             let mock_executable_path = self.handle_step(protocol::Command {
                 executable,
@@ -175,7 +182,9 @@ impl SyscallMock for ProtocolChecker {
     fn handle_end(mut self, exitcode: i32, redirector: &Redirector) -> R<CheckerResult> {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_step_error(
-                &expected_step.command_matcher.format(),
+                &expected_step
+                    .command_matcher
+                    .format(&self.mocked_executables),
                 "<script terminated>",
             );
         }

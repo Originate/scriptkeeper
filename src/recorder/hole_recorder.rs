@@ -68,6 +68,7 @@ impl SyscallMock for HoleRecorder {
                                 recorder: Recorder::new(
                                     original_protocol.clone(),
                                     &checker.unmocked_commands,
+                                    &checker.mocked_executables,
                                 ),
                             };
                             self.handle_execve_enter(pid, registers, executable, arguments)
@@ -96,7 +97,11 @@ impl SyscallMock for HoleRecorder {
             } => match checker.result {
                 CheckerResult::Pass => {
                     original_protocol.ends_with_hole = false;
-                    let recorder = Recorder::new(original_protocol, &checker.unmocked_commands);
+                    let recorder = Recorder::new(
+                        original_protocol,
+                        &checker.unmocked_commands,
+                        &checker.mocked_executables,
+                    );
                     ProtocolResult::Recorded(recorder.handle_end(exitcode, redirector)?)
                 }
                 failure @ CheckerResult::Failure(_) => {
@@ -129,5 +134,11 @@ pub fn run_against_protocols(
         &unmocked_commands,
         &mocked_executables,
     )?;
-    ProtocolResult::handle_results(context, protocols_file, unmocked_commands, &results)
+    ProtocolResult::handle_results(
+        context,
+        protocols_file,
+        unmocked_commands,
+        mocked_executables,
+        &results,
+    )
 }

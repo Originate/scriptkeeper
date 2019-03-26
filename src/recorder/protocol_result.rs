@@ -65,6 +65,7 @@ impl ProtocolResult {
         context: &Context,
         protocols_file: &Path,
         unmocked_commands: Vec<PathBuf>,
+        mocked_executables: Vec<PathBuf>,
         results: &[ProtocolResult],
     ) -> R<ExitCode> {
         let checker_results = CheckerResults(
@@ -77,6 +78,7 @@ impl ProtocolResult {
             context,
             protocols_file,
             unmocked_commands,
+            mocked_executables,
             &results,
             &checker_results,
         )?;
@@ -88,6 +90,7 @@ impl ProtocolResult {
         context: &Context,
         protocols_file: &Path,
         unmocked_commands: Vec<PathBuf>,
+        mocked_executables: Vec<PathBuf>,
         results: &[ProtocolResult],
         checker_results: &CheckerResults,
     ) -> R<()> {
@@ -104,7 +107,7 @@ impl ProtocolResult {
                     interpreter: None,
                     mocked_executables: vec![],
                 }
-                .serialize()?,
+                .serialize(&mocked_executables)?,
             )?;
             writeln!(
                 context.stdout(),

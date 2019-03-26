@@ -20,9 +20,12 @@ impl Command {
         }
     }
 
-    pub fn compare(&self, other: &Command) -> bool {
-        executable_path::compare_executables(&self.executable, &other.executable)
-            && self.arguments == other.arguments
+    pub fn compare(&self, mocked_executables: &[PathBuf], other: &Command) -> bool {
+        executable_path::compare_executables(
+            mocked_executables,
+            &self.executable,
+            &other.executable,
+        ) && self.arguments == other.arguments
     }
 
     fn escape(word: String) -> String {
@@ -46,8 +49,8 @@ impl Command {
             .join(" ")
     }
 
-    pub fn format(&self) -> String {
-        let executable = executable_path::canonicalize(&self.executable)
+    pub fn format(&self, mocked_executables: &[PathBuf]) -> String {
+        let executable = executable_path::canonicalize(mocked_executables, &self.executable)
             .to_string_lossy()
             .into_owned();
         if self.arguments.is_empty() {
@@ -251,7 +254,7 @@ mod command {
             ($name:ident, $string:expr) => {
                 #[test]
                 fn $name() -> R<()> {
-                    assert_eq!(Command::new($string)?.format(), $string);
+                    assert_eq!(Command::new($string)?.format(&[]), $string);
                     Ok(())
                 }
             };
@@ -261,7 +264,7 @@ mod command {
             ($name:ident, $input:expr, $normalized:expr) => {
                 #[test]
                 fn $name() -> R<()> {
-                    assert_eq!(Command::new($input)?.format(), $normalized);
+                    assert_eq!(Command::new($input)?.format(&[]), $normalized);
                     Ok(())
                 }
             };

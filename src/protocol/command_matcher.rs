@@ -1,6 +1,7 @@
 use super::command::Command;
 use crate::R;
 use regex::Regex;
+use std::path::PathBuf;
 use std::str;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -10,16 +11,16 @@ pub enum CommandMatcher {
 }
 
 impl CommandMatcher {
-    pub fn matches(&self, other: &Command) -> bool {
+    pub fn matches(&self, mocked_executables: &[PathBuf], other: &Command) -> bool {
         match self {
-            CommandMatcher::ExactMatch(command) => command.compare(other),
-            CommandMatcher::RegexMatch(regex) => regex.is_match(&other.format()),
+            CommandMatcher::ExactMatch(command) => command.compare(mocked_executables, other),
+            CommandMatcher::RegexMatch(regex) => regex.is_match(&other.format(mocked_executables)),
         }
     }
 
-    pub fn format(&self) -> String {
+    pub fn format(&self, mocked_executables: &[PathBuf]) -> String {
         match self {
-            CommandMatcher::ExactMatch(command) => command.format(),
+            CommandMatcher::ExactMatch(command) => command.format(mocked_executables),
             CommandMatcher::RegexMatch(AnchoredRegex {
                 original_string, ..
             }) => original_string.clone(),
@@ -63,44 +64,43 @@ mod command_matcher {
 
         #[test]
         fn matches_command_executable() -> R<()> {
-            assert!(
-                CommandMatcher::ExactMatch(Command::new("true")?).matches(&Command::new("true")?)
-            );
+            assert!(CommandMatcher::ExactMatch(Command::new("true")?)
+                .matches(&[], &Command::new("true")?));
             Ok(())
         }
 
         #[test]
         fn matches_command_with_arguments() -> R<()> {
             assert!(CommandMatcher::ExactMatch(Command::new("echo 1")?)
-                .matches(&Command::new("echo 1")?));
+                .matches(&[], &Command::new("echo 1")?));
             Ok(())
         }
 
         #[test]
         fn matches_command_even_if_it_doesnt_exist() -> R<()> {
-            assert!(CommandMatcher::ExactMatch(Command::new("foo")?).matches(&Command::new("foo")?));
+            assert!(CommandMatcher::ExactMatch(Command::new("foo")?)
+                .matches(&[], &Command::new("foo")?));
             Ok(())
         }
 
         #[test]
         fn matches_command_with_full_path() -> R<()> {
             assert!(CommandMatcher::ExactMatch(Command::new("/bin/true")?)
-                .matches(&Command::new("/bin/true")?));
+                .matches(&[], &Command::new("/bin/true")?));
             Ok(())
         }
 
         #[test]
         fn doesnt_match_a_different_command() -> R<()> {
-            assert!(
-                !CommandMatcher::ExactMatch(Command::new("foo")?).matches(&Command::new("bar")?)
-            );
+            assert!(!CommandMatcher::ExactMatch(Command::new("foo")?)
+                .matches(&[], &Command::new("bar")?));
             Ok(())
         }
 
         #[test]
         fn doesnt_match_with_the_same_executable_but_different_arguments() -> R<()> {
             assert!(!CommandMatcher::ExactMatch(Command::new("foo 1")?)
-                .matches(&Command::new("foo 2")?));
+                .matches(&[], &Command::new("foo 2")?));
             Ok(())
         }
     }
@@ -110,7 +110,7 @@ mod command_matcher {
 
         fn test_regex_matches_command(regex: &str, command: &str) -> R<bool> {
             let result = CommandMatcher::RegexMatch(AnchoredRegex::new(regex)?)
-                .matches(&Command::new(command)?);
+                .matches(&[], &Command::new(command)?);
             Ok(result)
         }
 

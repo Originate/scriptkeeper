@@ -145,7 +145,7 @@ fn print_recorded_protocol(context: &Context, program: &Path) -> R<ExitCode> {
     )?;
     write_yaml(
         &mut *context.stdout(),
-        &Protocols::new(vec![protocol]).serialize()?,
+        &Protocols::new(vec![protocol]).serialize(&[])?,
     )?;
     Ok(ExitCode(0))
 }

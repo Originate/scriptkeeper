@@ -16,6 +16,7 @@ pub struct Recorder {
     protocol: Protocol,
     command: Option<Command>,
     unmocked_commands: Vec<PathBuf>,
+    mocked_executables: Vec<PathBuf>,
 }
 
 impl Recorder {
@@ -24,14 +25,20 @@ impl Recorder {
             protocol: Protocol::new(vec![]),
             command: None,
             unmocked_commands: vec![],
+            mocked_executables: vec![],
         }
     }
 
-    pub fn new(protocol: Protocol, unmocked_commands: &[PathBuf]) -> Recorder {
+    pub fn new(
+        protocol: Protocol,
+        unmocked_commands: &[PathBuf],
+        mocked_executables: &[PathBuf],
+    ) -> Recorder {
         Recorder {
             protocol,
             command: None,
             unmocked_commands: unmocked_commands.to_vec(),
+            mocked_executables: mocked_executables.to_vec(),
         }
     }
 }
@@ -46,10 +53,9 @@ impl SyscallMock for Recorder {
         executable: PathBuf,
         arguments: Vec<OsString>,
     ) -> R<()> {
-        let is_unmocked_command = self
-            .unmocked_commands
-            .iter()
-            .any(|unmocked_command| compare_executables(unmocked_command, &executable));
+        let is_unmocked_command = self.unmocked_commands.iter().any(|unmocked_command| {
+            compare_executables(&self.mocked_executables, unmocked_command, &executable)
+        });
         if !is_unmocked_command {
             self.command = Some(Command {
                 executable,

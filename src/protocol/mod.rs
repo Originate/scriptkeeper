@@ -75,8 +75,8 @@ impl Step {
         }
     }
 
-    fn serialize(&self) -> Yaml {
-        let command = Yaml::String(self.command_matcher.format());
+    fn serialize(&self, mocked_executables: &[PathBuf]) -> Yaml {
+        let command = Yaml::String(self.command_matcher.format(mocked_executables));
         if self.exitcode == 0 {
             command
         } else {
@@ -337,7 +337,7 @@ impl Protocol {
         }
     }
 
-    fn serialize(&self) -> Yaml {
+    fn serialize(&self, mocked_executables: &[PathBuf]) -> Yaml {
         let mut protocol = LinkedHashMap::new();
         if !self.arguments.is_empty() {
             let arguments = self.arguments.iter().map(OsString::from).collect();
@@ -350,7 +350,7 @@ impl Protocol {
         {
             let mut steps = vec![];
             for step in &self.steps {
-                steps.push(step.serialize());
+                steps.push(step.serialize(mocked_executables));
             }
             protocol.insert(Yaml::from_str("protocol"), Yaml::Array(steps));
         }
@@ -499,13 +499,13 @@ impl Protocols {
         Ok(())
     }
 
-    pub fn serialize(&self) -> R<Yaml> {
+    pub fn serialize(&self, mocked_executables: &[PathBuf]) -> R<Yaml> {
         let mut object = LinkedHashMap::new();
         self.serialize_unmocked_commands(&mut object)?;
         {
             let mut protocols = vec![];
             for protocol in self.protocols.iter() {
-                protocols.push(protocol.serialize());
+                protocols.push(protocol.serialize(mocked_executables));
             }
             object.insert(Yaml::from_str("protocols"), Yaml::Array(protocols));
         }
@@ -1213,7 +1213,7 @@ mod serialize {
     use pretty_assertions::assert_eq;
 
     fn roundtrip(protocols: Protocols) -> R<()> {
-        let yaml = protocols.serialize()?;
+        let yaml = protocols.serialize(&[])?;
         let result = Protocols::parse(yaml)?;
         assert_eq!(result, protocols);
         Ok(())
