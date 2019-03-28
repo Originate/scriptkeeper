@@ -59,6 +59,7 @@ fn shortens_received_executable_to_file_name_when_reporting_step_error() -> R<()
         Err(&trim_margin(
             "
                 |error:
+                |  in step on line 2,
                 |  expected: cp
                 |  received: mv
             ",

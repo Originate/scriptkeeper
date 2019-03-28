@@ -139,7 +139,8 @@ mod yaml_parse_errors {
             result,
             format!(
                 "error in {}.protocols.yaml: \
-                 expected: array, got: Integer(42)",
+                 expected: array, \
+                 got: Node(Integer(42), Some(Marker {{ index: 10, line: 1, col: 10 }}))",
                 path_to_string(&script.path())?
             )
         );
@@ -201,6 +202,7 @@ fn failing() -> R<()> {
         Err(&trim_margin(
             "
                 |error:
+                |  in step on line 2,
                 |  expected: cp
                 |  received: mv
             ",
@@ -225,6 +227,7 @@ fn failing_later() -> R<()> {
         Err(&trim_margin(
             "
                 |error:
+                |  in step on line 3,
                 |  expected: cp
                 |  received: mv
             ",
@@ -387,6 +390,7 @@ mod arguments {
             Err(&trim_margin(
                 "
                     |error:
+                    |  in step on line 2,
                     |  expected: cp foo
                     |  received: cp bar
                 ",
@@ -425,6 +429,7 @@ mod arguments {
             Err(&trim_margin(
                 r#"
                     |error:
+                    |  in step on line 2,
                     |  expected: cp "foo bar"
                     |  received: cp foo bar
                 "#,
@@ -450,6 +455,7 @@ fn reports_the_first_error() -> R<()> {
         Err(&trim_margin(
             "
                 |error:
+                |  in step on line 2,
                 |  expected: cp first
                 |  received: mv first
             ",
@@ -476,6 +482,7 @@ mod mismatch_in_number_of_commands {
             Err(&trim_margin(
                 "
                     |error:
+                    |  in step on line 3,
                     |  expected: cp
                     |  received: <script terminated>
                 ",
@@ -625,9 +632,11 @@ mod multiple_protocols {
             Err(&trim_margin(
                 "
                     |error in protocol 1:
+                    |  in step on line 2,
                     |  expected: cp
                     |  received: mv
                     |error in protocol 2:
+                    |  in step on line 4,
                     |  expected: cp
                     |  received: mv
                 ",
@@ -654,6 +663,7 @@ mod multiple_protocols {
                     |protocol 1:
                     |  Tests passed.
                     |error in protocol 2:
+                    |  in step on line 4,
                     |  expected: cp
                     |  received: mv
                 ",
@@ -961,6 +971,7 @@ mod unmocked_commands {
             Err(&trim_margin(
                 "
                     |error:
+                    |  in step on line 3,
                     |  expected: dirname dir/file
                     |  received: ls dir
                 ",
