@@ -4,10 +4,12 @@ mod argument_parser;
 pub mod command;
 pub mod command_matcher;
 mod executable_path;
+pub mod marker;
 pub mod yaml;
 
 use self::argument_parser::Parser;
 pub use self::executable_path::compare_executables;
+pub use self::marker::Marker;
 use crate::protocol::yaml::*;
 use crate::utils::{path_to_string, with_has_more};
 use crate::R;
@@ -18,11 +20,12 @@ use std::collections::{HashMap, VecDeque};
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
-use yaml_rust::{yaml::Hash, Yaml, YamlLoader};
+use yaml_rust::{yaml::Hash, yaml::HashNode, Node, Yaml, YamlLoader, YamlMarked};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Step {
     pub command_matcher: CommandMatcher,
+    pub marker: Option<Marker>,
     pub stdout: Vec<u8>,
     pub exitcode: i32,
 }
@@ -31,33 +34,39 @@ impl Step {
     pub fn new(command_matcher: CommandMatcher) -> Step {
         Step {
             command_matcher,
+            marker: None,
             stdout: vec![],
             exitcode: 0,
         }
+    }
+
+    pub fn marker(&self) -> Option<Marker> {
+        let Step { marker, .. } = self;
+        *marker
     }
 
     fn from_string(string: &str) -> R<Step> {
         Ok(Step::new(CommandMatcher::ExactMatch(Command::new(string)?)))
     }
 
-    fn add_exitcode(&mut self, object: &Hash) -> R<()> {
+    fn add_exitcode(&mut self, object: &HashNode) -> R<()> {
         if let Ok(exitcode) = object.expect_field("exitcode") {
             self.exitcode = exitcode.expect_integer()?;
         }
         Ok(())
     }
 
-    fn add_stdout(&mut self, object: &Hash) -> R<()> {
+    fn add_stdout(&mut self, object: &HashNode) -> R<()> {
         if let Ok(stdout) = object.expect_field("stdout") {
             self.stdout = stdout.expect_str()?.as_bytes().to_vec();
         }
         Ok(())
     }
 
-    fn parse(yaml: &Yaml) -> R<Step> {
-        match yaml {
-            Yaml::String(string) => Step::from_string(string),
-            Yaml::Hash(object) => {
+    fn parse(Node(yaml, marker): &Node) -> R<Step> {
+        let mut step = match yaml {
+            YamlMarked::String(string) => Step::from_string(string),
+            YamlMarked::Hash(object) => {
                 check_keys(&["command", "stdout", "exitcode", "regex"], object)?;
                 let mut step = match (object.expect_field("command"), object.expect_field("regex"))
                 {
@@ -72,7 +81,9 @@ impl Step {
                 Ok(step)
             }
             _ => Err(format!("expected: string or array, got: {:?}", yaml))?,
-        }
+        }?;
+        step.marker = marker.as_ref().map(From::from);
+        Ok(step)
     }
 
     fn serialize(&self) -> Yaml {
@@ -93,12 +104,14 @@ impl Step {
 
 #[cfg(test)]
 mod parse_step {
+    use self::test_helpers::step_with_marker;
     use super::*;
+    use pretty_assertions::assert_eq;
     use test_utils::assert_error;
-    use yaml_rust::Yaml;
+    use yaml_rust::YamlMarked;
 
     fn test_parse_step(yaml: &str) -> R<Step> {
-        let yaml = YamlLoader::load_from_str(yaml)?;
+        let yaml = YamlLoader::load_from_str_with_markers(yaml)?;
         assert_eq!(yaml.len(), 1);
         let yaml = &yaml[0];
         Step::parse(yaml)
@@ -108,10 +121,13 @@ mod parse_step {
     fn parses_strings_to_steps() -> R<()> {
         assert_eq!(
             test_parse_step(r#""foo""#)?,
-            Step::new(CommandMatcher::ExactMatch(Command {
-                executable: PathBuf::from("foo"),
-                arguments: vec![],
-            })),
+            step_with_marker(
+                CommandMatcher::ExactMatch(Command {
+                    executable: PathBuf::from("foo"),
+                    arguments: vec![],
+                }),
+                Marker { line: 1, col: 0 }
+            ),
         );
         Ok(())
     }
@@ -132,10 +148,13 @@ mod parse_step {
     fn parses_objects_to_steps() -> R<()> {
         assert_eq!(
             test_parse_step(r#"{command: "foo"}"#)?,
-            Step::new(CommandMatcher::ExactMatch(Command {
-                executable: PathBuf::from("foo"),
-                arguments: vec![],
-            })),
+            step_with_marker(
+                CommandMatcher::ExactMatch(Command {
+                    executable: PathBuf::from("foo"),
+                    arguments: vec![],
+                }),
+                Marker { line: 1, col: 0 }
+            ),
         );
         Ok(())
     }
@@ -155,7 +174,7 @@ mod parse_step {
     #[test]
     fn gives_nice_parse_errors() {
         assert_error!(
-            Step::parse(&Yaml::Null),
+            Step::parse(&Node(YamlMarked::Null, None)),
             "expected: string or array, got: Null"
         )
     }
@@ -171,6 +190,7 @@ mod parse_step {
 
     mod exitcode {
         use super::*;
+        use pretty_assertions::assert_eq;
 
         #[test]
         fn allows_to_specify_the_mocked_exit_code() -> R<()> {
@@ -220,15 +240,15 @@ impl Protocol {
         }
     }
 
-    fn from_array(array: &[Yaml]) -> R<Protocol> {
+    fn from_array(array: &[Node]) -> R<Protocol> {
         enum StepOrHole {
             Step(Step),
             Hole,
         }
-        fn parse_step_or_hole(yaml: &Yaml) -> R<StepOrHole> {
-            Ok(match yaml {
-                Yaml::String(step) if step == "_" => StepOrHole::Hole,
-                yaml => StepOrHole::Step(Step::parse(yaml)?),
+        fn parse_step_or_hole(node: &Node) -> R<StepOrHole> {
+            Ok(match node.value() {
+                YamlMarked::String(step) if step == "_" => StepOrHole::Hole,
+                _ => StepOrHole::Step(Step::parse(node)?),
             })
         }
         let mut protocol = Protocol::empty();
@@ -248,14 +268,14 @@ impl Protocol {
         Ok(protocol)
     }
 
-    fn add_arguments(&mut self, object: &Hash) -> R<()> {
+    fn add_arguments(&mut self, object: &HashNode) -> R<()> {
         if let Ok(arguments) = object.expect_field("arguments") {
             self.arguments = Parser::parse_arguments(arguments.expect_str()?)?;
         }
         Ok(())
     }
 
-    fn add_env(&mut self, object: &Hash) -> R<()> {
+    fn add_env(&mut self, object: &HashNode) -> R<()> {
         if let Ok(env) = object.expect_field("env") {
             for (key, value) in env.expect_object()?.into_iter() {
                 self.env.insert(
@@ -267,7 +287,7 @@ impl Protocol {
         Ok(())
     }
 
-    fn add_cwd(&mut self, object: &Hash) -> R<()> {
+    fn add_cwd(&mut self, object: &HashNode) -> R<()> {
         if let Ok(cwd) = object.expect_field("cwd") {
             let cwd = cwd.expect_str()?;
             if !cwd.starts_with('/') {
@@ -281,21 +301,21 @@ impl Protocol {
         Ok(())
     }
 
-    fn add_stderr(&mut self, object: &Hash) -> R<()> {
+    fn add_stderr(&mut self, object: &HashNode) -> R<()> {
         if let Ok(stderr) = object.expect_field("stderr") {
             self.stderr = Some(stderr.expect_str()?.as_bytes().to_vec());
         }
         Ok(())
     }
 
-    fn add_exitcode(&mut self, object: &Hash) -> R<()> {
+    fn add_exitcode(&mut self, object: &HashNode) -> R<()> {
         if let Ok(exitcode) = object.expect_field("exitcode") {
             self.exitcode = Some(exitcode.expect_integer()?);
         }
         Ok(())
     }
 
-    fn add_mocked_files(&mut self, object: &Hash) -> R<()> {
+    fn add_mocked_files(&mut self, object: &HashNode) -> R<()> {
         if let Ok(paths) = object.expect_field("mockedFiles") {
             for path in paths.expect_array()?.iter() {
                 self.mocked_files.push(PathBuf::from(path.expect_str()?));
@@ -304,7 +324,7 @@ impl Protocol {
         Ok(())
     }
 
-    fn from_object(object: &Hash) -> R<Protocol> {
+    fn from_object(object: &HashNode) -> R<Protocol> {
         check_keys(
             &[
                 "protocol",
@@ -380,7 +400,7 @@ impl Protocols {
         }
     }
 
-    fn from_array(array: &[Yaml]) -> R<Protocols> {
+    fn from_array(array: &[Node]) -> R<Protocols> {
         let mut result = vec![];
         for element in array.iter() {
             result.push(Protocol::from_object(element.expect_object()?)?);
@@ -388,14 +408,14 @@ impl Protocols {
         Ok(Protocols::new(result))
     }
 
-    fn add_interpreter(&mut self, object: &Hash) -> R<()> {
+    fn add_interpreter(&mut self, object: &HashNode) -> R<()> {
         if let Ok(interpreter) = object.expect_field("interpreter") {
             self.interpreter = Some(PathBuf::from(interpreter.expect_str()?));
         }
         Ok(())
     }
 
-    fn add_unmocked_commands(&mut self, object: &Hash) -> R<()> {
+    fn add_unmocked_commands(&mut self, object: &HashNode) -> R<()> {
         if let Ok(unmocked_commands) = object.expect_field("unmockedCommands") {
             for unmocked_command in unmocked_commands.expect_array()? {
                 self.unmocked_commands
@@ -405,10 +425,10 @@ impl Protocols {
         Ok(())
     }
 
-    fn parse(yaml: Yaml) -> R<Protocols> {
-        Ok(match &yaml {
-            Yaml::Array(array) => Protocols::from_array(&array)?,
-            Yaml::Hash(object) => match (
+    fn parse(yaml: Node) -> R<Protocols> {
+        Ok(match &yaml.value() {
+            YamlMarked::Array(array) => Protocols::from_array(&array)?,
+            YamlMarked::Hash(object) => match (
                 object.expect_field("protocols"),
                 object.expect_field("protocol"),
             ) {
@@ -432,14 +452,15 @@ impl Protocols {
     pub fn load(executable_path: &Path) -> R<(PathBuf, Protocols)> {
         let protocols_file = find_protocol_file(executable_path);
         let file_contents = read_protocols_file(&protocols_file)?;
-        let yaml: Vec<Yaml> = YamlLoader::load_from_str(&file_contents).map_err(|error| {
-            format!(
-                "invalid YAML in {}: {}",
-                protocols_file.to_string_lossy(),
-                error
-            )
-        })?;
-        let yaml: Yaml = {
+        let yaml: Vec<Node> =
+            YamlLoader::load_from_str_with_markers(&file_contents).map_err(|error| {
+                format!(
+                    "invalid YAML in {}: {}",
+                    protocols_file.to_string_lossy(),
+                    error
+                )
+            })?;
+        let yaml: Node = {
             if yaml.len() > 1 {
                 Err(format!(
                     "multiple YAML documents not allowed (in {})",
@@ -494,6 +515,7 @@ impl Protocols {
 
 #[cfg(test)]
 mod load {
+    use self::test_helpers::step_with_marker;
     use super::*;
     use crate::R;
     use pretty_assertions::assert_eq;
@@ -523,10 +545,13 @@ mod load {
                     |  - /bin/true
                 ",
             )?,
-            Protocol::new(vec![Step::new(CommandMatcher::ExactMatch(Command {
-                executable: PathBuf::from("/bin/true"),
-                arguments: vec![],
-            }))]),
+            Protocol::new(vec![step_with_marker(
+                CommandMatcher::ExactMatch(Command {
+                    executable: PathBuf::from("/bin/true"),
+                    arguments: vec![],
+                }),
+                Marker { line: 2, col: 4 }
+            )]),
         );
         Ok(())
     }
@@ -665,12 +690,15 @@ mod load {
                 r"
                     |protocol:
                     |  - /bin/true
-                "
+                ",
             )?,
-            Protocol::new(vec![Step::new(CommandMatcher::ExactMatch(Command {
-                executable: PathBuf::from("/bin/true"),
-                arguments: vec![],
-            }))]),
+            Protocol::new(vec![step_with_marker(
+                CommandMatcher::ExactMatch(Command {
+                    executable: PathBuf::from("/bin/true"),
+                    arguments: vec![],
+                }),
+                Marker { line: 2, col: 4 }
+            )]),
         );
         Ok(())
     }
@@ -763,7 +791,7 @@ mod load {
             format!(
                 "error in {}.protocols.yaml: \
                  expected top-level field \"protocol\" or \"protocols\", \
-                 got: Hash({{}})",
+                 got: Node(Hash({{}}), Some(Marker {{ index: 0, line: 1, col: 0 }}))",
                 path_to_string(&tempfile.path())?
             )
         );
@@ -820,7 +848,8 @@ mod load {
                 ),
                 format!(
                     "error in {}.protocols.yaml: \
-                     expected: string, got: Integer(42)",
+                     expected: string, \
+                     got: Node(Integer(42), Some(Marker {{ index: 35, line: 3, col: 11 }}))",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -865,7 +894,7 @@ mod load {
 
         #[test]
         fn disallows_relative_paths() -> R<()> {
-            let yaml = YamlLoader::load_from_str(&trim_margin(
+            let yaml = YamlLoader::load_from_str_with_markers(&trim_margin(
                 r"
                     |protocol:
                     |  - /bin/true
@@ -979,7 +1008,8 @@ mod load {
                 ),
                 format!(
                     "error in {}.protocols.yaml: \
-                     expected: string, got: Integer(42)",
+                     expected: string, \
+                     got: Node(Integer(42), Some(Marker {{ index: 41, line: 3, col: 13 }}))",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -1172,7 +1202,7 @@ mod serialize {
 
     fn roundtrip(protocols: Protocols) -> R<()> {
         let yaml = protocols.serialize()?;
-        let result = Protocols::parse(yaml)?;
+        let result = Protocols::parse(yaml.into())?;
         assert_eq!(result, protocols);
         Ok(())
     }
@@ -1223,6 +1253,7 @@ mod serialize {
     fn includes_the_step_exitcodes() -> R<()> {
         let protocol = Protocol::new(vec![Step {
             command_matcher: CommandMatcher::ExactMatch(Command::new("cp")?),
+            marker: None,
             stdout: vec![],
             exitcode: 42,
         }]);
@@ -1286,5 +1317,16 @@ mod find_protocol_file {
             find_protocol_file(&PathBuf::from("foo.ext")),
             PathBuf::from("foo.ext.protocols.yaml")
         );
+    }
+}
+
+#[cfg(test)]
+mod test_helpers {
+    use super::*;
+
+    pub fn step_with_marker(command_matcher: CommandMatcher, marker: Marker) -> Step {
+        let mut step = Step::new(command_matcher);
+        step.marker = Some(marker);
+        step
     }
 }
