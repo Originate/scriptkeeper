@@ -104,6 +104,7 @@ impl Step {
 
 #[cfg(test)]
 mod parse_step {
+    use self::test_helpers::step_with_marker;
     use super::*;
     use pretty_assertions::assert_eq;
     use test_utils::assert_error;
@@ -114,12 +115,6 @@ mod parse_step {
         assert_eq!(yaml.len(), 1);
         let yaml = &yaml[0];
         Step::parse(yaml)
-    }
-
-    fn step_with_marker(command_matcher: CommandMatcher, marker: Marker) -> Step {
-        let mut step = Step::new(command_matcher);
-        step.marker = Some(marker);
-        step
     }
 
     #[test]
@@ -520,6 +515,7 @@ impl Protocols {
 
 #[cfg(test)]
 mod load {
+    use self::test_helpers::step_with_marker;
     use super::*;
     use crate::R;
     use pretty_assertions::assert_eq;
@@ -538,12 +534,6 @@ mod load {
         let result = test_parse(&tempfile, protocol_string)?.protocols;
         assert_eq!(result.len(), 1);
         Ok(result.into_iter().next().unwrap())
-    }
-
-    fn step_with_marker(command_matcher: CommandMatcher, marker: Marker) -> Step {
-        let mut step = Step::new(command_matcher);
-        step.marker = Some(marker);
-        step
     }
 
     #[test]
@@ -1327,5 +1317,16 @@ mod find_protocol_file {
             find_protocol_file(&PathBuf::from("foo.ext")),
             PathBuf::from("foo.ext.protocols.yaml")
         );
+    }
+}
+
+#[cfg(test)]
+mod test_helpers {
+    use super::*;
+
+    pub fn step_with_marker(command_matcher: CommandMatcher, marker: Marker) -> Step {
+        let mut step = Step::new(command_matcher);
+        step.marker = Some(marker);
+        step
     }
 }
