@@ -49,8 +49,8 @@ fi
 
 For `scriptkeeper` to be able to test this script, you need to add a yaml file
 in the same directory as the script that has the additional file extension
-`.protocols.yaml`. So here's the  matching test file
-`./build-image.sh.protocols.yaml`:
+`.test.yaml`. So here's the  matching test file
+`./build-image.sh.test.yaml`:
 
 ```yaml
 tests:
@@ -70,12 +70,12 @@ tests:
 
 Now running `scriptkeeper ./build-image.sh` will tell you whether your script
 `./build-image.sh` conforms to your tests in
-`./build-image.sh.protocols.yaml`.
+`./build-image.sh.test.yaml`.
 
 There are more example test cases in the [tests/examples](./tests/examples)
 folder.
 
-### `.protocols.yaml` format
+### `.test.yaml` format
 
 Here's all the fields that are available in the yaml declarations for the
 tests: (`?` marks optional fields.)

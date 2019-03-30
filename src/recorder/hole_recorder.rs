@@ -103,7 +103,7 @@ impl SyscallMock for HoleRecorder {
 pub fn run_against_tests(
     context: &Context,
     program: &Path,
-    protocols_file: &Path,
+    test_file: &Path,
     Tests {
         tests,
         unmocked_commands,
@@ -112,5 +112,5 @@ pub fn run_against_tests(
 ) -> R<ExitCode> {
     let results =
         RecorderResult::collect_results(context, &interpreter, program, tests, &unmocked_commands)?;
-    RecorderResult::handle_results(context, protocols_file, unmocked_commands, &results)
+    RecorderResult::handle_results(context, test_file, unmocked_commands, &results)
 }

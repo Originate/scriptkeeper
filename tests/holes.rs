@@ -17,7 +17,7 @@ use test_utils::trim_margin;
 use utils::{assert_eq_yaml, prepare_script};
 
 fn test_holes(script_code: &str, existing: &str, expected: &str) -> R<()> {
-    let (script, protocols_file) = prepare_script(script_code, existing)?;
+    let (script, test_file) = prepare_script(script_code, existing)?;
     run_main(
         &Context::new_mock(),
         &cli::Args::Scriptkeeper {
@@ -26,14 +26,14 @@ fn test_holes(script_code: &str, existing: &str, expected: &str) -> R<()> {
         },
     )?;
     assert_eq_yaml(
-        &String::from_utf8(fs::read(&protocols_file)?)?,
+        &String::from_utf8(fs::read(&test_file)?)?,
         &trim_margin(expected)?,
     )?;
     Ok(())
 }
 
 #[test]
-fn fills_in_holes_in_protocols_files() -> R<()> {
+fn fills_in_holes_in_test_files() -> R<()> {
     test_holes(
         "
             |#!/usr/bin/env bash
@@ -53,8 +53,8 @@ fn fills_in_holes_in_protocols_files() -> R<()> {
 }
 
 #[test]
-fn indicates_on_stdout_that_the_protocols_file_was_written_to() -> R<()> {
-    let (script, protocols_file) = prepare_script(
+fn indicates_on_stdout_that_the_test_file_was_written_to() -> R<()> {
+    let (script, test_file) = prepare_script(
         "
             |#!/usr/bin/env bash
             |/bin/true
@@ -77,7 +77,7 @@ fn indicates_on_stdout_that_the_protocols_file_was_written_to() -> R<()> {
         context.get_captured_stdout(),
         format!(
             "Test holes filled in {}.\nAll tests passed.\n",
-            path_to_string(&protocols_file)?
+            path_to_string(&test_file)?
         )
     );
     Ok(())
@@ -85,7 +85,7 @@ fn indicates_on_stdout_that_the_protocols_file_was_written_to() -> R<()> {
 
 #[test]
 fn does_not_modify_files_without_holes() -> R<()> {
-    let (script, protocols_file) = prepare_script(
+    let (script, test_file) = prepare_script(
         "
             |#!/usr/bin/env bash
             |/bin/true
@@ -96,7 +96,7 @@ fn does_not_modify_files_without_holes() -> R<()> {
             |      - /bin/true
         ",
     )?;
-    let old_modification_time = fs::metadata(&protocols_file)?.modified()?;
+    let old_modification_time = fs::metadata(&test_file)?.modified()?;
     run_main(
         &Context::new_mock(),
         &cli::Args::Scriptkeeper {
@@ -104,7 +104,7 @@ fn does_not_modify_files_without_holes() -> R<()> {
             record: false,
         },
     )?;
-    let new_modification_time = fs::metadata(&protocols_file)?.modified()?;
+    let new_modification_time = fs::metadata(&test_file)?.modified()?;
     assert_eq!(new_modification_time, old_modification_time);
     Ok(())
 }

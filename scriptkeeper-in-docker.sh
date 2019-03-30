@@ -9,5 +9,5 @@ fi
 
 docker run --rm -it --cap-add=SYS_PTRACE \
   --mount type=bind,source=$script,target=/root/$(basename $script) \
-  --mount type=bind,source=$script.protocols.yaml,target=/root/$(basename $script).protocols.yaml \
+  --mount type=bind,source=$script.test.yaml,target=/root/$(basename $script).test.yaml \
   scriptkeeper $(basename $script)

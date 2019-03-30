@@ -129,8 +129,8 @@ pub fn run_scriptkeeper(context: &Context, script: &Path) -> R<ExitCode> {
             script.to_string_lossy()
         ))?
     }
-    let (protocols_file_path, tests) = Tests::load(script)?;
-    run_against_tests(&context, script, &protocols_file_path, tests)
+    let (test_file_path, tests) = Tests::load(script)?;
+    run_against_tests(&context, script, &test_file_path, tests)
 }
 
 fn print_recorded_test(context: &Context, program: &Path) -> R<ExitCode> {

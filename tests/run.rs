@@ -138,7 +138,7 @@ mod yaml_parse_errors {
         assert_error!(
             result,
             format!(
-                "error in {}.protocols.yaml: \
+                "error in {}.test.yaml: \
                  expected: array, got: Integer(42)",
                 path_to_string(&script.path())?
             )
@@ -159,7 +159,7 @@ mod yaml_parse_errors {
         assert_error!(
             result,
             format!(
-                "invalid YAML in {}.protocols.yaml: \
+                "invalid YAML in {}.test.yaml: \
                  block sequence entries are not allowed \
                  in this context at line 1 column 8",
                 path_to_string(&script.path())?

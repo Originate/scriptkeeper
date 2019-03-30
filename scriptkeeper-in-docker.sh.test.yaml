@@ -8,7 +8,7 @@ tests:
       - /usr/bin/docker run --rm -it
         --cap-add=SYS_PTRACE
         --mount type=bind,source=/basedir/./script,target=/root/script
-        --mount type=bind,source=/basedir/./script.protocols.yaml,target=/root/script.protocols.yaml
+        --mount type=bind,source=/basedir/./script.test.yaml,target=/root/script.test.yaml
         scriptkeeper script
   # works for absolute paths
   - arguments: /test/script
@@ -16,5 +16,5 @@ tests:
       - /usr/bin/docker run --rm -it
         --cap-add=SYS_PTRACE
         --mount type=bind,source=/test/script,target=/root/script
-        --mount type=bind,source=/test/script.protocols.yaml,target=/root/script.protocols.yaml
+        --mount type=bind,source=/test/script.test.yaml,target=/root/script.test.yaml
         scriptkeeper script
