@@ -429,34 +429,26 @@ impl Tests {
     }
 
     pub fn load(executable_path: &Path) -> R<(PathBuf, Tests)> {
-        let protocols_file = find_protocols_file(executable_path);
-        let file_contents = read_protocols_file(&protocols_file)?;
+        let test_file = find_test_file(executable_path);
+        let file_contents = read_test_file(&test_file)?;
         let yaml: Vec<Yaml> = YamlLoader::load_from_str(&file_contents).map_err(|error| {
-            format!(
-                "invalid YAML in {}: {}",
-                protocols_file.to_string_lossy(),
-                error
-            )
+            format!("invalid YAML in {}: {}", test_file.to_string_lossy(), error)
         })?;
         let yaml: Yaml = {
             if yaml.len() > 1 {
                 Err(format!(
                     "multiple YAML documents not allowed (in {})",
-                    protocols_file.to_string_lossy()
+                    test_file.to_string_lossy()
                 ))?;
             }
-            yaml.into_iter().next().ok_or_else(|| {
-                format!(
-                    "no YAML documents (in {})",
-                    protocols_file.to_string_lossy()
-                )
-            })?
+            yaml.into_iter()
+                .next()
+                .ok_or_else(|| format!("no YAML documents (in {})", test_file.to_string_lossy()))?
         };
         Ok((
-            protocols_file.clone(),
-            Tests::parse(yaml).map_err(|error| {
-                format!("error in {}: {}", protocols_file.to_string_lossy(), error)
-            })?,
+            test_file.clone(),
+            Tests::parse(yaml)
+                .map_err(|error| format!("error in {}: {}", test_file.to_string_lossy(), error))?,
         ))
     }
 
@@ -501,8 +493,8 @@ mod load {
     use test_utils::{assert_error, trim_margin, Mappable, TempFile};
 
     fn test_parse(tempfile: &TempFile, tests_string: &str) -> R<Tests> {
-        let protocols_file = tempfile.path().with_extension("protocols.yaml");
-        fs::write(&protocols_file, trim_margin(tests_string)?)?;
+        let test_file = tempfile.path().with_extension("test.yaml");
+        fs::write(&test_file, trim_margin(tests_string)?)?;
         Ok(Tests::load(&tempfile.path())?.1)
     }
 
@@ -531,10 +523,10 @@ mod load {
     }
 
     #[test]
-    fn returns_an_informative_error_when_the_protocols_file_is_missing() {
+    fn returns_an_informative_error_when_the_test_file_is_missing() {
         assert_error!(
             Tests::load(&PathBuf::from("./does-not-exist")),
-            "protocols file not found: ./does-not-exist.protocols.yaml"
+            "test file not found: ./does-not-exist.test.yaml"
         );
     }
 
@@ -556,7 +548,7 @@ mod load {
                     "
                 ),
                 format!(
-                    "error in {}.protocols.yaml: \
+                    "error in {}.test.yaml: \
                      unexpected field 'foo', \
                      possible values: 'tests', 'interpreter', 'unmockedCommands'",
                     path_to_string(&tempfile.path())?
@@ -579,7 +571,7 @@ mod load {
                     "
                 ),
                 format!(
-                    "error in {}.protocols.yaml: \
+                    "error in {}.test.yaml: \
                      unexpected field 'foo', \
                      possible values: \
                      'steps', 'mockedFiles', 'arguments', 'env', \
@@ -604,7 +596,7 @@ mod load {
                     "
                 ),
                 format!(
-                    "error in {}.protocols.yaml: \
+                    "error in {}.test.yaml: \
                      unexpected field 'foo', \
                      possible values: 'command', 'stdout', 'exitcode', 'regex'",
                     path_to_string(&tempfile.path())?
@@ -726,7 +718,7 @@ mod load {
                 ",
             ),
             format!(
-                "multiple YAML documents not allowed (in {}.protocols.yaml)",
+                "multiple YAML documents not allowed (in {}.test.yaml)",
                 path_to_string(&tempfile.path())?
             )
         );
@@ -760,7 +752,7 @@ mod load {
         assert_error!(
             test_parse(&tempfile, "{}"),
             format!(
-                "error in {}.protocols.yaml: \
+                "error in {}.test.yaml: \
                  expected top-level field \"steps\" or \"tests\", \
                  got: Hash({{}})",
                 path_to_string(&tempfile.path())?
@@ -818,7 +810,7 @@ mod load {
                     "
                 ),
                 format!(
-                    "error in {}.protocols.yaml: \
+                    "error in {}.test.yaml: \
                      expected: string, got: Integer(42)",
                     path_to_string(&tempfile.path())?
                 )
@@ -977,7 +969,7 @@ mod load {
                     ",
                 ),
                 format!(
-                    "error in {}.protocols.yaml: \
+                    "error in {}.test.yaml: \
                      expected: string, got: Integer(42)",
                     path_to_string(&tempfile.path())?
                 )
@@ -1074,7 +1066,7 @@ mod load {
                     ",
                 ),
                 format!(
-                    "error in {}.protocols.yaml: \
+                    "error in {}.test.yaml: \
                      please provide either a 'command' or 'regex' field but not both",
                     path_to_string(&tempfile.path())?
                 )
@@ -1095,7 +1087,7 @@ mod load {
                     ",
                 ),
                 format!(
-                    "error in {}.protocols.yaml: \
+                    "error in {}.test.yaml: \
                      regex parse error:\n    ^\\x$\n       ^\nerror: invalid hexadecimal digit",
                     path_to_string(&tempfile.path())?
                 )
@@ -1154,7 +1146,7 @@ mod load {
                     "
                 ),
                 format!(
-                    "error in {}.protocols.yaml: holes ('_') are only allowed as the last step",
+                    "error in {}.test.yaml: holes ('_') are only allowed as the last step",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -1241,24 +1233,24 @@ mod serialize {
     }
 }
 
-fn find_protocols_file(executable: &Path) -> PathBuf {
+fn find_test_file(executable: &Path) -> PathBuf {
     let mut result = executable.to_path_buf().into_os_string();
     result.push(".");
-    result.push("protocols.yaml");
+    result.push("test.yaml");
     PathBuf::from(result)
 }
 
-fn read_protocols_file(protocols_file: &Path) -> R<String> {
-    if !protocols_file.exists() {
+fn read_test_file(test_file: &Path) -> R<String> {
+    if !test_file.exists() {
         Err(format!(
-            "protocols file not found: {}",
-            protocols_file.to_string_lossy()
+            "test file not found: {}",
+            test_file.to_string_lossy()
         ))?;
     }
-    Ok(match fs::read(&protocols_file) {
+    Ok(match fs::read(&test_file) {
         Err(error) => Err(format!(
             "error reading {}: {}",
-            path_to_string(&protocols_file)?,
+            path_to_string(&test_file)?,
             error
         ))?,
         Ok(file_contents) => String::from_utf8(file_contents)?,
@@ -1266,22 +1258,22 @@ fn read_protocols_file(protocols_file: &Path) -> R<String> {
 }
 
 #[cfg(test)]
-mod find_protocols_file {
+mod find_test_file {
     use super::*;
 
     #[test]
-    fn adds_the_protocols_file_extension() {
+    fn adds_the_test_file_extension() {
         assert_eq!(
-            find_protocols_file(&PathBuf::from("foo")),
-            PathBuf::from("foo.protocols.yaml")
+            find_test_file(&PathBuf::from("foo")),
+            PathBuf::from("foo.test.yaml")
         );
     }
 
     #[test]
     fn works_for_files_with_extensions() {
         assert_eq!(
-            find_protocols_file(&PathBuf::from("foo.ext")),
-            PathBuf::from("foo.ext.protocols.yaml")
+            find_test_file(&PathBuf::from("foo.ext")),
+            PathBuf::from("foo.ext.test.yaml")
         );
     }
 }

@@ -31,6 +31,6 @@ test_dockerfile:
   docker run --rm \
     --cap-add=SYS_PTRACE \
     -v $(pwd)/tests/examples/bigger/script:/root/script \
-    -v $(pwd)/tests/examples/bigger/script.protocols.yaml:/root/script.protocols.yaml \
+    -v $(pwd)/tests/examples/bigger/script.test.yaml:/root/script.test.yaml \
     scriptkeeper \
     script

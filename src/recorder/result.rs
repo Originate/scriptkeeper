@@ -61,7 +61,7 @@ impl RecorderResult {
 
     pub fn handle_results(
         context: &Context,
-        protocols_file: &Path,
+        test_file: &Path,
         unmocked_commands: Vec<PathBuf>,
         results: &[RecorderResult],
     ) -> R<ExitCode> {
@@ -73,7 +73,7 @@ impl RecorderResult {
         );
         RecorderResult::handle_recorded(
             context,
-            protocols_file,
+            test_file,
             unmocked_commands,
             &results,
             &checker_results,
@@ -84,7 +84,7 @@ impl RecorderResult {
 
     fn handle_recorded(
         context: &Context,
-        protocols_file: &Path,
+        test_file: &Path,
         unmocked_commands: Vec<PathBuf>,
         results: &[RecorderResult],
         checker_results: &CheckerResults,
@@ -93,7 +93,7 @@ impl RecorderResult {
             let mut file = OpenOptions::new()
                 .write(true)
                 .truncate(true)
-                .open(protocols_file)?;
+                .open(test_file)?;
             write_yaml(
                 &mut file,
                 &Tests {
@@ -106,7 +106,7 @@ impl RecorderResult {
             writeln!(
                 context.stdout(),
                 "Test holes filled in {}.",
-                protocols_file.to_string_lossy()
+                test_file.to_string_lossy()
             )?;
         }
         Ok(())

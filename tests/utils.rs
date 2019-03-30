@@ -24,9 +24,9 @@ fn compare_results(result: (ExitCode, String), expected: Result<(), &str>) {
 
 pub fn prepare_script(script_code: &str, tests: &str) -> R<(TempFile, PathBuf)> {
     let script = TempFile::write_temp_script(trim_margin(script_code)?.as_bytes())?;
-    let protocols_file = format!("{}.protocols.yaml", path_to_string(&script.path())?);
-    fs::write(&protocols_file, trim_margin(tests)?)?;
-    Ok((script, PathBuf::from(protocols_file)))
+    let test_file = format!("{}.test.yaml", path_to_string(&script.path())?);
+    fs::write(&test_file, trim_margin(tests)?)?;
+    Ok((script, PathBuf::from(test_file)))
 }
 
 pub fn test_run_with_tempfile(
@@ -35,7 +35,7 @@ pub fn test_run_with_tempfile(
     tests: &str,
 ) -> R<(ExitCode, String)> {
     fs::write(
-        script.path().with_extension("protocols.yaml"),
+        script.path().with_extension("test.yaml"),
         trim_margin(tests)?,
     )?;
     let exitcode = run_scriptkeeper(context, &script.path())?;
