@@ -221,14 +221,7 @@ mod errors_in_protocols {
         )?;
         assert_eq!(
             context.get_captured_stdout(),
-            trim_margin(
-                r"
-                    |error:
-                    |  in step on line 3,
-                    |  expected: ls -la
-                    |  received: ls
-                "
-            )?
+            "error:\n  expected: ls -la\n  received: ls\n"
         );
         Ok(())
     }
@@ -263,14 +256,7 @@ mod errors_in_protocols {
         )?;
         assert_eq!(
             context.get_captured_stdout(),
-            trim_margin(
-                r"
-                    |error:
-                    |  in step on line 4,
-                    |  expected: ls -foo
-                    |  received: ls
-                "
-            )?
+            "error:\n  expected: ls -foo\n  received: ls\n"
         );
         Ok(())
     }

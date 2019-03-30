@@ -64,7 +64,6 @@ impl SyscallMock for Recorder {
             self.command = None;
             self.protocol.steps.push_back(Step {
                 command_matcher: CommandMatcher::ExactMatch(command),
-                marker: None,
                 stdout: vec![],
                 exitcode,
             });
