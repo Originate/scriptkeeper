@@ -28,8 +28,8 @@ fn relays_stdout_from_the_tested_script_to_the_user() -> R<()> {
         &context,
         &script,
         r"
-            |protocols:
-            |  - protocol: []
+            |tests:
+            |  - steps: []
         ",
     )?;
     assert_eq!(context.get_captured_stdout(), "foo\nAll tests passed.\n");
@@ -46,8 +46,8 @@ fn relays_stderr_from_the_tested_script_to_the_user() -> R<()> {
             |echo foo 1>&2
         ",
         r"
-            |protocols:
-            |  - protocol: []
+            |tests:
+            |  - steps: []
         ",
         Ok(()),
     )?;
@@ -66,8 +66,8 @@ mod expected_stderr {
                 |echo bar 1>&2
             ",
             r#"
-                |protocols:
-                |  - protocol: []
+                |tests:
+                |  - steps: []
                 |    stderr: "foo\n"
             "#,
             Err(&trim_margin(
@@ -89,8 +89,8 @@ mod expected_stderr {
                 |echo foo 1>&2
             ",
             r#"
-                |protocols:
-                |  - protocol: []
+                |tests:
+                |  - steps: []
                 |    stderr: "foo\n"
             "#,
             Ok(()),
@@ -105,8 +105,8 @@ mod expected_stderr {
                 |#!/usr/bin/env bash
             ",
             r#"
-                |protocols:
-                |  - protocol: []
+                |tests:
+                |  - steps: []
                 |    stderr: "foo\n"
             "#,
             Err(&trim_margin(

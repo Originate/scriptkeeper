@@ -2,8 +2,8 @@ pub mod checker_result;
 pub mod executable_mock;
 
 use crate::context::Context;
-use crate::protocol;
-use crate::protocol::Protocol;
+use crate::test_spec;
+use crate::test_spec::Test;
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::{tracee_memory, SyscallMock};
 use crate::utils::short_temp_files::ShortTempFile;
@@ -17,23 +17,19 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 
 #[derive(Debug)]
-pub struct ProtocolChecker {
+pub struct TestChecker {
     context: Context,
-    pub protocol: Protocol,
+    pub test: Test,
     pub unmocked_commands: Vec<PathBuf>,
     pub result: CheckerResult,
     temporary_executables: Vec<ShortTempFile>,
 }
 
-impl ProtocolChecker {
-    pub fn new(
-        context: &Context,
-        protocol: Protocol,
-        unmocked_commands: &[PathBuf],
-    ) -> ProtocolChecker {
-        ProtocolChecker {
+impl TestChecker {
+    pub fn new(context: &Context, test: Test, unmocked_commands: &[PathBuf]) -> TestChecker {
+        TestChecker {
             context: context.clone(),
-            protocol,
+            test,
             unmocked_commands: unmocked_commands.to_vec(),
             result: CheckerResult::Pass,
             temporary_executables: vec![],
@@ -47,23 +43,23 @@ impl ProtocolChecker {
         }
     }
 
-    fn handle_step(&mut self, received: protocol::Command) -> R<PathBuf> {
-        let mock_config = match self.protocol.steps.pop_front() {
-            Some(next_protocol_step) => {
-                if !next_protocol_step.command_matcher.matches(&received) {
+    fn handle_step(&mut self, received: test_spec::Command) -> R<PathBuf> {
+        let mock_config = match self.test.steps.pop_front() {
+            Some(next_test_step) => {
+                if !next_test_step.command_matcher.matches(&received) {
                     self.register_step_error(
-                        &next_protocol_step.command_matcher.format(),
+                        &next_test_step.command_matcher.format(),
                         &received.format(),
                     );
                 }
                 executable_mock::Config {
-                    stdout: next_protocol_step.stdout,
-                    exitcode: next_protocol_step.exitcode,
+                    stdout: next_test_step.stdout,
+                    exitcode: next_test_step.exitcode,
                 }
             }
             None => {
-                self.register_step_error("<protocol end>", &received.format());
-                ProtocolChecker::allow_failing_scripts_to_continue()
+                self.register_step_error("<script termination>", &received.format());
+                TestChecker::allow_failing_scripts_to_continue()
             }
         };
         let mock_executable_contents =
@@ -91,7 +87,7 @@ impl ProtocolChecker {
     }
 }
 
-impl SyscallMock for ProtocolChecker {
+impl SyscallMock for TestChecker {
     type Result = CheckerResult;
 
     fn handle_execve_enter(
@@ -104,9 +100,9 @@ impl SyscallMock for ProtocolChecker {
         let is_unmocked_command = self
             .unmocked_commands
             .iter()
-            .any(|unmocked_command| protocol::compare_executables(unmocked_command, &executable));
+            .any(|unmocked_command| test_spec::compare_executables(unmocked_command, &executable));
         if !is_unmocked_command {
-            let mock_executable_path = self.handle_step(protocol::Command {
+            let mock_executable_path = self.handle_step(test_spec::Command {
                 executable,
                 arguments,
             })?;
@@ -120,7 +116,7 @@ impl SyscallMock for ProtocolChecker {
     }
 
     fn handle_getcwd_exit(&self, pid: Pid, registers: &user_regs_struct) -> R<()> {
-        if let Some(mock_cwd) = &self.protocol.cwd {
+        if let Some(mock_cwd) = &self.test.cwd {
             let mock_cwd = mock_cwd.as_os_str().as_bytes();
             let buffer_ptr = registers.rdi;
             let max_size = registers.rsi;
@@ -133,7 +129,7 @@ impl SyscallMock for ProtocolChecker {
     }
 
     fn handle_stat_exit(&self, pid: Pid, registers: &user_regs_struct, filename: PathBuf) -> R<()> {
-        if self.protocol.mocked_files.contains(&filename) {
+        if self.test.mocked_files.contains(&filename) {
             let statbuf_ptr = registers.rsi;
             let mock_mode = if filename.as_os_str().as_bytes().ends_with(b"/") {
                 libc::S_IFDIR
@@ -154,20 +150,20 @@ impl SyscallMock for ProtocolChecker {
     }
 
     fn handle_end(mut self, exitcode: i32, redirector: &Redirector) -> R<CheckerResult> {
-        if let Some(expected_step) = self.protocol.steps.pop_front() {
+        if let Some(expected_step) = self.test.steps.pop_front() {
             self.register_step_error(
                 &expected_step.command_matcher.format(),
                 "<script terminated>",
             );
         }
-        let expected_exitcode = self.protocol.exitcode.unwrap_or(0);
+        let expected_exitcode = self.test.exitcode.unwrap_or(0);
         if exitcode != expected_exitcode {
             self.register_step_error(
                 &format!("<exitcode {}>", expected_exitcode),
                 &format!("<exitcode {}>", exitcode),
             );
         }
-        if let Some(expected_stderr) = &self.protocol.stderr {
+        if let Some(expected_stderr) = &self.test.stderr {
             match redirector.stderr.captured()? {
                 None => panic!("scriptkeeper bug: stderr expected, but not captured"),
                 Some(captured_stderr) => {

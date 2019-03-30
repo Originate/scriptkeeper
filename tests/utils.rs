@@ -22,21 +22,21 @@ fn compare_results(result: (ExitCode, String), expected: Result<(), &str>) {
     assert_eq!(result, expected_output);
 }
 
-pub fn prepare_script(script_code: &str, protocol: &str) -> R<(TempFile, PathBuf)> {
+pub fn prepare_script(script_code: &str, tests: &str) -> R<(TempFile, PathBuf)> {
     let script = TempFile::write_temp_script(trim_margin(script_code)?.as_bytes())?;
     let protocols_file = format!("{}.protocols.yaml", path_to_string(&script.path())?);
-    fs::write(&protocols_file, trim_margin(protocol)?)?;
+    fs::write(&protocols_file, trim_margin(tests)?)?;
     Ok((script, PathBuf::from(protocols_file)))
 }
 
 pub fn test_run_with_tempfile(
     context: &Context,
     script: &TempFile,
-    protocol: &str,
+    tests: &str,
 ) -> R<(ExitCode, String)> {
     fs::write(
         script.path().with_extension("protocols.yaml"),
-        trim_margin(protocol)?,
+        trim_margin(tests)?,
     )?;
     let exitcode = run_scriptkeeper(context, &script.path())?;
     Ok((exitcode, context.get_captured_stdout()))
@@ -45,17 +45,17 @@ pub fn test_run_with_tempfile(
 pub fn test_run_with_context(
     context: &Context,
     script_code: &str,
-    protocol: &str,
+    tests: &str,
     expected: Result<(), &str>,
 ) -> R<()> {
     let script = TempFile::write_temp_script(trim_margin(script_code)?.as_bytes())?;
-    let result = test_run_with_tempfile(context, &script, protocol)?;
+    let result = test_run_with_tempfile(context, &script, tests)?;
     compare_results(result, expected);
     Ok(())
 }
 
-pub fn test_run(script_code: &str, protocol: &str, expected: Result<(), &str>) -> R<()> {
-    test_run_with_context(&Context::new_mock(), script_code, protocol, expected)
+pub fn test_run(script_code: &str, tests: &str, expected: Result<(), &str>) -> R<()> {
+    test_run_with_context(&Context::new_mock(), script_code, tests, expected)
 }
 
 pub fn assert_eq_yaml(result: &str, expected: &str) -> R<()> {

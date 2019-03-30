@@ -1,9 +1,9 @@
-use super::protocol_result::ProtocolResult;
 use crate::context::Context;
-use crate::protocol::{Protocol, Protocols};
-use crate::protocol_checker::checker_result::CheckerResult;
-use crate::protocol_checker::ProtocolChecker;
+use crate::recorder::result::RecorderResult;
 use crate::recorder::Recorder;
+use crate::test_checker::checker_result::CheckerResult;
+use crate::test_checker::TestChecker;
+use crate::test_spec::{Test, Tests};
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::SyscallMock;
 use crate::{ExitCode, R};
@@ -14,8 +14,8 @@ use std::path::{Path, PathBuf};
 
 pub enum HoleRecorder {
     Checker {
-        checker: ProtocolChecker,
-        original_protocol: Protocol,
+        checker: TestChecker,
+        original_test: Test,
     },
     Recorder {
         recorder: Recorder,
@@ -23,20 +23,16 @@ pub enum HoleRecorder {
 }
 
 impl HoleRecorder {
-    pub fn new(
-        context: &Context,
-        unmocked_commands: &[PathBuf],
-        protocol: Protocol,
-    ) -> HoleRecorder {
+    pub fn new(context: &Context, unmocked_commands: &[PathBuf], test: Test) -> HoleRecorder {
         HoleRecorder::Checker {
-            checker: ProtocolChecker::new(context, protocol.clone(), unmocked_commands),
-            original_protocol: protocol,
+            checker: TestChecker::new(context, test.clone(), unmocked_commands),
+            original_test: test,
         }
     }
 }
 
 impl SyscallMock for HoleRecorder {
-    type Result = ProtocolResult;
+    type Result = RecorderResult;
 
     fn handle_execve_enter(
         &mut self,
@@ -48,9 +44,9 @@ impl SyscallMock for HoleRecorder {
         match self {
             HoleRecorder::Checker {
                 checker,
-                original_protocol,
+                original_test,
             } => {
-                if !checker.protocol.steps.is_empty() {
+                if !checker.test.steps.is_empty() {
                     checker.handle_execve_enter(pid, registers, executable, arguments)
                 } else {
                     match checker.result {
@@ -60,7 +56,7 @@ impl SyscallMock for HoleRecorder {
                         CheckerResult::Pass => {
                             *self = HoleRecorder::Recorder {
                                 recorder: Recorder::new(
-                                    original_protocol.clone(),
+                                    original_test.clone(),
                                     &checker.unmocked_commands,
                                 ),
                             };
@@ -82,44 +78,39 @@ impl SyscallMock for HoleRecorder {
         }
     }
 
-    fn handle_end(self, exitcode: i32, redirector: &Redirector) -> R<ProtocolResult> {
+    fn handle_end(self, exitcode: i32, redirector: &Redirector) -> R<RecorderResult> {
         Ok(match self {
             HoleRecorder::Checker {
                 checker,
-                mut original_protocol,
+                mut original_test,
             } => match checker.result {
                 CheckerResult::Pass => {
-                    original_protocol.ends_with_hole = false;
-                    let recorder = Recorder::new(original_protocol, &checker.unmocked_commands);
-                    ProtocolResult::Recorded(recorder.handle_end(exitcode, redirector)?)
+                    original_test.ends_with_hole = false;
+                    let recorder = Recorder::new(original_test, &checker.unmocked_commands);
+                    RecorderResult::Recorded(recorder.handle_end(exitcode, redirector)?)
                 }
                 failure @ CheckerResult::Failure(_) => {
-                    ProtocolResult::Checked(original_protocol, failure)
+                    RecorderResult::Checked(original_test, failure)
                 }
             },
             HoleRecorder::Recorder { recorder } => {
-                ProtocolResult::Recorded(recorder.handle_end(exitcode, redirector)?)
+                RecorderResult::Recorded(recorder.handle_end(exitcode, redirector)?)
             }
         })
     }
 }
 
-pub fn run_against_protocols(
+pub fn run_against_tests(
     context: &Context,
     program: &Path,
     protocols_file: &Path,
-    Protocols {
-        protocols,
+    Tests {
+        tests,
         unmocked_commands,
         interpreter,
-    }: Protocols,
+    }: Tests,
 ) -> R<ExitCode> {
-    let results = ProtocolResult::collect_results(
-        context,
-        &interpreter,
-        program,
-        protocols,
-        &unmocked_commands,
-    )?;
-    ProtocolResult::handle_results(context, protocols_file, unmocked_commands, &results)
+    let results =
+        RecorderResult::collect_results(context, &interpreter, program, tests, &unmocked_commands)?;
+    RecorderResult::handle_results(context, protocols_file, unmocked_commands, &results)
 }

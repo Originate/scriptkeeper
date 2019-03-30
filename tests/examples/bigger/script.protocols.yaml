@@ -1,5 +1,5 @@
 arguments: test-file
-protocol:
+steps:
   - command: chmod +r test-file.txt
   - command: cat test-file.txt
     stdout: "should be deleted"

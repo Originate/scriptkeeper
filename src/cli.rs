@@ -26,7 +26,7 @@ fn parse_args_safe(args: impl Iterator<Item = String>) -> Result<Args, Error> {
         let matches = App::new("scriptkeeper")
             .arg(Arg::with_name("record").short("r").long("record").help(
                 "[EXPERIMENTAL] Runs the script (without mocking out anything), \
-                 records a protocol and prints it to stdout",
+                 records a test case and prints it to stdout",
             ))
             .arg(
                 Arg::with_name("program")

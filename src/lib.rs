@@ -14,17 +14,17 @@ extern crate memoffset;
 
 pub mod cli;
 pub mod context;
-mod protocol;
-mod protocol_checker;
 mod recorder;
+mod test_checker;
+mod test_spec;
 mod tracer;
 pub mod utils;
 
 use crate::context::Context;
-use crate::protocol::yaml::write_yaml;
-use crate::protocol::Protocols;
-use crate::protocol_checker::executable_mock;
-use crate::recorder::{hole_recorder::run_against_protocols, Recorder};
+use crate::recorder::{hole_recorder::run_against_tests, Recorder};
+use crate::test_checker::executable_mock;
+use crate::test_spec::yaml::write_yaml;
+use crate::test_spec::Tests;
 use crate::tracer::stdio_redirecting::CaptureStderr;
 use crate::tracer::Tracer;
 use std::collections::HashMap;
@@ -86,7 +86,7 @@ pub fn run_main(context: &Context, args: &cli::Args) -> R<ExitCode> {
             record,
         } => {
             if *record {
-                print_recorded_protocol(context, script_path)?
+                print_recorded_test(context, script_path)?
             } else {
                 run_scriptkeeper(context, &script_path)?
             }
@@ -129,12 +129,12 @@ pub fn run_scriptkeeper(context: &Context, script: &Path) -> R<ExitCode> {
             script.to_string_lossy()
         ))?
     }
-    let (protocols_file_path, expected_protocols) = Protocols::load(script)?;
-    run_against_protocols(&context, script, &protocols_file_path, expected_protocols)
+    let (protocols_file_path, tests) = Tests::load(script)?;
+    run_against_tests(&context, script, &protocols_file_path, tests)
 }
 
-fn print_recorded_protocol(context: &Context, program: &Path) -> R<ExitCode> {
-    let protocol = Tracer::run_against_mock(
+fn print_recorded_test(context: &Context, program: &Path) -> R<ExitCode> {
+    let test = Tracer::run_against_mock(
         context,
         &None,
         program,
@@ -143,9 +143,6 @@ fn print_recorded_protocol(context: &Context, program: &Path) -> R<ExitCode> {
         CaptureStderr::NoCapture,
         Recorder::empty(),
     )?;
-    write_yaml(
-        &mut *context.stdout(),
-        &Protocols::new(vec![protocol]).serialize()?,
-    )?;
+    write_yaml(&mut *context.stdout(), &Tests::new(vec![test]).serialize()?)?;
     Ok(ExitCode(0))
 }

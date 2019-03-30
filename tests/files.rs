@@ -21,8 +21,8 @@ fn allows_to_mock_files_existence() -> R<()> {
             |fi
         ",
         r"
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - cp
             |    mockedFiles:
             |      - /foo
@@ -42,8 +42,8 @@ fn allows_to_mock_directory_existence() -> R<()> {
             |fi
         ",
         r"
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - command: cp
             |    mockedFiles:
             |      - /foo/
@@ -63,8 +63,8 @@ fn does_not_mock_existence_of_unspecified_files() -> R<()> {
             |fi
         ",
         r"
-            |protocols:
-            |  - protocol: []
+            |tests:
+            |  - steps: []
         ",
         Ok(()),
     )?;

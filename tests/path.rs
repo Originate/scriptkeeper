@@ -19,7 +19,7 @@ fn looks_up_step_executable_in_path() -> R<()> {
             |cp
         ",
         r"
-            |protocol:
+            |steps:
             |  - cp
         ",
         Ok(()),
@@ -35,8 +35,8 @@ fn looks_up_unmocked_command_executable_in_path() -> R<()> {
             |ls > /dev/null
         ",
         r"
-            |protocols:
-            |  - protocol: []
+            |tests:
+            |  - steps: []
             |unmockedCommands:
             |  - ls
         ",
@@ -53,7 +53,7 @@ fn shortens_received_executable_to_file_name_when_reporting_step_error() -> R<()
             |mv
         ",
         r"
-            |protocol:
+            |steps:
             |  - cp
         ",
         Err(&trim_margin(
@@ -75,7 +75,7 @@ fn runs_step_executable_that_is_not_in_path() -> R<()> {
             |/not/in/path
         ",
         r"
-            |protocol:
+            |steps:
             |  - /not/in/path
         ",
         Ok(()),
