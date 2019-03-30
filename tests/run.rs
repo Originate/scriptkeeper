@@ -24,7 +24,7 @@ fn simple() -> R<()> {
             |cp
         ",
         r"
-            |protocol:
+            |steps:
             |  - cp
         ",
         Ok(()),
@@ -45,8 +45,8 @@ fn does_not_execute_the_commands() -> R<()> {
         ),
         &format!(
             "
-                |protocols:
-                |  - protocol:
+                |tests:
+                |  - steps:
                 |      - /usr/bin/touch {}
             ",
             path_to_string(&testfile.path())?,
@@ -74,8 +74,8 @@ fn works_for_longer_file_names() -> R<()> {
         ),
         &format!(
             "
-                |protocols:
-                |  - protocol:
+                |tests:
+                |  - steps:
                 |      - {}
             ",
             &long_command_path
@@ -94,8 +94,8 @@ fn can_specify_interpreter() -> R<()> {
             |`true`
         ",
         r#"
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |    - "true"
             |interpreter: /usr/bin/ruby
         "#,
@@ -112,8 +112,8 @@ fn allows_to_match_command_with_regex() -> R<()> {
             |cp 1
         ",
         r#"
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |    - regex: cp \d
         "#,
         Ok(()),
@@ -132,7 +132,7 @@ mod yaml_parse_errors {
             &Context::new_mock(),
             &script,
             r"
-                |protocol: 42
+                |steps: 42
             ",
         );
         assert_error!(
@@ -153,7 +153,7 @@ mod yaml_parse_errors {
             &Context::new_mock(),
             &script,
             r"
-                |protocol: - boo
+                |steps: - boo
             ",
         );
         assert_error!(
@@ -161,7 +161,7 @@ mod yaml_parse_errors {
             format!(
                 "invalid YAML in {}.protocols.yaml: \
                  block sequence entries are not allowed \
-                 in this context at line 1 column 11",
+                 in this context at line 1 column 8",
                 path_to_string(&script.path())?
             )
         );
@@ -178,7 +178,7 @@ fn multiple() -> R<()> {
             |ls > /dev/null
         ",
         r"
-            |protocol:
+            |steps:
             |  - cp
             |  - ls
         ",
@@ -195,7 +195,7 @@ fn failing() -> R<()> {
             |mv
         ",
         r"
-            |protocol:
+            |steps:
             |  - cp
         ",
         Err(&trim_margin(
@@ -218,7 +218,7 @@ fn failing_later() -> R<()> {
             |mv
         ",
         r"
-            |protocol:
+            |steps:
             |  - ls
             |  - cp
         ",
@@ -260,7 +260,7 @@ mod nice_user_errors {
             &Context::new_mock(),
             &script,
             r"
-                |protocol:
+                |steps:
                 |  - cp
             ",
         );
@@ -295,7 +295,7 @@ mod nice_user_errors {
             &Context::new_mock(),
             &script,
             r"
-                |protocol:
+                |steps:
                 |  - cp
             ",
         );
@@ -330,8 +330,8 @@ mod nice_user_errors {
             &Context::new_mock(),
             &script,
             r"
-                |protocols:
-                |  - protocol:
+                |tests:
+                |  - steps:
                 |    - cp
                 |interpreter: /usr/bin/foo
             ",
@@ -365,7 +365,7 @@ mod arguments {
                 |cp foo
             ",
             r"
-                |protocol:
+                |steps:
                 |  - cp foo
             ",
             Ok(()),
@@ -381,7 +381,7 @@ mod arguments {
                 |cp bar
             ",
             r"
-                |protocol:
+                |steps:
                 |  - cp foo
             ",
             Err(&trim_margin(
@@ -403,7 +403,7 @@ mod arguments {
                 |cp "foo bar"
             "#,
             r#"
-                |protocol:
+                |steps:
                 |  - cp "foo bar"
             "#,
             Ok(()),
@@ -419,7 +419,7 @@ mod arguments {
                 |cp foo bar
             ",
             r#"
-                |protocol:
+                |steps:
                 |  - cp "foo bar"
             "#,
             Err(&trim_margin(
@@ -443,7 +443,7 @@ fn reports_the_first_error() -> R<()> {
             |mv second
         ",
         r"
-            |protocol:
+            |steps:
             |  - cp first
             |  - cp second
         ",
@@ -469,7 +469,7 @@ mod mismatch_in_number_of_commands {
                 |ls
             ",
             r"
-                |protocol:
+                |steps:
                 |  - ls
                 |  - cp
             ",
@@ -493,13 +493,13 @@ mod mismatch_in_number_of_commands {
                 |cp
             ",
             r"
-                |protocol:
+                |steps:
                 |  - ls
             ",
             Err(&trim_margin(
                 "
                     |error:
-                    |  expected: <protocol end>
+                    |  expected: <script termination>
                     |  received: cp
                 ",
             )?),
@@ -520,7 +520,7 @@ mod stdout {
                 |cp $output
             ",
             r"
-                |protocol:
+                |steps:
                 |  - command: cp
                 |    stdout: test_output
                 |  - cp test_output
@@ -539,7 +539,7 @@ mod stdout {
                 |cp $output
             ",
             r#"
-                |protocol:
+                |steps:
                 |  - command: cp
                 |    stdout: 'foo"'
                 |  - 'cp foo\"'
@@ -558,7 +558,7 @@ mod stdout {
                 |cp "$output"
             "#,
             r#"
-                |protocol:
+                |steps:
                 |  - command: cp
                 |    stdout: "foo\nbar"
                 |  - 'cp foo\nbar'
@@ -578,7 +578,7 @@ fn pass_arguments_into_tested_script() -> R<()> {
         ",
         r"
             |arguments: foo
-            |protocol:
+            |steps:
             |  - cp foo
         ",
         Ok(()),
@@ -586,7 +586,7 @@ fn pass_arguments_into_tested_script() -> R<()> {
     Ok(())
 }
 
-mod multiple_protocols {
+mod multiple_tests {
     use super::*;
 
     #[test]
@@ -598,10 +598,10 @@ mod multiple_protocols {
             ",
             r"
                 |- arguments: foo
-                |  protocol:
+                |  steps:
                 |    - cp foo
                 |- arguments: bar
-                |  protocol:
+                |  steps:
                 |    - cp bar
             ",
             Ok(()),
@@ -617,17 +617,17 @@ mod multiple_protocols {
                 |mv
             ",
             r"
-                |- protocol:
+                |- steps:
                 |    - cp
-                |- protocol:
+                |- steps:
                 |    - cp
             ",
             Err(&trim_margin(
                 "
-                    |error in protocol 1:
+                    |error in test 1:
                     |  expected: cp
                     |  received: mv
-                    |error in protocol 2:
+                    |error in test 2:
                     |  expected: cp
                     |  received: mv
                 ",
@@ -644,16 +644,16 @@ mod multiple_protocols {
                 |mv
             ",
             r"
-                |- protocol:
+                |- steps:
                 |    - mv
-                |- protocol:
+                |- steps:
                 |    - cp
             ",
             Err(&trim_margin(
                 "
-                    |protocol 1:
+                    |test 1:
                     |  Tests passed.
-                    |error in protocol 2:
+                    |error in test 2:
                     |  expected: cp
                     |  received: mv
                 ",
@@ -676,7 +676,7 @@ mod environment {
             r"
                 |env:
                 |  FOO: test-env-var
-                |protocol:
+                |steps:
                 |  - cp test-env-var
             ",
             Ok(()),
@@ -693,7 +693,7 @@ mod environment {
                 |cp $FOO
             ",
             r"
-                |protocol:
+                |steps:
                 |  - cp
             ",
             Ok(()),
@@ -710,7 +710,7 @@ fn detects_running_commands_from_ruby_scripts() -> R<()> {
             |`ls`
         ",
         r"
-            |protocol:
+            |steps:
             |  - ls
         ",
         Ok(()),
@@ -731,7 +731,7 @@ mod mocked_exitcodes {
                 |fi
             ",
             r"
-                |protocol:
+                |steps:
                 |  - command: grep foo
                 |    exitcode: 1
                 |  - ls
@@ -751,7 +751,7 @@ mod mocked_exitcodes {
                 |fi
             ",
             r"
-                |protocol:
+                |steps:
                 |  - command: grep foo
                 |    exitcode: 0
                 |  - ls
@@ -771,7 +771,7 @@ mod mocked_exitcodes {
                 |fi
             ",
             r"
-                |protocol:
+                |steps:
                 |  - grep foo
                 |  - ls
             ",
@@ -789,7 +789,7 @@ mod mocked_exitcodes {
                 |ls $?
             ",
             r"
-                |protocol:
+                |steps:
                 |  - command: grep foo
                 |    exitcode: 42
                 |  - ls 42
@@ -812,7 +812,7 @@ mod working_directory {
             ",
             r"
                 |cwd: /foo
-                |protocol:
+                |steps:
                 |  - ls /foo/file
             ",
             Ok(()),
@@ -829,7 +829,7 @@ mod working_directory {
             ",
             r"
                 |cwd: /foo/bar/baz/foo/bar/baz/foo/bar/baz/foo
-                |protocol:
+                |steps:
                 |  - ls /foo/bar/baz/foo/bar/baz/foo/bar/baz/foo/file
             ",
             Ok(()),
@@ -847,7 +847,7 @@ mod working_directory {
             ",
             &format!(
                 r"
-                    |protocol:
+                    |steps:
                     |  - ls {}/foo
                 ",
                 path_to_string(&cwd)?
@@ -869,7 +869,7 @@ mod expected_exitcode {
                 |exit 42
             ",
             r"
-                |protocol: []
+                |steps: []
             ",
             Err(&trim_margin(
                 "
@@ -890,7 +890,7 @@ mod expected_exitcode {
                 |exit 42
             ",
             r"
-                |protocol: []
+                |steps: []
                 |exitcode: 42
             ",
             Ok(()),
@@ -906,7 +906,7 @@ mod expected_exitcode {
                 |true
             ",
             r"
-                |protocol: []
+                |steps: []
                 |exitcode: 42
             ",
             Err(&trim_margin(
@@ -932,8 +932,8 @@ mod unmocked_commands {
                 |ls $(dirname dir/file)
             ",
             r"
-                |protocols:
-                |  - protocol:
+                |tests:
+                |  - steps:
                 |    - ls dir
                 |unmockedCommands:
                 |  - dirname
@@ -951,8 +951,8 @@ mod unmocked_commands {
                 |ls $(dirname dir/file)
             ",
             r"
-                |protocols:
-                |  - protocol:
+                |tests:
+                |  - steps:
                 |    - dirname dir/file
                 |    - ls dir
                 |unmockedCommands:

@@ -1,10 +1,10 @@
 use super::hole_recorder::HoleRecorder;
 use crate::context::Context;
-use crate::protocol::{yaml::write_yaml, Protocol, Protocols};
-use crate::protocol_checker::{
+use crate::test_checker::{
     checker_result::{CheckerResult, CheckerResults},
-    ProtocolChecker,
+    TestChecker,
 };
+use crate::test_spec::{yaml::write_yaml, Test, Tests};
 use crate::tracer::stdio_redirecting::CaptureStderr;
 use crate::tracer::Tracer;
 use crate::{ExitCode, R};
@@ -12,30 +12,30 @@ use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, PartialEq)]
-pub enum ProtocolResult {
-    Checked(Protocol, CheckerResult),
-    Recorded(Protocol),
+pub enum RecorderResult {
+    Checked(Test, CheckerResult),
+    Recorded(Test),
 }
 
-impl ProtocolResult {
+impl RecorderResult {
     fn is_recorded(&self) -> bool {
         match self {
-            ProtocolResult::Recorded(_) => true,
-            ProtocolResult::Checked(_, _) => false,
+            RecorderResult::Recorded(_) => true,
+            RecorderResult::Checked(_, _) => false,
         }
     }
 
-    fn get_protocol(&self) -> Protocol {
+    fn get_test(&self) -> Test {
         match self {
-            ProtocolResult::Checked(protocol, _) => protocol.clone(),
-            ProtocolResult::Recorded(protocol) => protocol.clone(),
+            RecorderResult::Checked(test, _) => test.clone(),
+            RecorderResult::Recorded(test) => test.clone(),
         }
     }
 
     fn get_test_result(&self) -> Option<CheckerResult> {
         match self {
-            ProtocolResult::Checked(_, test_result) => Some(test_result.clone()),
-            ProtocolResult::Recorded(_) => None,
+            RecorderResult::Checked(_, test_result) => Some(test_result.clone()),
+            RecorderResult::Recorded(_) => None,
         }
     }
 
@@ -43,17 +43,17 @@ impl ProtocolResult {
         context: &Context,
         interpreter: &Option<PathBuf>,
         program: &Path,
-        protocols: Vec<Protocol>,
+        tests: Vec<Test>,
         unmocked_commands: &[PathBuf],
-    ) -> R<Vec<ProtocolResult>> {
+    ) -> R<Vec<RecorderResult>> {
         let mut results = vec![];
-        for protocol in protocols.into_iter() {
-            results.push(run_against_protocol(
+        for test in tests.into_iter() {
+            results.push(run_against_test(
                 context,
                 &interpreter,
                 program,
                 unmocked_commands,
-                protocol,
+                test,
             )?);
         }
         Ok(results)
@@ -63,7 +63,7 @@ impl ProtocolResult {
         context: &Context,
         protocols_file: &Path,
         unmocked_commands: Vec<PathBuf>,
-        results: &[ProtocolResult],
+        results: &[RecorderResult],
     ) -> R<ExitCode> {
         let checker_results = CheckerResults(
             results
@@ -71,7 +71,7 @@ impl ProtocolResult {
                 .filter_map(|result| result.get_test_result())
                 .collect(),
         );
-        ProtocolResult::handle_recorded(
+        RecorderResult::handle_recorded(
             context,
             protocols_file,
             unmocked_commands,
@@ -86,7 +86,7 @@ impl ProtocolResult {
         context: &Context,
         protocols_file: &Path,
         unmocked_commands: Vec<PathBuf>,
-        results: &[ProtocolResult],
+        results: &[RecorderResult],
         checker_results: &CheckerResults,
     ) -> R<()> {
         if checker_results.is_pass() && results.iter().any(|result| result.is_recorded()) {
@@ -96,8 +96,8 @@ impl ProtocolResult {
                 .open(protocols_file)?;
             write_yaml(
                 &mut file,
-                &Protocols {
-                    protocols: results.iter().map(|result| result.get_protocol()).collect(),
+                &Tests {
+                    tests: results.iter().map(|result| result.get_test()).collect(),
                     unmocked_commands,
                     interpreter: None,
                 }
@@ -105,7 +105,7 @@ impl ProtocolResult {
             )?;
             writeln!(
                 context.stdout(),
-                "Protocol holes filled in {}.",
+                "Test holes filled in {}.",
                 protocols_file.to_string_lossy()
             )?;
         }
@@ -113,22 +113,22 @@ impl ProtocolResult {
     }
 }
 
-fn run_against_protocol(
+fn run_against_test(
     context: &Context,
     interpreter: &Option<PathBuf>,
     program: &Path,
     unmocked_commands: &[PathBuf],
-    protocol: Protocol,
-) -> R<ProtocolResult> {
+    test: Test,
+) -> R<RecorderResult> {
     macro_rules! run_against_mock {
         ($syscall_mock:expr) => {
             Tracer::run_against_mock(
                 context,
                 interpreter,
                 program,
-                protocol.arguments.clone(),
-                protocol.env.clone(),
-                if protocol.stderr.is_some() {
+                test.arguments.clone(),
+                test.env.clone(),
+                if test.stderr.is_some() {
                     CaptureStderr::Capture
                 } else {
                     CaptureStderr::NoCapture
@@ -137,12 +137,12 @@ fn run_against_protocol(
             )
         };
     }
-    if protocol.ends_with_hole {
-        run_against_mock!(HoleRecorder::new(context, unmocked_commands, protocol))
+    if test.ends_with_hole {
+        run_against_mock!(HoleRecorder::new(context, unmocked_commands, test))
     } else {
-        Ok(ProtocolResult::Checked(
-            protocol.clone(),
-            run_against_mock!(ProtocolChecker::new(context, protocol, unmocked_commands))?,
+        Ok(RecorderResult::Checked(
+            test.clone(),
+            run_against_mock!(TestChecker::new(context, test, unmocked_commands))?,
         ))
     }
 }

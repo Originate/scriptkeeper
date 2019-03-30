@@ -1,2 +1,2 @@
-protocol:
+steps:
   - /usr/bin/docker build -t scriptkeeper .

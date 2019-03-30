@@ -61,28 +61,28 @@ fn test_recording(script: &str, expected: &str) -> R<()> {
 }
 
 #[test]
-fn records_an_empty_protocol() -> R<()> {
+fn records_an_empty_test() -> R<()> {
     test_recording(
         "
             |#!/usr/bin/env bash
         ",
         "
-            |protocols:
-            |  - protocol: []
+            |tests:
+            |  - steps: []
         ",
     )
 }
 
 #[test]
-fn records_protocol_steps() -> R<()> {
+fn records_test_steps() -> R<()> {
     test_recording(
         "
             |#!/usr/bin/env bash
             |ls >/dev/null
         ",
         "
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - ls
         ",
     )
@@ -97,8 +97,8 @@ fn records_multiple_steps() -> R<()> {
             |ls > /dev/null
         ",
         "
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - date
             |      - ls
         ",
@@ -113,8 +113,8 @@ fn records_command_arguments() -> R<()> {
             |mkdir -p foo
         ",
         "
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - mkdir -p foo
         ",
     )
@@ -128,8 +128,8 @@ fn records_script_exitcode() -> R<()> {
             |exit 42
         ",
         "
-            |protocols:
-            |  - protocol: []
+            |tests:
+            |  - steps: []
             |    exitcode: 42
         ",
     )
@@ -144,8 +144,8 @@ fn records_command_exitcodes() -> R<()> {
             |true
         "#,
         r#"
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - command: bash -c "exit 42"
             |        exitcode: 42
         "#,

@@ -40,13 +40,13 @@ fn fills_in_holes_in_protocols_files() -> R<()> {
             |ls
         ",
         "
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - _
         ",
         "
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - ls
         ",
     )
@@ -60,8 +60,8 @@ fn indicates_on_stdout_that_the_protocols_file_was_written_to() -> R<()> {
             |/bin/true
         ",
         "
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - _
         ",
     )?;
@@ -76,7 +76,7 @@ fn indicates_on_stdout_that_the_protocols_file_was_written_to() -> R<()> {
     assert_eq!(
         context.get_captured_stdout(),
         format!(
-            "Protocol holes filled in {}.\nAll tests passed.\n",
+            "Test holes filled in {}.\nAll tests passed.\n",
             path_to_string(&protocols_file)?
         )
     );
@@ -91,8 +91,8 @@ fn does_not_modify_files_without_holes() -> R<()> {
             |/bin/true
         ",
         "
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - /bin/true
         ",
     )?;
@@ -118,14 +118,14 @@ fn works_for_holes_following_specified_steps() -> R<()> {
             |ls -la
         ",
         "
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - ls
             |      - _
         ",
         "
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - ls
             |      - ls -la
         ",
@@ -133,7 +133,7 @@ fn works_for_holes_following_specified_steps() -> R<()> {
 }
 
 #[test]
-fn works_in_conjunction_with_protocols_without_holes() -> R<()> {
+fn works_in_conjunction_with_tests_without_holes() -> R<()> {
     test_holes(
         "
             |#!/usr/bin/env bash
@@ -144,26 +144,26 @@ fn works_in_conjunction_with_protocols_without_holes() -> R<()> {
             |fi
         ",
         "
-            |protocols:
+            |tests:
             |  - arguments: foo
-            |    protocol:
+            |    steps:
             |      - ls
-            |  - protocol:
+            |  - steps:
             |      - _
         ",
         "
-            |protocols:
+            |tests:
             |  - arguments: foo
-            |    protocol:
+            |    steps:
             |      - ls
-            |  - protocol:
+            |  - steps:
             |      - ls -la
         ",
     )
 }
 
 #[test]
-fn works_for_multiple_protocols_with_holes() -> R<()> {
+fn works_for_multiple_tests_with_holes() -> R<()> {
     test_holes(
         "
             |#!/usr/bin/env bash
@@ -174,30 +174,30 @@ fn works_for_multiple_protocols_with_holes() -> R<()> {
             |fi
         ",
         "
-            |protocols:
+            |tests:
             |  - arguments: foo
-            |    protocol:
+            |    steps:
             |      - _
-            |  - protocol:
+            |  - steps:
             |      - _
         ",
         "
-            |protocols:
+            |tests:
             |  - arguments: foo
-            |    protocol:
+            |    steps:
             |      - ls
-            |  - protocol:
+            |  - steps:
             |      - ls -la
         ",
     )
 }
 
-mod errors_in_protocols {
+mod errors_in_tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn errors_in_protocol_with_hole() -> R<()> {
+    fn errors_in_test_with_hole() -> R<()> {
         let (script, _) = prepare_script(
             "
                 |#!/usr/bin/env bash
@@ -205,8 +205,8 @@ mod errors_in_protocols {
                 |ls > /dev/null
             ",
             "
-                |protocols:
-                |  - protocol:
+                |tests:
+                |  - steps:
                 |      - ls -la
                 |      - _
             ",
@@ -227,7 +227,7 @@ mod errors_in_protocols {
     }
 
     #[test]
-    fn errors_in_protocol_without_hole() -> R<()> {
+    fn errors_in_test_without_hole() -> R<()> {
         let (script, _) = prepare_script(
             "
                 |#!/usr/bin/env bash
@@ -238,11 +238,11 @@ mod errors_in_protocols {
                 |fi
             ",
             "
-                |protocols:
+                |tests:
                 |  - arguments: foo
-                |    protocol:
+                |    steps:
                 |      - ls -foo
-                |  - protocol:
+                |  - steps:
                 |      - _
             ",
         )?;
@@ -270,15 +270,15 @@ fn preserves_script_arguments() -> R<()> {
             |ls > /dev/null
         ",
         "
-            |protocols:
+            |tests:
             |  - arguments: foo
-            |    protocol:
+            |    steps:
             |      - _
         ",
         "
-            |protocols:
+            |tests:
             |  - arguments: foo
-            |    protocol:
+            |    steps:
             |      - ls
         ",
     )
@@ -292,14 +292,14 @@ fn removes_hole_when_script_does_not_execute_more_steps() -> R<()> {
             |ls > /dev/null
         ",
         "
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - ls
             |      - _
         ",
         "
-            |protocols:
-            |  - protocol:
+            |tests:
+            |  - steps:
             |      - ls
         ",
     )
@@ -316,17 +316,17 @@ mod environment {
                 |ls $FOO
             ",
             "
-                |protocols:
+                |tests:
                 |  - env:
                 |      FOO: /tmp
-                |    protocol:
+                |    steps:
                 |      - _
             ",
             "
-                |protocols:
+                |tests:
                 |  - env:
                 |      FOO: /tmp
-                |    protocol:
+                |    steps:
                 |      - ls /tmp
             ",
         )
@@ -345,21 +345,21 @@ mod unmocked_commands {
             "
                 |unmockedCommands:
                 |  - sed
-                |protocols:
-                |  - protocol:
+                |tests:
+                |  - steps:
                 |      - _
             ",
             "
                 |unmockedCommands:
                 |  - sed
-                |protocols:
-                |  - protocol: []
+                |tests:
+                |  - steps: []
             ",
         )
     }
 
     #[test]
-    fn excludes_unmocked_commands_from_recorded_protocols() -> R<()> {
+    fn excludes_unmocked_commands_from_recorded_tests() -> R<()> {
         test_holes(
             "
                 |#!/usr/bin/env bash
@@ -368,15 +368,15 @@ mod unmocked_commands {
             "
                 |unmockedCommands:
                 |  - ls
-                |protocols:
-                |  - protocol:
+                |tests:
+                |  - steps:
                 |      - _
             ",
             "
                 |unmockedCommands:
                 |  - ls
-                |protocols:
-                |  - protocol: []
+                |tests:
+                |  - steps: []
             ",
         )
     }

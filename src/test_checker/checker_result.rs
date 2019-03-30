@@ -18,13 +18,13 @@ impl CheckerResult {
         match self {
             CheckerResult::Failure(error) => {
                 let header = number.map_or("error".to_string(), |number| {
-                    format!("error in protocol {}", number)
+                    format!("error in test {}", number)
                 });
                 format!("{}:\n{}", header, error)
             }
             CheckerResult::Pass => match number {
                 None => panic!("CheckerResult.format: shouldn't happen"),
-                Some(number) => format!("protocol {}:\n  Tests passed.\n", number),
+                Some(number) => format!("test {}:\n  Tests passed.\n", number),
             },
         }
     }

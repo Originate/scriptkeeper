@@ -31,8 +31,8 @@ Feel free to open (or vote on)
 
 ## Usage
 
-`scriptkeeper` allows you to write tests -- so-called protocols -- for
-scripts (or other executables) -- without the need to modify your executables.
+`scriptkeeper` allows you to write tests for scripts (or other executables) --
+without the need to modify your executables.
 
 Here's an example script `./build-image.sh`:
 
@@ -47,26 +47,29 @@ else
 fi
 ```
 
-And here's a matching protocols file `./build-image.sh.protocols.yaml`:
+For `scriptkeeper` to be able to test this script, you need to add a yaml file
+in the same directory as the script that has the additional file extension
+`.protocols.yaml`. So here's the  matching test file
+`./build-image.sh.protocols.yaml`:
 
 ```yaml
-protocols:
+tests:
   # builds a docker image when git repo is clean
-  - protocol:
+  - steps:
     - command: /usr/bin/git status --porcelain
       stdout: ""
     - command: /usr/bin/git rev-parse HEAD
       stdout: "mock_commit_hash\n"
     - /usr/bin/docker build --tag image_name:mock_commit_hash .
   # aborts when git repo is not clean
-  - protocol:
+  - steps:
     - command: /usr/bin/git status --porcelain
       stdout: " M some-file"
     exitcode: 1
 ```
 
 Now running `scriptkeeper ./build-image.sh` will tell you whether your script
-`./build-image.sh` conforms to your protocols in
+`./build-image.sh` conforms to your tests in
 `./build-image.sh.protocols.yaml`.
 
 There are more example test cases in the [tests/examples](./tests/examples)
@@ -75,10 +78,10 @@ folder.
 ### `.protocols.yaml` format
 
 Here's all the fields that are available in the yaml declarations for the
-protocols: (`?` marks optional fields.)
+tests: (`?` marks optional fields.)
 
 ``` yaml
-protocols:
+tests:
   - arguments?: string
       # List of arguments given to the tested script, seperated by spaces.
       # Example: "-rf /", default: ""
@@ -99,7 +102,7 @@ protocols:
     exitcode?: number
       # Exitcode that the tested script is expected to exit with.
       # Default: 0.
-    protocol:
+    steps:
       # List of commands that your script is expected to execute.
       - command|regex: string
           # One of either `command` or `regex` is required
@@ -132,7 +135,7 @@ unmockedCommands: [string]
 For convenience you can specify commands as a string directly. So this
 
 ``` yaml
-protocol:
+steps:
   - command: git add .
   - command: git push
 ```
@@ -140,79 +143,79 @@ protocol:
 can be written as
 
 ``` yaml
-protocol:
+steps:
   - git add .
   - git push
 ```
 
-#### Multiple protocols
+#### Multiple tests
 
-Multiple protocols can be specified using a YAML array:
+Multiple tests can be specified using a YAML array:
 
 ``` yaml
 # when given the 'push' argument, it pushes to the remote
 - arguments: push
-  protocol:
+  steps:
     - git add .
     - git push
 # when given the 'pull' argument, it just pulls
 - arguments: push
-  protocol:
+  steps:
     - git pull
 ```
 
-You can also put everything into a `protocols` field:
+You can also put everything into a `tests` field:
 
 ``` yaml
-protocols:
+tests:
   # when given the 'push' argument, it pushes to the remote
   - arguments: push
-    protocol:
+    steps:
       - git add .
       - git push
   # when given the 'pull' argument, it just pulls
   - arguments: push
-    protocol:
+    steps:
       - git pull
 ```
 
-## Recording protocols
+## Recording tests
 
-There is **experimental** support for recording protocols. You can either record
-protocols by passing in the `--record` command line flag, or you can put
-so-called holes into your protocols:
+There is **experimental** support for recording tests. You can either record
+tests by passing in the `--record` command line flag, or you can put so-called
+holes into your tests:
 
 ``` yaml
-protocols:
-  - protocol:
+tests:
+  - steps:
       - _
 ```
 
 This will actually execute the sub-commands that your script performs, without
-mocking them out. And it will overwrite your protocols file with the recorded
+mocking them out. And it will overwrite your tests file with the recorded
 version.
 
-You can also start with a partial protocol and have `scriptkeeper` fill in the
+You can also start with a partial test and have `scriptkeeper` fill in the
 specified holes:
 
 ``` yaml
-protocols:
+tests:
   - arguments: foo
-    protocol:
+    steps:
       - git add .
       - _
 ```
 
-This allows for an iterative process to create a protocol:
+This allows for an iterative process to create a test:
 
-1. Start with an empty protocol with a hole.
+1. Start with an empty test with a hole.
 2. Run `scriptkeeper`.
-3. Identify the step in the recorded protocol where it deviates from the
+3. Identify the step in the recorded test where it deviates from the
    intended test. (If it doesn't, you're done.)
-4. Refine the protocol by modifying the inputs to the tested script, i.e. the
+4. Refine the test by modifying the inputs to the tested script, i.e. the
    arguments, the environment, etc. This can be guided by both the recorded
    script and the script's output to `stdout` and `stderr`.
-5. Remove all protocol steps after the step identified in 3.
+5. Remove all test steps after the step identified in 3.
 6. Add a hole at the end.
 7. Re-iterate from step 2.
 

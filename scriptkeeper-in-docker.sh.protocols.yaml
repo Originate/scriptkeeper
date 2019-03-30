@@ -1,10 +1,10 @@
 unmockedCommands:
   - /usr/bin/basename
-protocols:
+tests:
   # works for relative paths
   - arguments: ./script
     cwd: /basedir
-    protocol:
+    steps:
       - /usr/bin/docker run --rm -it
         --cap-add=SYS_PTRACE
         --mount type=bind,source=/basedir/./script,target=/root/script
@@ -12,7 +12,7 @@ protocols:
         scriptkeeper script
   # works for absolute paths
   - arguments: /test/script
-    protocol:
+    steps:
       - /usr/bin/docker run --rm -it
         --cap-add=SYS_PTRACE
         --mount type=bind,source=/test/script,target=/root/script

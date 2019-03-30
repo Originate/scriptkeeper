@@ -8,7 +8,7 @@ pub mod yaml;
 
 use self::argument_parser::Parser;
 pub use self::executable_path::compare_executables;
-use crate::protocol::yaml::*;
+use crate::test_spec::yaml::*;
 use crate::utils::{path_to_string, with_has_more};
 use crate::R;
 pub use command::Command;
@@ -190,7 +190,7 @@ mod parse_step {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Protocol {
+pub struct Test {
     pub steps: VecDeque<Step>,
     pub ends_with_hole: bool,
     pub arguments: Vec<String>,
@@ -201,14 +201,14 @@ pub struct Protocol {
     pub mocked_files: Vec<PathBuf>,
 }
 
-impl Protocol {
+impl Test {
     #[allow(dead_code)]
-    pub fn empty() -> Protocol {
-        Protocol::new(vec![])
+    pub fn empty() -> Test {
+        Test::new(vec![])
     }
 
-    pub fn new(steps: Vec<Step>) -> Protocol {
-        Protocol {
+    pub fn new(steps: Vec<Step>) -> Test {
+        Test {
             steps: steps.into(),
             ends_with_hole: false,
             arguments: vec![],
@@ -220,7 +220,7 @@ impl Protocol {
         }
     }
 
-    fn from_array(array: &[Yaml]) -> R<Protocol> {
+    fn from_array(array: &[Yaml]) -> R<Test> {
         enum StepOrHole {
             Step(Step),
             Hole,
@@ -231,21 +231,21 @@ impl Protocol {
                 yaml => StepOrHole::Step(Step::parse(yaml)?),
             })
         }
-        let mut protocol = Protocol::empty();
+        let mut test = Test::empty();
         for (yaml, has_more) in with_has_more(array) {
             match parse_step_or_hole(yaml)? {
                 StepOrHole::Step(step) => {
-                    protocol.steps.push_back(step);
+                    test.steps.push_back(step);
                 }
                 StepOrHole::Hole => {
-                    protocol.ends_with_hole = true;
+                    test.ends_with_hole = true;
                     if has_more {
                         Err("holes ('_') are only allowed as the last step")?;
                     }
                 }
             }
         }
-        Ok(protocol)
+        Ok(test)
     }
 
     fn add_arguments(&mut self, object: &Hash) -> R<()> {
@@ -304,10 +304,10 @@ impl Protocol {
         Ok(())
     }
 
-    fn from_object(object: &Hash) -> R<Protocol> {
+    fn from_object(object: &Hash) -> R<Test> {
         check_keys(
             &[
-                "protocol",
+                "steps",
                 "mockedFiles",
                 "arguments",
                 "env",
@@ -317,14 +317,14 @@ impl Protocol {
             ],
             object,
         )?;
-        let mut protocol = Protocol::from_array(object.expect_field("protocol")?.expect_array()?)?;
-        protocol.add_arguments(&object)?;
-        protocol.add_env(&object)?;
-        protocol.add_cwd(&object)?;
-        protocol.add_stderr(&object)?;
-        protocol.add_exitcode(&object)?;
-        protocol.add_mocked_files(&object)?;
-        Ok(protocol)
+        let mut test = Test::from_array(object.expect_field("steps")?.expect_array()?)?;
+        test.add_arguments(&object)?;
+        test.add_env(&object)?;
+        test.add_cwd(&object)?;
+        test.add_stderr(&object)?;
+        test.add_exitcode(&object)?;
+        test.add_mocked_files(&object)?;
+        Ok(test)
     }
 
     fn serialize_env(&self, object: &mut Hash) {
@@ -338,54 +338,54 @@ impl Protocol {
     }
 
     fn serialize(&self) -> Yaml {
-        let mut protocol = LinkedHashMap::new();
+        let mut test = LinkedHashMap::new();
         if !self.arguments.is_empty() {
             let arguments = self.arguments.iter().map(OsString::from).collect();
-            protocol.insert(
+            test.insert(
                 Yaml::from_str("arguments"),
                 Yaml::String(Command::format_arguments(arguments)),
             );
         }
-        self.serialize_env(&mut protocol);
+        self.serialize_env(&mut test);
         {
             let mut steps = vec![];
             for step in &self.steps {
                 steps.push(step.serialize());
             }
-            protocol.insert(Yaml::from_str("protocol"), Yaml::Array(steps));
+            test.insert(Yaml::from_str("steps"), Yaml::Array(steps));
         }
         if let Some(exitcode) = self.exitcode {
-            protocol.insert(
+            test.insert(
                 Yaml::from_str("exitcode"),
                 Yaml::Integer(i64::from(exitcode)),
             );
         }
-        Yaml::Hash(protocol)
+        Yaml::Hash(test)
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Protocols {
-    pub protocols: Vec<Protocol>,
+pub struct Tests {
+    pub tests: Vec<Test>,
     pub unmocked_commands: Vec<PathBuf>,
     pub interpreter: Option<PathBuf>,
 }
 
-impl Protocols {
-    pub fn new(protocols: Vec<Protocol>) -> Protocols {
-        Protocols {
-            protocols,
+impl Tests {
+    pub fn new(tests: Vec<Test>) -> Tests {
+        Tests {
+            tests,
             unmocked_commands: vec![],
             interpreter: None,
         }
     }
 
-    fn from_array(array: &[Yaml]) -> R<Protocols> {
+    fn from_array(array: &[Yaml]) -> R<Tests> {
         let mut result = vec![];
         for element in array.iter() {
-            result.push(Protocol::from_object(element.expect_object()?)?);
+            result.push(Test::from_object(element.expect_object()?)?);
         }
-        Ok(Protocols::new(result))
+        Ok(Tests::new(result))
     }
 
     fn add_interpreter(&mut self, object: &Hash) -> R<()> {
@@ -405,32 +405,31 @@ impl Protocols {
         Ok(())
     }
 
-    fn parse(yaml: Yaml) -> R<Protocols> {
+    fn parse(yaml: Yaml) -> R<Tests> {
         Ok(match &yaml {
-            Yaml::Array(array) => Protocols::from_array(&array)?,
-            Yaml::Hash(object) => match (
-                object.expect_field("protocols"),
-                object.expect_field("protocol"),
-            ) {
-                (Ok(protocols), _) => {
-                    check_keys(&["protocols", "interpreter", "unmockedCommands"], object)?;
-                    let mut protocols = Protocols::from_array(protocols.expect_array()?)?;
-                    protocols.add_unmocked_commands(object)?;
-                    protocols.add_interpreter(object)?;
-                    protocols
+            Yaml::Array(array) => Tests::from_array(&array)?,
+            Yaml::Hash(object) => {
+                match (object.expect_field("tests"), object.expect_field("steps")) {
+                    (Ok(tests), _) => {
+                        check_keys(&["tests", "interpreter", "unmockedCommands"], object)?;
+                        let mut tests = Tests::from_array(tests.expect_array()?)?;
+                        tests.add_unmocked_commands(object)?;
+                        tests.add_interpreter(object)?;
+                        tests
+                    }
+                    (Err(_), Ok(_)) => Tests::new(vec![Test::from_object(&object)?]),
+                    (Err(_), Err(_)) => Err(format!(
+                        "expected top-level field \"steps\" or \"tests\", got: {:?}",
+                        &yaml
+                    ))?,
                 }
-                (Err(_), Ok(_)) => Protocols::new(vec![Protocol::from_object(&object)?]),
-                (Err(_), Err(_)) => Err(format!(
-                    "expected top-level field \"protocol\" or \"protocols\", got: {:?}",
-                    &yaml
-                ))?,
-            },
+            }
             _ => Err(format!("expected: array or object, got: {:?}", &yaml))?,
         })
     }
 
-    pub fn load(executable_path: &Path) -> R<(PathBuf, Protocols)> {
-        let protocols_file = find_protocol_file(executable_path);
+    pub fn load(executable_path: &Path) -> R<(PathBuf, Tests)> {
+        let protocols_file = find_protocols_file(executable_path);
         let file_contents = read_protocols_file(&protocols_file)?;
         let yaml: Vec<Yaml> = YamlLoader::load_from_str(&file_contents).map_err(|error| {
             format!(
@@ -455,7 +454,7 @@ impl Protocols {
         };
         Ok((
             protocols_file.clone(),
-            Protocols::parse(yaml).map_err(|error| {
+            Tests::parse(yaml).map_err(|error| {
                 format!("error in {}: {}", protocols_file.to_string_lossy(), error)
             })?,
         ))
@@ -482,11 +481,11 @@ impl Protocols {
         let mut object = LinkedHashMap::new();
         self.serialize_unmocked_commands(&mut object)?;
         {
-            let mut protocols = vec![];
-            for protocol in self.protocols.iter() {
-                protocols.push(protocol.serialize());
+            let mut tests = vec![];
+            for test in self.tests.iter() {
+                tests.push(test.serialize());
             }
-            object.insert(Yaml::from_str("protocols"), Yaml::Array(protocols));
+            object.insert(Yaml::from_str("tests"), Yaml::Array(tests));
         }
         Ok(Yaml::Hash(object))
     }
@@ -501,29 +500,29 @@ mod load {
     use std::*;
     use test_utils::{assert_error, trim_margin, Mappable, TempFile};
 
-    fn test_parse(tempfile: &TempFile, protocol_string: &str) -> R<Protocols> {
+    fn test_parse(tempfile: &TempFile, tests_string: &str) -> R<Tests> {
         let protocols_file = tempfile.path().with_extension("protocols.yaml");
-        fs::write(&protocols_file, trim_margin(protocol_string)?)?;
-        Ok(Protocols::load(&tempfile.path())?.1)
+        fs::write(&protocols_file, trim_margin(tests_string)?)?;
+        Ok(Tests::load(&tempfile.path())?.1)
     }
 
-    fn test_parse_one(protocol_string: &str) -> R<Protocol> {
+    fn test_parse_one(tests_string: &str) -> R<Test> {
         let tempfile = TempFile::new()?;
-        let result = test_parse(&tempfile, protocol_string)?.protocols;
+        let result = test_parse(&tempfile, tests_string)?.tests;
         assert_eq!(result.len(), 1);
         Ok(result.into_iter().next().unwrap())
     }
 
     #[test]
-    fn reads_a_protocol_from_a_sibling_yaml_file() -> R<()> {
+    fn reads_a_test_from_a_sibling_yaml_file() -> R<()> {
         assert_eq!(
             test_parse_one(
                 r"
-                    |protocol:
+                    |steps:
                     |  - /bin/true
                 ",
             )?,
-            Protocol::new(vec![Step::new(CommandMatcher::ExactMatch(Command {
+            Test::new(vec![Step::new(CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("/bin/true"),
                 arguments: vec![],
             }))]),
@@ -532,10 +531,10 @@ mod load {
     }
 
     #[test]
-    fn returns_an_informative_error_when_the_protocol_file_is_missing() {
+    fn returns_an_informative_error_when_the_protocols_file_is_missing() {
         assert_error!(
-            Protocols::load(&PathBuf::from("./does-not-exist")),
-            "protocol file not found: ./does-not-exist.protocols.yaml"
+            Tests::load(&PathBuf::from("./does-not-exist")),
+            "protocols file not found: ./does-not-exist.protocols.yaml"
         );
     }
 
@@ -551,15 +550,15 @@ mod load {
                     &tempfile,
                     "
                         |foo: 42
-                        |protocols:
-                        |  - protocol:
+                        |tests:
+                        |  - steps:
                         |      - foo
                     "
                 ),
                 format!(
                     "error in {}.protocols.yaml: \
                      unexpected field 'foo', \
-                     possible values: 'protocols', 'interpreter', 'unmockedCommands'",
+                     possible values: 'tests', 'interpreter', 'unmockedCommands'",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -567,14 +566,14 @@ mod load {
         }
 
         #[test]
-        fn disallows_unknown_protocol_keys() -> R<()> {
+        fn disallows_unknown_test_keys() -> R<()> {
             let tempfile = TempFile::new()?;
             assert_error!(
                 test_parse(
                     &tempfile,
                     "
-                        |protocols:
-                        |  - protocol:
+                        |tests:
+                        |  - steps:
                         |      - foo
                         |    foo: 42
                     "
@@ -583,7 +582,7 @@ mod load {
                     "error in {}.protocols.yaml: \
                      unexpected field 'foo', \
                      possible values: \
-                     'protocol', 'mockedFiles', 'arguments', 'env', \
+                     'steps', 'mockedFiles', 'arguments', 'env', \
                      'exitcode', 'stderr', 'cwd'",
                     path_to_string(&tempfile.path())?
                 )
@@ -598,8 +597,8 @@ mod load {
                 test_parse(
                     &tempfile,
                     "
-                        |protocols:
-                        |  - protocol:
+                        |tests:
+                        |  - steps:
                         |      - command: foo
                         |        foo: 42
                     "
@@ -630,7 +629,7 @@ mod load {
         assert_eq!(
             test_parse_one(
                 r"
-                    |protocol:
+                    |steps:
                     |  - /bin/true
                     |  - /bin/false
                 "
@@ -647,7 +646,7 @@ mod load {
         assert_eq!(
             test_parse_one(
                 r"
-                    |protocol:
+                    |steps:
                     |  - /bin/true foo bar
                 "
             )?
@@ -659,15 +658,15 @@ mod load {
     }
 
     #[test]
-    fn allows_to_specify_the_protocol_as_an_object() -> R<()> {
+    fn allows_to_specify_the_test_as_an_object() -> R<()> {
         assert_eq!(
             test_parse_one(
                 r"
-                    |protocol:
+                    |steps:
                     |  - /bin/true
                 "
             )?,
-            Protocol::new(vec![Step::new(CommandMatcher::ExactMatch(Command {
+            Test::new(vec![Step::new(CommandMatcher::ExactMatch(Command {
                 executable: PathBuf::from("/bin/true"),
                 arguments: vec![],
             }))]),
@@ -680,7 +679,7 @@ mod load {
         assert_eq!(
             test_parse_one(
                 r"
-                    |protocol:
+                    |steps:
                     |  - /bin/true
                     |env:
                     |  foo: bar
@@ -695,20 +694,20 @@ mod load {
     }
 
     #[test]
-    fn allows_to_specify_multiple_protocols() -> R<()> {
+    fn allows_to_specify_multiple_tests() -> R<()> {
         let tempfile = TempFile::new()?;
         assert_eq!(
             test_parse(
                 &tempfile,
                 r"
                     |- arguments: foo
-                    |  protocol: []
+                    |  steps: []
                     |- arguments: bar
-                    |  protocol: []
+                    |  steps: []
                 ",
             )?
-            .protocols
-            .map(|protocol| protocol.arguments),
+            .tests
+            .map(|test| test.arguments),
             vec![vec!["foo"], vec!["bar"]]
         );
         Ok(())
@@ -721,9 +720,9 @@ mod load {
             test_parse(
                 &tempfile,
                 r"
-                    |protocol: []
+                    |steps: []
                     |---
-                    |protocol: []
+                    |steps: []
                 ",
             ),
             format!(
@@ -735,21 +734,21 @@ mod load {
     }
 
     #[test]
-    fn allows_to_specify_multiple_protocols_as_an_object() -> R<()> {
+    fn allows_to_specify_multiple_tests_as_an_object() -> R<()> {
         let tempfile = TempFile::new()?;
         assert_eq!(
             test_parse(
                 &tempfile,
                 r"
-                    |protocols:
+                    |tests:
                     |  - arguments: foo
-                    |    protocol: []
+                    |    steps: []
                     |  - arguments: bar
-                    |    protocol: []
+                    |    steps: []
                 ",
             )?
-            .protocols
-            .map(|protocol| protocol.arguments),
+            .tests
+            .map(|test| test.arguments),
             vec![vec!["foo"], vec!["bar"]]
         );
         Ok(())
@@ -762,7 +761,7 @@ mod load {
             test_parse(&tempfile, "{}"),
             format!(
                 "error in {}.protocols.yaml: \
-                 expected top-level field \"protocol\" or \"protocols\", \
+                 expected top-level field \"steps\" or \"tests\", \
                  got: Hash({{}})",
                 path_to_string(&tempfile.path())?
             )
@@ -779,7 +778,7 @@ mod load {
             assert_eq!(
                 test_parse_one(
                     r"
-                        |protocol:
+                        |steps:
                         |  - /bin/true
                         |arguments: foo bar
                     "
@@ -795,7 +794,7 @@ mod load {
             assert_eq!(
                 test_parse_one(
                     r#"
-                        |protocol:
+                        |steps:
                         |  - /bin/true
                         |arguments: foo "bar baz"
                     "#
@@ -813,7 +812,7 @@ mod load {
                 test_parse(
                     &tempfile,
                     r"
-                        |protocol:
+                        |steps:
                         |  - /bin/true
                         |arguments: 42
                     "
@@ -837,7 +836,7 @@ mod load {
             assert_eq!(
                 test_parse_one(
                     r"
-                        |protocol:
+                        |steps:
                         |  - /bin/true
                         |cwd: /foo
                     "
@@ -853,7 +852,7 @@ mod load {
             assert_eq!(
                 test_parse_one(
                     r"
-                        |protocol:
+                        |steps:
                         |  - /bin/true
                     "
                 )?
@@ -867,13 +866,13 @@ mod load {
         fn disallows_relative_paths() -> R<()> {
             let yaml = YamlLoader::load_from_str(&trim_margin(
                 r"
-                    |protocol:
+                    |steps:
                     |  - /bin/true
                     |cwd: foo
                 ",
             )?)?;
             assert_error!(
-                Protocols::parse(yaml[0].clone()),
+                Tests::parse(yaml[0].clone()),
                 "cwd has to be an absolute path starting with \"/\", got: \"foo\""
             );
             Ok(())
@@ -889,7 +888,7 @@ mod load {
             assert_eq!(
                 test_parse_one(
                     r"
-                        |protocol:
+                        |steps:
                         |  - /bin/true
                         |exitcode: 42
                     "
@@ -905,7 +904,7 @@ mod load {
             assert_eq!(
                 test_parse_one(
                     r"
-                        |protocol:
+                        |steps:
                         |  - /bin/true
                     "
                 )?
@@ -927,8 +926,8 @@ mod load {
                 test_parse(
                     &tempfile,
                     r"
-                        |protocols:
-                        |  - protocol: []
+                        |tests:
+                        |  - steps: []
                         |unmockedCommands:
                         |  - foo
                     "
@@ -952,8 +951,8 @@ mod load {
                 test_parse(
                     &tempfile,
                     r"
-                        |protocols:
-                        |  - protocol: []
+                        |tests:
+                        |  - steps: []
                         |interpreter: /bin/bash
                     ",
                 )?
@@ -972,8 +971,8 @@ mod load {
                 test_parse(
                     &tempfile,
                     r"
-                        |protocols:
-                        |  - protocol: []
+                        |tests:
+                        |  - steps: []
                         |interpreter: 42
                     ",
                 ),
@@ -992,7 +991,7 @@ mod load {
         assert_eq!(
             test_parse_one(
                 r"
-                    |protocol: []
+                    |steps: []
                     |mockedFiles:
                     |  - /foo
                 "
@@ -1013,7 +1012,7 @@ mod load {
             assert_eq!(
                 test_parse_one(
                     r"
-                        |- protocol: []
+                        |- steps: []
                         |  stderr: foo
                     "
                 )?
@@ -1029,7 +1028,7 @@ mod load {
             assert_eq!(
                 test_parse_one(
                     r"
-                        |- protocol: []
+                        |- steps: []
                     "
                 )?
                 .stderr,
@@ -1047,8 +1046,8 @@ mod load {
         fn parses_a_regex_command_matcher() -> R<()> {
             let step = test_parse_one(
                 r"
-                    |protocols:
-                    |  - protocol:
+                    |tests:
+                    |  - steps:
                     |      - regex: \d
                 ",
             )?
@@ -1068,8 +1067,8 @@ mod load {
                 test_parse(
                     &tempfile,
                     r"
-                        |protocols:
-                        |  - protocol:
+                        |tests:
+                        |  - steps:
                         |      - command: foo
                         |        regex: \d
                     ",
@@ -1090,8 +1089,8 @@ mod load {
                 test_parse(
                     &tempfile,
                     r"
-                        |protocols:
-                        |  - protocol:
+                        |tests:
+                        |  - steps:
                         |      - regex: \x
                     ",
                 ),
@@ -1114,8 +1113,8 @@ mod load {
             assert_eq!(
                 test_parse_one(
                     r"
-                        |protocols:
-                        |  - protocol:
+                        |tests:
+                        |  - steps:
                         |      - _
                     "
                 )?
@@ -1130,8 +1129,8 @@ mod load {
             assert_eq!(
                 test_parse_one(
                     r"
-                        |protocols:
-                        |  - protocol:
+                        |tests:
+                        |  - steps:
                         |      - /bin/foo
                     "
                 )?
@@ -1148,8 +1147,8 @@ mod load {
                 test_parse(
                     &tempfile,
                     r"
-                        |protocols:
-                        |  - protocol:
+                        |tests:
+                        |  - steps:
                         |      - _
                         |      - /bin/foo
                     "
@@ -1170,81 +1169,79 @@ mod serialize {
     use super::*;
     use pretty_assertions::assert_eq;
 
-    fn roundtrip(protocols: Protocols) -> R<()> {
-        let yaml = protocols.serialize()?;
-        let result = Protocols::parse(yaml)?;
-        assert_eq!(result, protocols);
+    fn roundtrip(tests: Tests) -> R<()> {
+        let yaml = tests.serialize()?;
+        let result = Tests::parse(yaml)?;
+        assert_eq!(result, tests);
         Ok(())
     }
 
     #[test]
-    fn outputs_an_empty_protocols_object() -> R<()> {
-        roundtrip(Protocols::new(vec![]))
+    fn outputs_an_empty_tests_object() -> R<()> {
+        roundtrip(Tests::new(vec![]))
     }
 
     #[test]
-    fn outputs_a_single_protocol_with_no_steps() -> R<()> {
-        roundtrip(Protocols::new(vec![Protocol::empty()]))
+    fn outputs_a_single_test_with_no_steps() -> R<()> {
+        roundtrip(Tests::new(vec![Test::empty()]))
     }
 
     #[test]
-    fn outputs_a_single_protocol_with_a_single_step() -> R<()> {
-        roundtrip(Protocols::new(vec![Protocol::new(vec![
-            Step::from_string("cp")?,
-        ])]))
+    fn outputs_a_single_test_with_a_single_step() -> R<()> {
+        roundtrip(Tests::new(vec![Test::new(vec![Step::from_string("cp")?])]))
     }
 
     mod arguments {
         use super::*;
 
         #[test]
-        fn outputs_the_protocol_arguments() -> R<()> {
-            let mut protocol = Protocol::new(vec![Step::from_string("cp")?]);
-            protocol.arguments = vec!["foo".to_string()];
-            roundtrip(Protocols::new(vec![protocol]))
+        fn outputs_the_test_arguments() -> R<()> {
+            let mut test = Test::new(vec![Step::from_string("cp")?]);
+            test.arguments = vec!["foo".to_string()];
+            roundtrip(Tests::new(vec![test]))
         }
 
         #[test]
         fn works_for_arguments_with_special_characters() -> R<()> {
-            let mut protocol = Protocol::new(vec![Step::from_string("cp")?]);
-            protocol.arguments = vec!["foo bar".to_string()];
-            roundtrip(Protocols::new(vec![protocol]))
+            let mut test = Test::new(vec![Step::from_string("cp")?]);
+            test.arguments = vec!["foo bar".to_string()];
+            roundtrip(Tests::new(vec![test]))
         }
     }
 
     #[test]
-    fn outputs_the_protocol_exitcode() -> R<()> {
-        let mut protocol = Protocol::new(vec![Step::from_string("cp")?]);
-        protocol.exitcode = Some(42);
-        roundtrip(Protocols::new(vec![protocol]))
+    fn outputs_the_test_exitcode() -> R<()> {
+        let mut test = Test::new(vec![Step::from_string("cp")?]);
+        test.exitcode = Some(42);
+        roundtrip(Tests::new(vec![test]))
     }
 
     #[test]
     fn includes_the_step_exitcodes() -> R<()> {
-        let protocol = Protocol::new(vec![Step {
+        let test = Test::new(vec![Step {
             command_matcher: CommandMatcher::ExactMatch(Command::new("cp")?),
             stdout: vec![],
             exitcode: 42,
         }]);
-        roundtrip(Protocols::new(vec![protocol]))
+        roundtrip(Tests::new(vec![test]))
     }
 
     #[test]
     fn includes_the_environment() -> R<()> {
-        let mut protocol = Protocol::empty();
-        protocol.env.insert("FOO".to_string(), "bar".to_string());
-        roundtrip(Protocols::new(vec![protocol]))
+        let mut test = Test::empty();
+        test.env.insert("FOO".to_string(), "bar".to_string());
+        roundtrip(Tests::new(vec![test]))
     }
 
     #[test]
     fn includes_unmocked_commands() -> R<()> {
-        let mut protocols = Protocols::new(vec![Protocol::new(vec![])]);
-        protocols.unmocked_commands = vec![PathBuf::from("sed")];
-        roundtrip(protocols)
+        let mut tests = Tests::new(vec![Test::new(vec![])]);
+        tests.unmocked_commands = vec![PathBuf::from("sed")];
+        roundtrip(tests)
     }
 }
 
-fn find_protocol_file(executable: &Path) -> PathBuf {
+fn find_protocols_file(executable: &Path) -> PathBuf {
     let mut result = executable.to_path_buf().into_os_string();
     result.push(".");
     result.push("protocols.yaml");
@@ -1254,7 +1251,7 @@ fn find_protocol_file(executable: &Path) -> PathBuf {
 fn read_protocols_file(protocols_file: &Path) -> R<String> {
     if !protocols_file.exists() {
         Err(format!(
-            "protocol file not found: {}",
+            "protocols file not found: {}",
             protocols_file.to_string_lossy()
         ))?;
     }
@@ -1269,13 +1266,13 @@ fn read_protocols_file(protocols_file: &Path) -> R<String> {
 }
 
 #[cfg(test)]
-mod find_protocol_file {
+mod find_protocols_file {
     use super::*;
 
     #[test]
     fn adds_the_protocols_file_extension() {
         assert_eq!(
-            find_protocol_file(&PathBuf::from("foo")),
+            find_protocols_file(&PathBuf::from("foo")),
             PathBuf::from("foo.protocols.yaml")
         );
     }
@@ -1283,7 +1280,7 @@ mod find_protocol_file {
     #[test]
     fn works_for_files_with_extensions() {
         assert_eq!(
-            find_protocol_file(&PathBuf::from("foo.ext")),
+            find_protocols_file(&PathBuf::from("foo.ext")),
             PathBuf::from("foo.ext.protocols.yaml")
         );
     }

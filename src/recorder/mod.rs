@@ -1,9 +1,9 @@
 pub mod hole_recorder;
-mod protocol_result;
+mod result;
 
-use crate::protocol::command::Command;
-use crate::protocol::command_matcher::CommandMatcher;
-use crate::protocol::{compare_executables, Protocol, Step};
+use crate::test_spec::command::Command;
+use crate::test_spec::command_matcher::CommandMatcher;
+use crate::test_spec::{compare_executables, Step, Test};
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::SyscallMock;
 use crate::R;
@@ -13,7 +13,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 pub struct Recorder {
-    protocol: Protocol,
+    test: Test,
     command: Option<Command>,
     unmocked_commands: Vec<PathBuf>,
 }
@@ -21,15 +21,15 @@ pub struct Recorder {
 impl Recorder {
     pub fn empty() -> Recorder {
         Recorder {
-            protocol: Protocol::new(vec![]),
+            test: Test::new(vec![]),
             command: None,
             unmocked_commands: vec![],
         }
     }
 
-    pub fn new(protocol: Protocol, unmocked_commands: &[PathBuf]) -> Recorder {
+    pub fn new(test: Test, unmocked_commands: &[PathBuf]) -> Recorder {
         Recorder {
-            protocol,
+            test,
             command: None,
             unmocked_commands: unmocked_commands.to_vec(),
         }
@@ -37,7 +37,7 @@ impl Recorder {
 }
 
 impl SyscallMock for Recorder {
-    type Result = Protocol;
+    type Result = Test;
 
     fn handle_execve_enter(
         &mut self,
@@ -62,7 +62,7 @@ impl SyscallMock for Recorder {
     fn handle_exited(&mut self, _pid: Pid, exitcode: i32) -> R<()> {
         if let Some(command) = self.command.clone() {
             self.command = None;
-            self.protocol.steps.push_back(Step {
+            self.test.steps.push_back(Step {
                 command_matcher: CommandMatcher::ExactMatch(command),
                 stdout: vec![],
                 exitcode,
@@ -71,10 +71,10 @@ impl SyscallMock for Recorder {
         Ok(())
     }
 
-    fn handle_end(mut self, exitcode: i32, _redirector: &Redirector) -> R<Protocol> {
+    fn handle_end(mut self, exitcode: i32, _redirector: &Redirector) -> R<Test> {
         if exitcode != 0 {
-            self.protocol.exitcode = Some(exitcode);
+            self.test.exitcode = Some(exitcode);
         }
-        Ok(self.protocol)
+        Ok(self.test)
     }
 }
