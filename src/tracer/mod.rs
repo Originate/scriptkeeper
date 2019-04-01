@@ -25,7 +25,7 @@ use std::os::unix::ffi::OsStringExt;
 use std::panic;
 use std::path::{Path, PathBuf};
 use std::str;
-use stdio_redirecting::{CaptureStderr, Redirector};
+use stdio_redirecting::{Capture, Redirector};
 use syscall::Syscall;
 use tempdir::TempDir;
 
@@ -147,10 +147,10 @@ impl Tracer {
         program: &Path,
         args: Vec<String>,
         env: HashMap<String, String>,
-        capture_stderr: CaptureStderr,
+        capture: Capture,
         mut syscall_mock: impl SyscallMock<Result = MockResult>,
     ) -> R<MockResult> {
-        let redirector = Redirector::new(context, capture_stderr)?;
+        let redirector = Redirector::new(context, capture)?;
         fork_with_child_errors(
             || {
                 redirector.child_redirect_streams()?;

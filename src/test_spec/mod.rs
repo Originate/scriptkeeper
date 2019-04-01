@@ -196,7 +196,7 @@ pub struct Test {
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
     pub cwd: Option<PathBuf>,
-    stdout: Option<Vec<u8>>,
+    pub stdout: Option<Vec<u8>>,
     pub stderr: Option<Vec<u8>>,
     pub exitcode: Option<i32>,
     pub mocked_files: Vec<PathBuf>,

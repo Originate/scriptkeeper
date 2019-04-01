@@ -4,7 +4,7 @@ pub mod executable_mock;
 use crate::context::Context;
 use crate::test_spec;
 use crate::test_spec::Test;
-use crate::tracer::stdio_redirecting::Redirector;
+use crate::tracer::stdio_redirecting::{Redirect, Redirector};
 use crate::tracer::{tracee_memory, SyscallMock};
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::R;
@@ -68,6 +68,28 @@ impl TestChecker {
         let path = temp_executable.path();
         self.temporary_executables.push(temp_executable);
         Ok(path)
+    }
+
+    fn check_expected_output_stream(&mut self, redirect: &Redirect, expected: Vec<u8>) -> R<()> {
+        match redirect.captured()? {
+            None => panic!(
+                "scriptkeeper bug: {} expected, but not captured",
+                redirect.stream_type
+            ),
+            Some(captured) => {
+                if captured != expected {
+                    self.register_error(format!(
+                        "  expected output to {}: {:?}\
+                         \n  received output to {}: {:?}\n",
+                        redirect.stream_type,
+                        String::from_utf8_lossy(&expected).as_ref(),
+                        redirect.stream_type,
+                        String::from_utf8_lossy(&captured).as_ref(),
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     fn register_step_error(&mut self, expected: &str, received: &str) {
@@ -163,20 +185,11 @@ impl SyscallMock for TestChecker {
                 &format!("<exitcode {}>", exitcode),
             );
         }
+        if let Some(expected_stdout) = &self.test.stdout {
+            self.check_expected_output_stream(&redirector.stdout, expected_stdout.clone())?;
+        }
         if let Some(expected_stderr) = &self.test.stderr {
-            match redirector.stderr.captured()? {
-                None => panic!("scriptkeeper bug: stderr expected, but not captured"),
-                Some(captured_stderr) => {
-                    if &captured_stderr != expected_stderr {
-                        self.register_error(format!(
-                            "  expected output to stderr: {:?}\
-                             \n  received output to stderr: {:?}\n",
-                            String::from_utf8_lossy(&expected_stderr).as_ref(),
-                            String::from_utf8_lossy(&captured_stderr).as_ref(),
-                        ));
-                    }
-                }
-            }
+            self.check_expected_output_stream(&redirector.stderr, expected_stderr.clone())?;
         }
         Ok(self.result)
     }

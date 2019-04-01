@@ -25,7 +25,7 @@ use crate::recorder::{hole_recorder::run_against_tests, Recorder};
 use crate::test_checker::executable_mock;
 use crate::test_spec::yaml::write_yaml;
 use crate::test_spec::Tests;
-use crate::tracer::stdio_redirecting::CaptureStderr;
+use crate::tracer::stdio_redirecting::Capture;
 use crate::tracer::Tracer;
 use std::collections::HashMap;
 use std::path::Path;
@@ -140,7 +140,10 @@ fn print_recorded_test(context: &Context, program: &Path) -> R<ExitCode> {
         program,
         vec![],
         HashMap::new(),
-        CaptureStderr::NoCapture,
+        Capture {
+            stdout: false,
+            stderr: false,
+        },
         Recorder::empty(),
     )?;
     write_yaml(&mut *context.stdout(), &Tests::new(vec![test]).serialize()?)?;
