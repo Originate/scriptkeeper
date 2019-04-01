@@ -49,7 +49,7 @@ impl Step {
 
     fn add_stdout(&mut self, object: &Hash) -> R<()> {
         if let Ok(stdout) = object.expect_field("stdout") {
-            self.stdout = stdout.expect_str()?.as_bytes().to_vec();
+            self.stdout = stdout.expect_bytes()?;
         }
         Ok(())
     }
@@ -196,6 +196,7 @@ pub struct Test {
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
     pub cwd: Option<PathBuf>,
+    stdout: Option<Vec<u8>>,
     pub stderr: Option<Vec<u8>>,
     pub exitcode: Option<i32>,
     pub mocked_files: Vec<PathBuf>,
@@ -214,9 +215,10 @@ impl Test {
             arguments: vec![],
             env: HashMap::new(),
             cwd: None,
+            stdout: None,
+            stderr: None,
             exitcode: None,
             mocked_files: vec![],
-            stderr: None,
         }
     }
 
@@ -281,9 +283,16 @@ impl Test {
         Ok(())
     }
 
+    fn add_stdout(&mut self, object: &Hash) -> R<()> {
+        if let Ok(stdout) = object.expect_field("stdout") {
+            self.stdout = Some(stdout.expect_bytes()?);
+        }
+        Ok(())
+    }
+
     fn add_stderr(&mut self, object: &Hash) -> R<()> {
         if let Ok(stderr) = object.expect_field("stderr") {
-            self.stderr = Some(stderr.expect_str()?.as_bytes().to_vec());
+            self.stderr = Some(stderr.expect_bytes()?);
         }
         Ok(())
     }
@@ -312,6 +321,7 @@ impl Test {
                 "arguments",
                 "env",
                 "exitcode",
+                "stdout",
                 "stderr",
                 "cwd",
             ],
@@ -321,6 +331,7 @@ impl Test {
         test.add_arguments(&object)?;
         test.add_env(&object)?;
         test.add_cwd(&object)?;
+        test.add_stdout(&object)?;
         test.add_stderr(&object)?;
         test.add_exitcode(&object)?;
         test.add_mocked_files(&object)?;
@@ -575,7 +586,7 @@ mod load {
                      unexpected field 'foo', \
                      possible values: \
                      'steps', 'mockedFiles', 'arguments', 'env', \
-                     'exitcode', 'stderr', 'cwd'",
+                     'exitcode', 'stdout', 'stderr', 'cwd'",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -993,6 +1004,41 @@ mod load {
             vec![("/foo")]
         );
         Ok(())
+    }
+
+    mod expected_stdout {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn allows_to_specify_the_expected_stdout() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r"
+                        |- steps: []
+                        |  stdout: foo
+                    "
+                )?
+                .stdout
+                .map(|s| String::from_utf8(s).unwrap()),
+                Some("foo".to_string())
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn none_is_the_default() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r"
+                        |- steps: []
+                    "
+                )?
+                .stdout,
+                None
+            );
+            Ok(())
+        }
     }
 
     mod expected_stderr {
