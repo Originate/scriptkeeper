@@ -15,7 +15,7 @@ path = "src/main.rs"
 nix = "*"
 libc = "*"
 tempdir = "*"
-yaml-rust = { git = "https://github.com/hallettj/yaml-rust", rev = "5216abe1f7d24ccd17a3b1b1e56c0114758d5ed7" }
+yaml-rust = { git = "https://github.com/originate/yaml-rust", rev = "5216abe1f7d24ccd17a3b1b1e56c0114758d5ed7" }
 linked-hash-map = "*"
 bincode = "*"
 quale = "*"
