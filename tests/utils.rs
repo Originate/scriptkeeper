@@ -14,12 +14,47 @@ use std::path::PathBuf;
 use test_utils::{trim_margin, TempFile};
 use yaml_rust::YamlLoader;
 
-fn compare_results(result: (ExitCode, String), expected: Result<(), &str>) {
-    let expected_output = match expected {
-        Err(expected_output) => (ExitCode(1), expected_output.to_string()),
-        Ok(()) => (ExitCode(0), "All tests passed.\n".to_string()),
-    };
-    assert_eq!(result, expected_output);
+#[derive(Debug, PartialEq)]
+pub struct Expect {
+    expected_exit_code: ExitCode,
+    expected_stdout: String,
+    expected_stderr: String,
+}
+
+impl Expect {
+    pub fn ok() -> Self {
+        Expect {
+            expected_exit_code: ExitCode(0),
+            expected_stdout: "All tests passed.\n".to_string(),
+            expected_stderr: "".to_string(),
+        }
+    }
+
+    pub fn err(expected_output: &str) -> Self {
+        Expect {
+            expected_exit_code: ExitCode(1),
+            expected_stdout: expected_output.to_string(),
+            expected_stderr: "".to_string(),
+        }
+    }
+
+    pub fn stdout(self, expected_output: &str) -> Self {
+        Expect {
+            expected_stdout: expected_output.to_string(),
+            ..self
+        }
+    }
+
+    pub fn stderr(self, expected_output: &str) -> Self {
+        Expect {
+            expected_stderr: expected_output.to_string(),
+            ..self
+        }
+    }
+}
+
+fn compare_results(actual: Expect, expected: Expect) {
+    assert_eq!(actual, expected);
 }
 
 pub fn prepare_script(script_code: &str, tests: &str) -> R<(TempFile, PathBuf)> {
@@ -46,15 +81,22 @@ pub fn test_run_with_context(
     context: &Context,
     script_code: &str,
     tests: &str,
-    expected: Result<(), &str>,
+    expected: Expect,
 ) -> R<()> {
     let script = TempFile::write_temp_script(trim_margin(script_code)?.as_bytes())?;
-    let result = test_run_with_tempfile(context, &script, tests)?;
-    compare_results(result, expected);
+    let (exit_code, stdout) = test_run_with_tempfile(context, &script, tests)?;
+    compare_results(
+        Expect {
+            expected_exit_code: exit_code,
+            expected_stdout: stdout,
+            expected_stderr: context.get_captured_stderr(),
+        },
+        expected,
+    );
     Ok(())
 }
 
-pub fn test_run(script_code: &str, tests: &str, expected: Result<(), &str>) -> R<()> {
+pub fn test_run(script_code: &str, tests: &str, expected: Expect) -> R<()> {
     test_run_with_context(&Context::new_mock(), script_code, tests, expected)
 }
 

@@ -8,39 +8,29 @@
 #[path = "./utils.rs"]
 mod utils;
 
-use scriptkeeper::{context::Context, R};
-use test_utils::{trim_margin, TempFile};
-use utils::{test_run, test_run_with_context, test_run_with_tempfile};
+use scriptkeeper::R;
+use test_utils::trim_margin;
+use utils::{test_run, Expect};
 
 #[test]
 fn relays_stdout_from_the_tested_script_to_the_user() -> R<()> {
-    let context = Context::new_mock();
-    let script = TempFile::write_temp_script(
-        trim_margin(
-            r"
-                |#!/usr/bin/env bash
-                |echo foo
-            ",
-        )?
-        .as_bytes(),
-    )?;
-    test_run_with_tempfile(
-        &context,
-        &script,
+    test_run(
+        r"
+            |#!/usr/bin/env bash
+            |echo foo
+        ",
         r"
             |tests:
             |  - steps: []
         ",
+        Expect::ok().stdout("foo\nAll tests passed.\n"),
     )?;
-    assert_eq!(context.get_captured_stdout(), "foo\nAll tests passed.\n");
     Ok(())
 }
 
 #[test]
 fn relays_stderr_from_the_tested_script_to_the_user() -> R<()> {
-    let context = Context::new_mock();
-    test_run_with_context(
-        &context,
+    test_run(
         r"
             |#!/usr/bin/env bash
             |echo foo 1>&2
@@ -49,9 +39,8 @@ fn relays_stderr_from_the_tested_script_to_the_user() -> R<()> {
             |tests:
             |  - steps: []
         ",
-        Ok(()),
+        Expect::ok().stderr("foo\n"),
     )?;
-    assert_eq!(context.get_captured_stderr(), "foo\n");
     Ok(())
 }
 
@@ -70,13 +59,14 @@ mod expected_stderr {
                 |  - steps: []
                 |    stderr: "foo\n"
             "#,
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 r#"
                     |error:
                     |  expected output to stderr: "foo\n"
                     |  received output to stderr: "bar\n"
                 "#,
-            )?),
+            )?)
+            .stderr("bar\n"),
         )?;
         Ok(())
     }
@@ -93,7 +83,7 @@ mod expected_stderr {
                 |  - steps: []
                 |    stderr: "foo\n"
             "#,
-            Ok(()),
+            Expect::ok().stderr("foo\n"),
         )?;
         Ok(())
     }
@@ -109,7 +99,7 @@ mod expected_stderr {
                 |  - steps: []
                 |    stderr: "foo\n"
             "#,
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 r#"
                     |error:
                     |  expected output to stderr: "foo\n"
@@ -119,4 +109,7 @@ mod expected_stderr {
         )?;
         Ok(())
     }
+
+    #[test]
+    fn when_not_specified_but_scripts_writes_to_stderr() {}
 }
