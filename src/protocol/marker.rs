@@ -1,6 +1,6 @@
 use yaml_rust;
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Eq, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Marker {
     pub line: usize,
     pub col: usize,
