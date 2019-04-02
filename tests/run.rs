@@ -354,6 +354,54 @@ mod nice_user_errors {
         );
         Ok(())
     }
+
+    #[test]
+    fn nice_error_with_yaml_source_line_number_when_string_step_fails() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |cp foo
+            ",
+            r"
+                |protocol:
+                |  - cp bar
+            ",
+            Err(&trim_margin(
+                r"
+                    |error:
+                    |  in step on line 2,
+                    |  expected: cp bar
+                    |  received: cp foo
+                ",
+            )?),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn nice_error_with_yaml_source_line_number_when_hash_step_fails() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |cp bar
+                |cp foo
+            ",
+            r"
+                |protocol:
+                |  - command: cp bar
+                |  - command: cp bar
+            ",
+            Err(&trim_margin(
+                r"
+                    |error:
+                    |  in step on line 3,
+                    |  expected: cp bar
+                    |  received: cp foo
+                ",
+            )?),
+        )?;
+        Ok(())
+    }
 }
 
 mod arguments {
