@@ -3,46 +3,54 @@ use linked_hash_map::LinkedHashMap;
 use std::fmt;
 use std::io;
 use std::io::Cursor;
-use yaml_rust::{yaml::Hash, Yaml, YamlEmitter};
+use yaml_rust::{yaml::HashNode, Node, Yaml, YamlEmitter, YamlMarked, YamlNode};
 
 pub trait YamlExt {
+    type Child;
+
     fn expect_str(&self) -> R<&str>;
 
-    fn expect_array(&self) -> R<&Vec<Yaml>>;
+    fn expect_array(&self) -> R<&Vec<Self::Child>>;
 
-    fn expect_object(&self) -> R<&LinkedHashMap<Yaml, Yaml>>;
+    fn expect_object(&self) -> R<&LinkedHashMap<Self::Child, Self::Child>>;
 
     fn expect_integer(&self) -> R<i32>;
 }
 
-impl YamlExt for Yaml {
+impl<T> YamlExt for T
+where
+    T: Clone + YamlNode,
+    Yaml: From<T>,
+{
+    type Child = <T as YamlNode>::Child;
+
     fn expect_str(&self) -> R<&str> {
         Ok(self
             .as_str()
-            .ok_or_else(|| format!("expected: string, got: {:?}", self))?)
+            .ok_or_else(|| format!("expected: string, got: {:?}", Yaml::from(self.clone())))?)
     }
 
-    fn expect_array(&self) -> R<&Vec<Yaml>> {
+    fn expect_array(&self) -> R<&Vec<Self::Child>> {
         Ok(self
             .as_vec()
-            .ok_or_else(|| format!("expected: array, got: {:?}", self))?)
+            .ok_or_else(|| format!("expected: array, got: {:?}", Yaml::from(self.clone())))?)
     }
 
-    fn expect_object(&self) -> R<&LinkedHashMap<Yaml, Yaml>> {
+    fn expect_object(&self) -> R<&LinkedHashMap<Self::Child, Self::Child>> {
         Ok(self
             .as_hash()
-            .ok_or_else(|| format!("expected: object, got: {:?}", self))?)
+            .ok_or_else(|| format!("expected: object, got: {:?}", Yaml::from(self.clone())))?)
     }
 
     fn expect_integer(&self) -> R<i32> {
         let result: i64 = self
             .as_i64()
-            .ok_or_else(|| format!("expected: integer, got: {:?}", self))?;
+            .ok_or_else(|| format!("expected: integer, got: {:?}", Yaml::from(self.clone())))?;
         if result > i64::from(i32::max_value()) {
             Err(format!(
                 "expected: integer below {}, got: {:?}",
                 i32::max_value(),
-                self
+                Yaml::from(self.clone())
             ))?;
         }
         Ok(result as i32)
@@ -75,18 +83,18 @@ mod yaml_ext {
 }
 
 pub trait MapExt {
-    fn expect_field(&self, field: &str) -> R<&Yaml>;
+    fn expect_field(&self, field: &str) -> R<&Node>;
 }
 
-impl MapExt for LinkedHashMap<Yaml, Yaml> {
-    fn expect_field(&self, field: &str) -> R<&Yaml> {
+impl MapExt for LinkedHashMap<Node, Node> {
+    fn expect_field(&self, field: &str) -> R<&Node> {
         Ok(self
-            .get(&Yaml::String(field.to_string()))
+            .get(&Node(YamlMarked::String(field.to_string()), None))
             .ok_or_else(|| format!("expected field '{}', got: {:?}", field, self))?)
     }
 }
 
-pub fn check_keys(known_keys: &[&str], object: &Hash) -> R<()> {
+pub fn check_keys(known_keys: &[&str], object: &HashNode) -> R<()> {
     for key in object.keys() {
         let key = key.expect_str()?;
         if !known_keys.contains(&key) {

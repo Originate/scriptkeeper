@@ -52,6 +52,7 @@ impl ProtocolChecker {
             Some(next_protocol_step) => {
                 if !next_protocol_step.command_matcher.matches(&received) {
                     self.register_step_error(
+                        next_protocol_step.marker,
                         &next_protocol_step.command_matcher.format(),
                         &received.format(),
                     );
@@ -62,7 +63,7 @@ impl ProtocolChecker {
                 }
             }
             None => {
-                self.register_step_error("<protocol end>", &received.format());
+                self.register_step_error(None, "<protocol end>", &received.format());
                 ProtocolChecker::allow_failing_scripts_to_continue()
             }
         };
@@ -74,10 +75,19 @@ impl ProtocolChecker {
         Ok(path)
     }
 
-    fn register_step_error(&mut self, expected: &str, received: &str) {
+    fn register_step_error(
+        &mut self,
+        marker: Option<protocol::Marker>,
+        expected: &str,
+        received: &str,
+    ) {
+        let location = match marker {
+            Some(marker) => format!("  in step on line {},\n", marker.line),
+            _ => "".to_string(),
+        };
         self.register_error(format!(
-            "  expected: {}\n  received: {}\n",
-            expected, received
+            "{}  expected: {}\n  received: {}\n",
+            location, expected, received
         ));
     }
 
@@ -156,6 +166,7 @@ impl SyscallMock for ProtocolChecker {
     fn handle_end(mut self, exitcode: i32, redirector: &Redirector) -> R<CheckerResult> {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_step_error(
+                expected_step.marker,
                 &expected_step.command_matcher.format(),
                 "<script terminated>",
             );
@@ -163,6 +174,7 @@ impl SyscallMock for ProtocolChecker {
         let expected_exitcode = self.protocol.exitcode.unwrap_or(0);
         if exitcode != expected_exitcode {
             self.register_step_error(
+                None,
                 &format!("<exitcode {}>", expected_exitcode),
                 &format!("<exitcode {}>", exitcode),
             );
