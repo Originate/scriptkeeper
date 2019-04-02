@@ -82,7 +82,7 @@ impl ProtocolChecker {
         received: &str,
     ) {
         let location = match marker {
-            Some(marker) => format!("  in step on line {},\n", marker.line()),
+            Some(marker) => format!("  in step on line {},\n", marker.line),
             _ => "".to_string(),
         };
         self.register_error(format!(

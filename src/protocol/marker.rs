@@ -6,13 +6,6 @@ pub struct Marker {
     pub col: usize,
 }
 
-impl Marker {
-    pub fn line(&self) -> usize {
-        let Marker { line, .. } = self;
-        *line
-    }
-}
-
 impl<'a> From<&'a yaml_rust::Marker> for Marker {
     fn from(marker: &'a yaml_rust::Marker) -> Self {
         Marker {
