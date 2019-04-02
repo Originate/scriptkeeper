@@ -40,11 +40,6 @@ impl Step {
         }
     }
 
-    pub fn marker(&self) -> Option<Marker> {
-        let Step { marker, .. } = self;
-        *marker
-    }
-
     fn from_string(string: &str) -> R<Step> {
         Ok(Step::new(CommandMatcher::ExactMatch(Command::new(string)?)))
     }

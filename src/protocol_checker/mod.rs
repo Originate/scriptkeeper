@@ -52,7 +52,7 @@ impl ProtocolChecker {
             Some(next_protocol_step) => {
                 if !next_protocol_step.command_matcher.matches(&received) {
                     self.register_step_error(
-                        next_protocol_step.marker(),
+                        next_protocol_step.marker,
                         &next_protocol_step.command_matcher.format(),
                         &received.format(),
                     );
@@ -166,7 +166,7 @@ impl SyscallMock for ProtocolChecker {
     fn handle_end(mut self, exitcode: i32, redirector: &Redirector) -> R<CheckerResult> {
         if let Some(expected_step) = self.protocol.steps.pop_front() {
             self.register_step_error(
-                expected_step.marker(),
+                expected_step.marker,
                 &expected_step.command_matcher.format(),
                 "<script terminated>",
             );
