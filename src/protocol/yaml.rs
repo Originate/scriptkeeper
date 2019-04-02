@@ -19,38 +19,38 @@ pub trait YamlExt {
 
 impl<T> YamlExt for T
 where
-    T: fmt::Debug + YamlNode,
-    <T as YamlNode>::Child: fmt::Debug,
+    T: Clone + YamlNode,
+    Yaml: From<T>,
 {
     type Child = <T as YamlNode>::Child;
 
     fn expect_str(&self) -> R<&str> {
         Ok(self
             .as_str()
-            .ok_or_else(|| format!("expected: string, got: {:?}", self))?)
+            .ok_or_else(|| format!("expected: string, got: {:?}", Yaml::from(self.clone())))?)
     }
 
     fn expect_array(&self) -> R<&Vec<Self::Child>> {
         Ok(self
             .as_vec()
-            .ok_or_else(|| format!("expected: array, got: {:?}", self))?)
+            .ok_or_else(|| format!("expected: array, got: {:?}", Yaml::from(self.clone())))?)
     }
 
     fn expect_object(&self) -> R<&LinkedHashMap<Self::Child, Self::Child>> {
         Ok(self
             .as_hash()
-            .ok_or_else(|| format!("expected: object, got: {:?}", self))?)
+            .ok_or_else(|| format!("expected: object, got: {:?}", Yaml::from(self.clone())))?)
     }
 
     fn expect_integer(&self) -> R<i32> {
         let result: i64 = self
             .as_i64()
-            .ok_or_else(|| format!("expected: integer, got: {:?}", self))?;
+            .ok_or_else(|| format!("expected: integer, got: {:?}", Yaml::from(self.clone())))?;
         if result > i64::from(i32::max_value()) {
             Err(format!(
                 "expected: integer below {}, got: {:?}",
                 i32::max_value(),
-                self
+                Yaml::from(self.clone())
             ))?;
         }
         Ok(result as i32)

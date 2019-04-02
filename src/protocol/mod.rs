@@ -437,7 +437,7 @@ impl Protocols {
                 (Err(_), Ok(_)) => Protocols::new(vec![Protocol::from_object(&object)?]),
                 (Err(_), Err(_)) => Err(format!(
                     "expected top-level field \"protocol\" or \"protocols\", got: {:?}",
-                    &yaml
+                    &yaml.value()
                 ))?,
             },
             _ => Err(format!("expected: array or object, got: {:?}", &yaml))?,
@@ -786,7 +786,7 @@ mod load {
             format!(
                 "error in {}.protocols.yaml: \
                  expected top-level field \"protocol\" or \"protocols\", \
-                 got: Node(Hash({{}}), Some(Marker {{ index: 0, line: 1, col: 0 }}))",
+                 got: Hash({{}})",
                 path_to_string(&tempfile.path())?
             )
         );
@@ -843,8 +843,7 @@ mod load {
                 ),
                 format!(
                     "error in {}.protocols.yaml: \
-                     expected: string, \
-                     got: Node(Integer(42), Some(Marker {{ index: 35, line: 3, col: 11 }}))",
+                     expected: string, got: Integer(42)",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -1003,8 +1002,7 @@ mod load {
                 ),
                 format!(
                     "error in {}.protocols.yaml: \
-                     expected: string, \
-                     got: Node(Integer(42), Some(Marker {{ index: 41, line: 3, col: 13 }}))",
+                     expected: string, got: Integer(42)",
                     path_to_string(&tempfile.path())?
                 )
             );

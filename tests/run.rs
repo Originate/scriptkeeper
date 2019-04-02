@@ -139,8 +139,7 @@ mod yaml_parse_errors {
             result,
             format!(
                 "error in {}.protocols.yaml: \
-                 expected: array, \
-                 got: Node(Integer(42), Some(Marker {{ index: 10, line: 1, col: 10 }}))",
+                 expected: array, got: Integer(42)",
                 path_to_string(&script.path())?
             )
         );
