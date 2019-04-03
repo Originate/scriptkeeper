@@ -110,13 +110,13 @@ fn records_command_arguments() -> R<()> {
     test_recording(
         "
             |#!/usr/bin/env bash
-            |mkdir -p foo
+            |date --version > /dev/null
         ",
-        "
+        r#"
             |tests:
             |  - steps:
-            |      - mkdir -p foo
-        ",
+            |      - "date --version"
+        "#,
     )
 }
 
