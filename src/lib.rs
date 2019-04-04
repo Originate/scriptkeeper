@@ -141,7 +141,7 @@ fn print_recorded_test(context: &Context, program: &Path) -> R<ExitCode> {
         vec![],
         HashMap::new(),
         CaptureStderr::NoCapture,
-        Recorder::empty(),
+        Recorder::empty(context),
     )?;
     write_yaml(&mut *context.stdout(), &Tests::new(vec![test]).serialize()?)?;
     Ok(ExitCode(0))

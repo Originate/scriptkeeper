@@ -18,7 +18,7 @@ use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct TestChecker {
-    context: Context,
+    pub context: Context,
     pub test: Test,
     pub unmocked_commands: Vec<PathBuf>,
     pub result: CheckerResult,

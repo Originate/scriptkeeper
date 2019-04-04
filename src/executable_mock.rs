@@ -38,7 +38,7 @@ impl ExecutableMock {
         Ok(ExecutableMock { temp_file })
     }
 
-    fn wrapper(context: &Context, executable: &Path) -> R<ExecutableMock> {
+    pub fn wrapper(context: &Context, executable: &Path) -> R<ExecutableMock> {
         ExecutableMock::new(
             context,
             Config::Wrapper {
@@ -166,6 +166,25 @@ mod test {
             let executable_mock = ExecutableMock::wrapper(&Context::new_mock(), &script.path())?;
             let output = Command::new(executable_mock.path()).output()?;
             assert_eq!(String::from_utf8(output.stdout)?, "foo\n");
+            Ok(())
+        }
+
+        #[test]
+        fn relays_the_process_environment() -> R<()> {
+            let script = TempFile::write_temp_script(
+                trim_margin(
+                    "
+                        |#!/usr/bin/env bash
+                        |echo $FOO
+                    ",
+                )?
+                .as_bytes(),
+            )?;
+            let executable_mock = ExecutableMock::wrapper(&Context::new_mock(), &script.path())?;
+            let output = Command::new(executable_mock.path())
+                .env("FOO", "bar")
+                .output()?;
+            assert_eq!(String::from_utf8(output.stdout)?, "bar\n");
             Ok(())
         }
     }

@@ -56,6 +56,7 @@ impl SyscallMock for HoleRecorder {
                         CheckerResult::Pass => {
                             *self = HoleRecorder::Recorder {
                                 recorder: Recorder::new(
+                                    &checker.context,
                                     original_test.clone(),
                                     &checker.unmocked_commands,
                                 ),
@@ -86,7 +87,8 @@ impl SyscallMock for HoleRecorder {
             } => match checker.result {
                 CheckerResult::Pass => {
                     original_test.ends_with_hole = false;
-                    let recorder = Recorder::new(original_test, &checker.unmocked_commands);
+                    let recorder =
+                        Recorder::new(&checker.context, original_test, &checker.unmocked_commands);
                     RecorderResult::Recorded(recorder.handle_end(exitcode, redirector)?)
                 }
                 failure @ CheckerResult::Failure(_) => {
