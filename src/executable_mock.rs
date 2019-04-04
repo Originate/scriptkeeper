@@ -73,7 +73,7 @@ impl ExecutableMock {
                 Ok(ExitCode(exitcode))
             }
             Config::Wrapper { executable } => {
-                Command::new(&executable).output()?;
+                Command::new(&executable).status()?;
                 Ok(ExitCode(0))
             }
         }
@@ -135,12 +135,12 @@ mod test {
         #[test]
         fn executes_the_given_command() -> R<()> {
             let temp_dir = TempDir::new("test")?;
-            let path = temp_dir.path().join("foo.txt");
+            let path = temp_dir.path().join("foo");
             let script = TempFile::write_temp_script(
                 trim_margin(&format!(
                     "
                         |#!/usr/bin/env bash
-                        |echo foo > {}
+                        |touch {}
                     ",
                     path_to_string(&path)?
                 ))?
@@ -148,7 +148,24 @@ mod test {
             )?;
             let executable_mock = ExecutableMock::wrapper(&Context::new_mock(), &script.path())?;
             Command::new(executable_mock.path()).status()?;
-            assert_eq!(String::from_utf8(fs::read(&path)?)?, "foo\n");
+            assert!(path.exists());
+            Ok(())
+        }
+
+        #[test]
+        fn relays_stdout() -> R<()> {
+            let script = TempFile::write_temp_script(
+                trim_margin(
+                    "
+                        |#!/usr/bin/env bash
+                        |echo foo
+                    ",
+                )?
+                .as_bytes(),
+            )?;
+            let executable_mock = ExecutableMock::wrapper(&Context::new_mock(), &script.path())?;
+            let output = Command::new(executable_mock.path()).output()?;
+            assert_eq!(String::from_utf8(output.stdout)?, "foo\n");
             Ok(())
         }
     }
