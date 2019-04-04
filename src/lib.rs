@@ -106,7 +106,7 @@ mod run_main {
         let context = Context::new_mock();
         let executable_mock = ExecutableMock::new(
             &context,
-            executable_mock::Config {
+            executable_mock::Config::Config {
                 stdout: b"foo".to_vec(),
                 exitcode: 0,
             },

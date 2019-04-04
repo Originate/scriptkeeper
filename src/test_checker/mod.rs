@@ -7,7 +7,6 @@ use crate::test_spec;
 use crate::test_spec::Test;
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::{tracee_memory, SyscallMock};
-use crate::utils::short_temp_files::ShortTempFile;
 use crate::R;
 use checker_result::CheckerResult;
 use libc::{c_ulonglong, user_regs_struct};
@@ -38,7 +37,7 @@ impl TestChecker {
     }
 
     fn allow_failing_scripts_to_continue() -> executable_mock::Config {
-        executable_mock::Config {
+        executable_mock::Config::Config {
             stdout: vec![],
             exitcode: 0,
         }
@@ -53,7 +52,7 @@ impl TestChecker {
                         &received.format(),
                     );
                 }
-                executable_mock::Config {
+                executable_mock::Config::Config {
                     stdout: next_test_step.stdout,
                     exitcode: next_test_step.exitcode,
                 }

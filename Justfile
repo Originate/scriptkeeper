@@ -23,6 +23,11 @@ dev:
   clear ; printf "\e[3J"
   cargo test --all --color=always --features 'dev test' -- --test-threads=1 --quiet
 
+unit_test:
+  clear ; printf "\e[3J"
+  cargo build --color=always --features=dev
+  cargo test --lib --all --color=always --features 'dev test' -- --test-threads=1 --quiet
+
 run_bigger:
   cargo run -- tests/examples/bigger/script
 
