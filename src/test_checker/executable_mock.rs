@@ -13,6 +13,12 @@ pub struct Config {
 }
 
 pub fn create_mock_executable(context: &Context, config: Config) -> R<Vec<u8>> {
+    if !context.scriptkeeper_executable().exists() {
+        Err(format!(
+            "scriptkeeper bug: scriptkeeper_executable can't be found: {}",
+            context.scriptkeeper_executable().to_string_lossy()
+        ))?;
+    }
     let mut result = b"#!".to_vec();
     result.append(
         &mut context
@@ -42,10 +48,11 @@ fn skip_hashbang_line(input: Vec<u8>) -> Vec<u8> {
 }
 
 #[cfg(test)]
-mod test {
+mod create_mock_executable {
     use super::*;
+    use std::path::PathBuf;
     use std::process::Command;
-    use test_utils::TempFile;
+    use test_utils::{assert_error, TempFile};
 
     #[test]
     fn renders_an_executable_that_outputs_the_given_stdout() -> R<()> {
@@ -73,5 +80,22 @@ mod test {
         let output = Command::new(mock_executable.path()).output()?;
         assert_eq!(output.status.code(), Some(42));
         Ok(())
+    }
+
+    #[test]
+    fn aborts_with_a_helpful_message_when_scriptkeeper_executable_does_not_exist() {
+        let context = Context::Context {
+            scriptkeeper_executable: PathBuf::from("/bin/does_not_exist"),
+        };
+        assert_error!(
+            create_mock_executable(
+                &context,
+                Config {
+                    stdout: vec![],
+                    exitcode: 42,
+                },
+            ),
+            "scriptkeeper bug: scriptkeeper_executable can't be found: /bin/does_not_exist"
+        );
     }
 }
