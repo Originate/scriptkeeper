@@ -3,6 +3,7 @@ pub mod executable_mock;
 
 use crate::context::Context;
 use crate::test_spec;
+use crate::test_spec::executable_path::is_unmocked_command;
 use crate::test_spec::Test;
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::{tracee_memory, SyscallMock};
@@ -97,11 +98,7 @@ impl SyscallMock for TestChecker {
         executable: PathBuf,
         arguments: Vec<OsString>,
     ) -> R<()> {
-        let is_unmocked_command = self
-            .unmocked_commands
-            .iter()
-            .any(|unmocked_command| test_spec::compare_executables(unmocked_command, &executable));
-        if !is_unmocked_command {
+        if !is_unmocked_command(&self.unmocked_commands, &executable) {
             let mock_executable_path = self.handle_step(test_spec::Command {
                 executable,
                 arguments,

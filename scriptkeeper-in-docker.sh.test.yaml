@@ -1,5 +1,5 @@
 unmockedCommands:
-  - /usr/bin/basename
+  - basename
 tests:
   # works for relative paths
   - arguments: ./script

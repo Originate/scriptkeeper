@@ -9,10 +9,12 @@
 mod utils;
 
 use pretty_assertions::assert_eq;
+use quale::which;
 use scriptkeeper::context::Context;
 use scriptkeeper::utils::path_to_string;
 use scriptkeeper::{cli, run_main, R};
 use std::fs;
+use tempdir::TempDir;
 use test_utils::trim_margin;
 use utils::{assert_eq_yaml, prepare_script};
 
@@ -365,6 +367,37 @@ mod unmocked_commands {
                 |#!/usr/bin/env bash
                 |ls
             ",
+            "
+                |unmockedCommands:
+                |  - ls
+                |tests:
+                |  - steps:
+                |      - _
+            ",
+            "
+                |unmockedCommands:
+                |  - ls
+                |tests:
+                |  - steps: []
+            ",
+        )
+    }
+
+    #[test]
+    fn excludes_absolute_unmocked_commands_from_recorded_tests() -> R<()> {
+        let tempdir = TempDir::new("test")?;
+        std::os::unix::fs::symlink(
+            which("ls").ok_or("cannot find dirname")?,
+            tempdir.path().join("ls"),
+        )?;
+        test_holes(
+            &format!(
+                "
+                    |#!/usr/bin/env bash
+                    |{}/ls
+                ",
+                tempdir.path().to_string_lossy()
+            ),
             "
                 |unmockedCommands:
                 |  - ls

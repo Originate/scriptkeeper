@@ -99,3 +99,9 @@ mod canonicalize {
         Ok(())
     }
 }
+
+pub fn is_unmocked_command(unmocked_commands: &[PathBuf], executable: &Path) -> bool {
+    unmocked_commands
+        .iter()
+        .any(|unmocked_command| executable.file_name() == Some(unmocked_command.as_os_str()))
+}

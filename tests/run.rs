@@ -8,11 +8,13 @@
 #[path = "./utils.rs"]
 mod utils;
 
+use quale::which;
 use scriptkeeper::utils::path_to_string;
 use scriptkeeper::{context::Context, run_scriptkeeper, R};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+use tempdir::TempDir;
 use test_utils::{assert_error, trim_margin, TempFile};
 use utils::{prepare_script, test_run, test_run_with_tempfile};
 
@@ -965,6 +967,33 @@ mod unmocked_commands {
                     |  received: ls dir
                 ",
             )?),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn works_when_the_unmocked_commands_are_not_in_the_path() -> R<()> {
+        let tempdir = TempDir::new("test")?;
+        std::os::unix::fs::symlink(
+            which("dirname").ok_or("cannot find dirname")?,
+            tempdir.path().join("dirname"),
+        )?;
+        test_run(
+            &format!(
+                r"
+                    |#!/usr/bin/env bash
+                    |ls $({}/dirname dir/file)
+                ",
+                tempdir.path().to_string_lossy()
+            ),
+            r"
+                |tests:
+                |  - steps:
+                |    - ls dir
+                |unmockedCommands:
+                |  - dirname
+            ",
+            Ok(()),
         )?;
         Ok(())
     }

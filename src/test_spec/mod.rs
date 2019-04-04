@@ -3,7 +3,7 @@ extern crate yaml_rust;
 mod argument_parser;
 pub mod command;
 pub mod command_matcher;
-mod executable_path;
+pub mod executable_path;
 pub mod yaml;
 
 use self::argument_parser::Parser;
