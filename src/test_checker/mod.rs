@@ -2,8 +2,8 @@ pub mod checker_result;
 pub mod executable_mock;
 
 use crate::context::Context;
+use crate::executable_path::is_unmocked_command;
 use crate::test_spec;
-use crate::test_spec::executable_path::is_unmocked_command;
 use crate::test_spec::Test;
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::{tracee_memory, SyscallMock};
