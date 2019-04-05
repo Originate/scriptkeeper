@@ -508,67 +508,6 @@ mod mismatch_in_number_of_commands {
     }
 }
 
-mod stdout {
-    use super::*;
-
-    #[test]
-    fn mock_stdout() -> R<()> {
-        test_run(
-            r"
-                |#!/usr/bin/env bash
-                |output=$(cp)
-                |cp $output
-            ",
-            r"
-                |steps:
-                |  - command: cp
-                |    stdout: test_output
-                |  - cp test_output
-            ",
-            Expect::ok(),
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn mock_stdout_with_special_characters() -> R<()> {
-        test_run(
-            r"
-                |#!/usr/bin/env bash
-                |output=$(cp)
-                |cp $output
-            ",
-            r#"
-                |steps:
-                |  - command: cp
-                |    stdout: 'foo"'
-                |  - 'cp foo\"'
-            "#,
-            Expect::ok(),
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn mock_stdout_with_newlines() -> R<()> {
-        test_run(
-            r#"
-                |#!/usr/bin/env bash
-                |output=$(cp)
-                |cp "$output"
-            "#,
-            r#"
-                |steps:
-                |  - command: cp
-                |    stdout: "foo\nbar"
-                |  - 'cp foo\nbar'
-            "#,
-            Expect::ok(),
-        )?;
-        Ok(())
-    }
-}
-
 #[test]
 fn pass_arguments_into_tested_script() -> R<()> {
     test_run(

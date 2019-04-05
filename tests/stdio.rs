@@ -44,6 +44,67 @@ fn relays_stderr_from_the_tested_script_to_the_user() -> R<()> {
     Ok(())
 }
 
+mod mocked_stdout {
+    use super::*;
+
+    #[test]
+    fn mock_stdout() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |output=$(cp)
+                |cp $output
+            ",
+            r"
+                |steps:
+                |  - command: cp
+                |    stdout: test_output
+                |  - cp test_output
+            ",
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn mock_stdout_with_special_characters() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |output=$(cp)
+                |cp $output
+            ",
+            r#"
+                |steps:
+                |  - command: cp
+                |    stdout: 'foo"'
+                |  - 'cp foo\"'
+            "#,
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn mock_stdout_with_newlines() -> R<()> {
+        test_run(
+            r#"
+                |#!/usr/bin/env bash
+                |output=$(cp)
+                |cp "$output"
+            "#,
+            r#"
+                |steps:
+                |  - command: cp
+                |    stdout: "foo\nbar"
+                |  - 'cp foo\nbar'
+            "#,
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
+}
+
 mod expected_stdout {
     use super::*;
 
