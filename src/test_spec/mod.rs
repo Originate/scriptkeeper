@@ -169,6 +169,15 @@ mod parse_step {
         Ok(())
     }
 
+    #[test]
+    fn allows_to_specify_stderr() -> R<()> {
+        assert_eq!(
+            test_parse_step(r#"{command: "foo", stderr: "bar"}"#)?.stderr,
+            b"bar".to_vec(),
+        );
+        Ok(())
+    }
+
     mod exitcode {
         use super::*;
 
