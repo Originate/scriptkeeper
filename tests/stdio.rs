@@ -112,24 +112,17 @@ mod expected_stdout {
 
     #[test]
     fn when_not_specified_but_scripts_writes_to_stdout() -> R<()> {
-        let result = test_run_with_tempfile(
-            &Context::new_mock(),
-            &TempFile::write_temp_script(
-                trim_margin(
-                    r"
-                        |#!/usr/bin/env bash
-                        |echo foo
-                    ",
-                )?
-                .as_bytes(),
-            )?,
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |echo foo
+            ",
             r#"
-                |protocols:
-                |  - protocol: []
+                |tests:
+                |  - steps: []
             "#,
+            Expect::ok().stdout("foo\nAll tests passed.\n"),
         )?;
-        assert_eq!(result.0, ExitCode(0));
-        assert_eq!(result.1, "foo\nAll tests passed.\n");
         Ok(())
     }
 }
@@ -201,5 +194,18 @@ mod expected_stderr {
     }
 
     #[test]
-    fn when_not_specified_but_scripts_writes_to_stderr() {}
+    fn when_not_specified_but_scripts_writes_to_stderr() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |echo foo 1>&2
+            ",
+            r#"
+                |tests:
+                |  - steps: []
+            "#,
+            Expect::ok().stderr("foo\n"),
+        )?;
+        Ok(())
+    }
 }
