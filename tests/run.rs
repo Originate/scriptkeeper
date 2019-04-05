@@ -13,6 +13,7 @@ use scriptkeeper::{context::Context, run_scriptkeeper, R};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+use tempdir::TempDir;
 use test_utils::{assert_error, trim_margin, TempFile};
 use utils::{prepare_script, test_run, test_run_with_tempfile};
 
@@ -965,6 +966,32 @@ mod unmocked_commands {
                     |  received: ls dir
                 ",
             )?),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn works_for_absolute_paths() -> R<()> {
+        let temp_dir = TempDir::new("test")?;
+        fs::copy("/bin/true", &temp_dir.path().join("unmocked_command"))?;
+        test_run(
+            &format!(
+                r"
+                    |#!/usr/bin/env bash
+                    |{}/unmocked_command
+                ",
+                temp_dir.path().to_string_lossy()
+            ),
+            &format!(
+                r"
+                    |tests:
+                    |  - steps: []
+                    |unmockedCommands:
+                    |  - {}/unmocked_command
+                ",
+                temp_dir.path().to_string_lossy()
+            ),
+            Ok(()),
         )?;
         Ok(())
     }
