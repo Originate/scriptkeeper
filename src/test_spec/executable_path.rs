@@ -33,6 +33,14 @@ mod compare_executables {
         assert!(compare_executables(&cp_long, cp_short));
         Ok(())
     }
+
+    #[test]
+    fn returns_true_for_non_existing_executables_in_bin() -> R<()> {
+        let cp_long = Path::new("/bin/doesnotexist");
+        let cp_short = Path::new("doesnotexist");
+        assert!(compare_executables(&cp_long, cp_short));
+        Ok(())
+    }
 }
 
 pub fn canonicalize(executable: &Path) -> PathBuf {
@@ -48,7 +56,13 @@ pub fn canonicalize(executable: &Path) -> PathBuf {
                 executable.into()
             }
         }
-        None => executable.into(),
+        None => {
+            if should_assume_in_path(executable) {
+                PathBuf::from(file_name)
+            } else {
+                executable.into()
+            }
+        }
     }
 }
 
@@ -98,4 +112,33 @@ mod canonicalize {
         assert_eq!(file_name, PathBuf::from("ls"));
         Ok(())
     }
+
+    mod executables_that_do_not_exist {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn shortens_executables_in_bin_that_do_not_exist() -> R<()> {
+            let executable = Path::new("/bin/doesnotexist");
+            let file_name = canonicalize(executable);
+            assert_eq!(file_name, PathBuf::from("doesnotexist"));
+            Ok(())
+        }
+
+        #[test]
+        fn does_not_shorten_executables_in_subdirectory_of_bin_that_do_not_exist() -> R<()> {
+            let executable = Path::new("/bin/sub/doesnotexist");
+            let file_name = canonicalize(executable);
+            assert_eq!(file_name, PathBuf::from("/bin/sub/doesnotexist"));
+            Ok(())
+        }
+    }
+}
+
+pub fn should_assume_in_path(executable: &Path) -> bool {
+    let file_name = match executable.file_name() {
+        None => return false,
+        Some(f) => f,
+    };
+    executable.starts_with("/bin/") && PathBuf::from("/bin/").join(file_name) == executable
 }
