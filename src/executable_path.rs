@@ -140,12 +140,7 @@ pub fn should_assume_in_path(executable: &Path) -> bool {
         None => return false,
         Some(f) => f,
     };
-    match which(file_name) {
-        Some(_) => false,
-        None => {
-            executable.starts_with("/bin/") && PathBuf::from("/bin/").join(file_name) == executable
-        }
-    }
+    executable.starts_with("/bin/") && PathBuf::from("/bin/").join(file_name) == executable
 }
 
 pub fn is_unmocked_command(unmocked_commands: &[PathBuf], executable: &Path) -> bool {
