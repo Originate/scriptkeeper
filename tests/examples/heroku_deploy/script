@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+if [ -z "$1" ] ; then
+  echo please, pass in the heroku app as an argument 1>&2
+  exit 1
+fi
+
+if [ -n "$(git status --porcelain)" ] && [ "$2" != "--force" ] ; then
+  echo exiting, git repo not clean 1>&2
+  exit 1
+fi
+
+if ! cargo test ; then
+  echo exiting, tests don\'t pass 1>&2
+  exit 1
+fi
+
+heroku container:push web --app "$1"
+heroku container:release web --app "$1"
