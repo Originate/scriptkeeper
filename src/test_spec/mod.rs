@@ -24,6 +24,7 @@ use yaml_rust::{yaml::Hash, Yaml, YamlLoader};
 pub struct Step {
     pub command_matcher: CommandMatcher,
     pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
     pub exitcode: i32,
 }
 
@@ -32,6 +33,7 @@ impl Step {
         Step {
             command_matcher,
             stdout: vec![],
+            stderr: vec![],
             exitcode: 0,
         }
     }
@@ -54,11 +56,21 @@ impl Step {
         Ok(())
     }
 
+    fn add_stderr(&mut self, object: &Hash) -> R<()> {
+        if let Ok(stderr) = object.expect_field("stderr") {
+            self.stderr = stderr.expect_bytes()?;
+        }
+        Ok(())
+    }
+
     fn parse(yaml: &Yaml) -> R<Step> {
         match yaml {
             Yaml::String(string) => Step::from_string(string),
             Yaml::Hash(object) => {
-                check_keys(&["command", "stdout", "exitcode", "regex"], object)?;
+                check_keys(
+                    &["command", "stdout", "stderr", "exitcode", "regex"],
+                    object,
+                )?;
                 let mut step = match (object.expect_field("command"), object.expect_field("regex"))
                 {
                     (Ok(command_field), Err(_)) => Step::from_string(command_field.expect_str()?)?,
@@ -68,6 +80,7 @@ impl Step {
                     _ => Err("please provide either a 'command' or 'regex' field but not both")?,
                 };
                 step.add_stdout(object)?;
+                step.add_stderr(object)?;
                 step.add_exitcode(object)?;
                 Ok(step)
             }
@@ -618,7 +631,7 @@ mod load {
                 format!(
                     "error in {}.test.yaml: \
                      unexpected field 'foo', \
-                     possible values: 'command', 'stdout', 'exitcode', 'regex'",
+                     possible values: 'command', 'stdout', 'stderr', 'exitcode', 'regex'",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -1268,6 +1281,7 @@ mod serialize {
         let test = Test::new(vec![Step {
             command_matcher: CommandMatcher::ExactMatch(Command::new("cp")?),
             stdout: vec![],
+            stderr: vec![],
             exitcode: 42,
         }]);
         roundtrip(Tests::new(vec![test]))

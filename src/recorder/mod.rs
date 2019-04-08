@@ -65,6 +65,7 @@ impl SyscallMock for Recorder {
             self.test.steps.push_back(Step {
                 command_matcher: CommandMatcher::ExactMatch(command),
                 stdout: vec![],
+                stderr: vec![],
                 exitcode,
             });
         }
