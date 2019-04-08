@@ -3,7 +3,7 @@ mod result;
 
 use crate::test_spec::command::Command;
 use crate::test_spec::command_matcher::CommandMatcher;
-use crate::test_spec::{compare_executables, Step, Test};
+use crate::test_spec::{executable_path::is_unmocked_command, Step, Test};
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::SyscallMock;
 use crate::R;
@@ -46,11 +46,7 @@ impl SyscallMock for Recorder {
         executable: PathBuf,
         arguments: Vec<OsString>,
     ) -> R<()> {
-        let is_unmocked_command = self
-            .unmocked_commands
-            .iter()
-            .any(|unmocked_command| compare_executables(unmocked_command, &executable));
-        if !is_unmocked_command {
+        if !is_unmocked_command(&self.unmocked_commands, &executable) {
             self.command = Some(Command {
                 executable,
                 arguments,

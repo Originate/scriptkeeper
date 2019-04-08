@@ -147,3 +147,9 @@ pub fn should_assume_in_path(executable: &Path) -> bool {
         }
     }
 }
+
+pub fn is_unmocked_command(unmocked_commands: &[PathBuf], executable: &Path) -> bool {
+    unmocked_commands
+        .iter()
+        .any(|unmocked_command| compare_executables(unmocked_command, &executable))
+}
