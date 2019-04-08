@@ -70,3 +70,24 @@ fn does_not_mock_existence_of_unspecified_files() -> R<()> {
     )?;
     Ok(())
 }
+
+mod executables_that_do_not_exist {
+    use super::*;
+
+    #[test]
+    fn allows_tests_with_commands_that_do_not_exist() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |does_not_exist
+            ",
+            r"
+                |tests:
+                |  - steps:
+                |      - does_not_exist
+            ",
+            Ok(()),
+        )?;
+        Ok(())
+    }
+}

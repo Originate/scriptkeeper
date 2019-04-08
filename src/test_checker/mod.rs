@@ -3,13 +3,13 @@ pub mod executable_mock;
 
 use crate::context::Context;
 use crate::test_spec;
-use crate::test_spec::Test;
+use crate::test_spec::{executable_path::should_assume_in_path, Test};
 use crate::tracer::stdio_redirecting::Redirector;
 use crate::tracer::{tracee_memory, SyscallMock};
 use crate::utils::short_temp_files::ShortTempFile;
 use crate::R;
 use checker_result::CheckerResult;
-use libc::{c_ulonglong, user_regs_struct};
+use libc::{c_ulonglong, mode_t, user_regs_struct};
 use nix::sys::ptrace;
 use nix::unistd::Pid;
 use std::ffi::OsString;
@@ -68,6 +68,20 @@ impl TestChecker {
         let path = temp_executable.path();
         self.temporary_executables.push(temp_executable);
         Ok(path)
+    }
+
+    fn mock_file(pid: Pid, registers: &user_regs_struct, mock_mode: mode_t) -> R<()> {
+        let statbuf_ptr = registers.rsi;
+        #[allow(clippy::forget_copy)]
+        tracee_memory::poke_four_bytes(
+            pid,
+            statbuf_ptr + (offset_of!(libc::stat, st_mode) as u64),
+            mock_mode as u32,
+        )?;
+        let mut registers = *registers;
+        registers.rax = 0;
+        ptrace::setregs(pid, registers)?;
+        Ok(())
     }
 
     fn register_step_error(&mut self, expected: &str, received: &str) {
@@ -130,21 +144,14 @@ impl SyscallMock for TestChecker {
 
     fn handle_stat_exit(&self, pid: Pid, registers: &user_regs_struct, filename: PathBuf) -> R<()> {
         if self.test.mocked_files.contains(&filename) {
-            let statbuf_ptr = registers.rsi;
             let mock_mode = if filename.as_os_str().as_bytes().ends_with(b"/") {
                 libc::S_IFDIR
             } else {
                 libc::S_IFREG
             };
-            #[allow(clippy::forget_copy)]
-            tracee_memory::poke_four_bytes(
-                pid,
-                statbuf_ptr + (offset_of!(libc::stat, st_mode) as u64),
-                mock_mode as u32,
-            )?;
-            let mut registers = *registers;
-            registers.rax = 0;
-            ptrace::setregs(pid, registers)?;
+            TestChecker::mock_file(pid, registers, mock_mode)?;
+        } else if should_assume_in_path(&filename) {
+            TestChecker::mock_file(pid, registers, libc::S_IFREG)?;
         }
         Ok(())
     }
