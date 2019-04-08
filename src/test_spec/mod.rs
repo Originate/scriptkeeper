@@ -3,11 +3,9 @@ extern crate yaml_rust;
 mod argument_parser;
 pub mod command;
 pub mod command_matcher;
-pub mod executable_path;
 pub mod yaml;
 
 use self::argument_parser::Parser;
-pub use self::executable_path::compare_executables;
 use crate::test_spec::yaml::*;
 use crate::utils::{path_to_string, with_has_more};
 use crate::R;
