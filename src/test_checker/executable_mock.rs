@@ -9,6 +9,7 @@ use std::path::Path;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
     pub exitcode: i32,
 }
 
@@ -35,6 +36,7 @@ pub fn create_mock_executable(context: &Context, config: Config) -> R<Vec<u8>> {
 pub fn run(context: &Context, executable_mock_path: &Path) -> R<ExitCode> {
     let config: Config = deserialize(&skip_hashbang_line(fs::read(executable_mock_path)?))?;
     context.stdout().write_all(&config.stdout)?;
+    context.stderr().write_all(&config.stderr)?;
     Ok(ExitCode(config.exitcode))
 }
 
@@ -60,6 +62,7 @@ mod create_mock_executable {
             &Context::new_mock(),
             Config {
                 stdout: b"foo".to_vec(),
+                stderr: vec![],
                 exitcode: 0,
             },
         )?)?;
@@ -69,11 +72,27 @@ mod create_mock_executable {
     }
 
     #[test]
+    fn renders_an_executable_that_outputs_the_given_stderr() -> R<()> {
+        let mock_executable = TempFile::write_temp_script(&create_mock_executable(
+            &Context::new_mock(),
+            Config {
+                stdout: vec![],
+                stderr: b"foo".to_vec(),
+                exitcode: 0,
+            },
+        )?)?;
+        let output = Command::new(mock_executable.path()).output()?;
+        assert_eq!(output.stderr, b"foo");
+        Ok(())
+    }
+
+    #[test]
     fn renders_an_executable_that_exits_with_the_given_exitcode() -> R<()> {
         let mock_executable = TempFile::write_temp_script(&create_mock_executable(
             &Context::new_mock(),
             Config {
                 stdout: b"foo".to_vec(),
+                stderr: vec![],
                 exitcode: 42,
             },
         )?)?;
@@ -92,6 +111,7 @@ mod create_mock_executable {
                 &context,
                 Config {
                     stdout: vec![],
+                    stderr: vec![],
                     exitcode: 42,
                 },
             ),

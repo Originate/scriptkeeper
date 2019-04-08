@@ -39,6 +39,7 @@ impl TestChecker {
     fn allow_failing_scripts_to_continue() -> executable_mock::Config {
         executable_mock::Config {
             stdout: vec![],
+            stderr: vec![],
             exitcode: 0,
         }
     }
@@ -54,6 +55,7 @@ impl TestChecker {
                 }
                 executable_mock::Config {
                     stdout: next_test_step.stdout,
+                    stderr: next_test_step.stderr,
                     exitcode: next_test_step.exitcode,
                 }
             }

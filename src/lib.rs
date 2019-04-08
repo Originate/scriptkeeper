@@ -107,6 +107,7 @@ mod run_main {
             &context,
             executable_mock::Config {
                 stdout: b"foo".to_vec(),
+                stderr: vec![],
                 exitcode: 0,
             },
         )?;
