@@ -140,5 +140,10 @@ pub fn should_assume_in_path(executable: &Path) -> bool {
         None => return false,
         Some(f) => f,
     };
-    executable.starts_with("/bin/") && PathBuf::from("/bin/").join(file_name) == executable
+    match which(file_name) {
+        Some(_) => false,
+        None => {
+            executable.starts_with("/bin/") && PathBuf::from("/bin/").join(file_name) == executable
+        }
+    }
 }
