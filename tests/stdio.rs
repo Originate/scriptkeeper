@@ -209,6 +209,44 @@ mod mocked_stderr {
         )?;
         Ok(())
     }
+
+    #[test]
+    fn mock_stderr_with_special_characters() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |output=$(cp 2>&1)
+                |cp $output
+            ",
+            r#"
+                |steps:
+                |  - command: cp
+                |    stderr: 'foo"'
+                |  - 'cp foo\"'
+            "#,
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn mock_stderr_with_newlines() -> R<()> {
+        test_run(
+            r#"
+                |#!/usr/bin/env bash
+                |output=$(cp 2>&1)
+                |cp "$output"
+            "#,
+            r#"
+                |steps:
+                |  - command: cp
+                |    stderr: "foo\nbar"
+                |  - 'cp foo\nbar'
+            "#,
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
 }
 
 mod expected_stderr {
