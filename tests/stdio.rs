@@ -188,6 +188,29 @@ mod expected_stdout {
     }
 }
 
+mod mocked_stderr {
+    use super::*;
+
+    #[test]
+    fn mock_stderr() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |output=$(date 2>&1)
+                |mkdir $output
+            ",
+            r"
+                |steps:
+                |  - command: date
+                |    stderr: '2019-04-08'
+                |  - mkdir 2019-04-08
+            ",
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
+}
+
 mod expected_stderr {
     use super::*;
 
