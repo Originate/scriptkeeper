@@ -14,7 +14,6 @@ extern crate memoffset;
 
 pub mod cli;
 pub mod context;
-mod executable_path;
 mod recorder;
 mod test_checker;
 mod test_spec;

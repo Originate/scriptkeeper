@@ -1,5 +1,5 @@
 use super::argument_parser::Parser;
-use crate::executable_path;
+use super::executable_path;
 use crate::R;
 use std::ffi::OsString;
 use std::path::PathBuf;
