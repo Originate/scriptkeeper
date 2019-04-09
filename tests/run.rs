@@ -14,7 +14,7 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 use test_utils::{assert_error, trim_margin, TempFile};
-use utils::{prepare_script, test_run, test_run_with_tempfile};
+use utils::{prepare_script, test_run, test_run_with_tempfile, Expect};
 
 #[test]
 fn simple() -> R<()> {
@@ -27,7 +27,7 @@ fn simple() -> R<()> {
             |steps:
             |  - cp
         ",
-        Ok(()),
+        Expect::ok(),
     )?;
     Ok(())
 }
@@ -99,7 +99,7 @@ fn can_specify_interpreter() -> R<()> {
             |    - "true"
             |interpreter: /usr/bin/ruby
         "#,
-        Ok(()),
+        Expect::ok(),
     )?;
     Ok(())
 }
@@ -116,7 +116,7 @@ fn allows_to_match_command_with_regex() -> R<()> {
             |  - steps:
             |    - regex: cp \d
         "#,
-        Ok(()),
+        Expect::ok(),
     )?;
     Ok(())
 }
@@ -182,7 +182,7 @@ fn multiple() -> R<()> {
             |  - cp
             |  - ls
         ",
-        Ok(()),
+        Expect::ok(),
     )?;
     Ok(())
 }
@@ -198,7 +198,7 @@ fn failing() -> R<()> {
             |steps:
             |  - cp
         ",
-        Err(&trim_margin(
+        Expect::err(&trim_margin(
             "
                 |error:
                 |  expected: cp
@@ -222,7 +222,7 @@ fn failing_later() -> R<()> {
             |  - ls
             |  - cp
         ",
-        Err(&trim_margin(
+        Expect::err(&trim_margin(
             "
                 |error:
                 |  expected: cp
@@ -368,7 +368,7 @@ mod arguments {
                 |steps:
                 |  - cp foo
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -384,7 +384,7 @@ mod arguments {
                 |steps:
                 |  - cp foo
             ",
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 "
                     |error:
                     |  expected: cp foo
@@ -406,7 +406,7 @@ mod arguments {
                 |steps:
                 |  - cp "foo bar"
             "#,
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -422,7 +422,7 @@ mod arguments {
                 |steps:
                 |  - cp "foo bar"
             "#,
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 r#"
                     |error:
                     |  expected: cp "foo bar"
@@ -447,7 +447,7 @@ fn reports_the_first_error() -> R<()> {
             |  - cp first
             |  - cp second
         ",
-        Err(&trim_margin(
+        Expect::err(&trim_margin(
             "
                 |error:
                 |  expected: cp first
@@ -473,7 +473,7 @@ mod mismatch_in_number_of_commands {
                 |  - ls
                 |  - cp
             ",
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 "
                     |error:
                     |  expected: cp
@@ -496,74 +496,13 @@ mod mismatch_in_number_of_commands {
                 |steps:
                 |  - ls
             ",
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 "
                     |error:
                     |  expected: <script termination>
                     |  received: cp
                 ",
             )?),
-        )?;
-        Ok(())
-    }
-}
-
-mod stdout {
-    use super::*;
-
-    #[test]
-    fn mock_stdout() -> R<()> {
-        test_run(
-            r"
-                |#!/usr/bin/env bash
-                |output=$(cp)
-                |cp $output
-            ",
-            r"
-                |steps:
-                |  - command: cp
-                |    stdout: test_output
-                |  - cp test_output
-            ",
-            Ok(()),
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn mock_stdout_with_special_characters() -> R<()> {
-        test_run(
-            r"
-                |#!/usr/bin/env bash
-                |output=$(cp)
-                |cp $output
-            ",
-            r#"
-                |steps:
-                |  - command: cp
-                |    stdout: 'foo"'
-                |  - 'cp foo\"'
-            "#,
-            Ok(()),
-        )?;
-        Ok(())
-    }
-
-    #[test]
-    fn mock_stdout_with_newlines() -> R<()> {
-        test_run(
-            r#"
-                |#!/usr/bin/env bash
-                |output=$(cp)
-                |cp "$output"
-            "#,
-            r#"
-                |steps:
-                |  - command: cp
-                |    stdout: "foo\nbar"
-                |  - 'cp foo\nbar'
-            "#,
-            Ok(()),
         )?;
         Ok(())
     }
@@ -581,7 +520,7 @@ fn pass_arguments_into_tested_script() -> R<()> {
             |steps:
             |  - cp foo
         ",
-        Ok(()),
+        Expect::ok(),
     )?;
     Ok(())
 }
@@ -604,7 +543,7 @@ mod multiple_tests {
                 |  steps:
                 |    - cp bar
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -622,7 +561,7 @@ mod multiple_tests {
                 |- steps:
                 |    - cp
             ",
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 "
                     |error in test 1:
                     |  expected: cp
@@ -649,7 +588,7 @@ mod multiple_tests {
                 |- steps:
                 |    - cp
             ",
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 "
                     |test 1:
                     |  Tests passed.
@@ -679,7 +618,7 @@ mod environment {
                 |steps:
                 |  - cp test-env-var
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -696,7 +635,7 @@ mod environment {
                 |steps:
                 |  - cp
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -713,7 +652,7 @@ fn detects_running_commands_from_ruby_scripts() -> R<()> {
             |steps:
             |  - ls
         ",
-        Ok(()),
+        Expect::ok(),
     )?;
     Ok(())
 }
@@ -736,7 +675,7 @@ mod mocked_exitcodes {
                 |    exitcode: 1
                 |  - ls
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -756,7 +695,7 @@ mod mocked_exitcodes {
                 |    exitcode: 0
                 |  - ls
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -775,7 +714,7 @@ mod mocked_exitcodes {
                 |  - grep foo
                 |  - ls
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -794,7 +733,7 @@ mod mocked_exitcodes {
                 |    exitcode: 42
                 |  - ls 42
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -815,7 +754,7 @@ mod working_directory {
                 |steps:
                 |  - ls /foo/file
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -832,7 +771,7 @@ mod working_directory {
                 |steps:
                 |  - ls /foo/bar/baz/foo/bar/baz/foo/bar/baz/foo/file
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -852,7 +791,7 @@ mod working_directory {
                 ",
                 path_to_string(&cwd)?
             ),
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -871,7 +810,7 @@ mod expected_exitcode {
             r"
                 |steps: []
             ",
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 "
                     |error:
                     |  expected: <exitcode 0>
@@ -893,7 +832,7 @@ mod expected_exitcode {
                 |steps: []
                 |exitcode: 42
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -909,7 +848,7 @@ mod expected_exitcode {
                 |steps: []
                 |exitcode: 42
             ",
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 "
                 |error:
                 |  expected: <exitcode 42>
@@ -938,7 +877,7 @@ mod unmocked_commands {
                 |unmockedCommands:
                 |  - dirname
             ",
-            Ok(()),
+            Expect::ok(),
         )?;
         Ok(())
     }
@@ -958,7 +897,7 @@ mod unmocked_commands {
                 |unmockedCommands:
                 |  - dirname
             ",
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 "
                     |error:
                     |  expected: dirname dir/file

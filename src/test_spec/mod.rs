@@ -24,6 +24,7 @@ use yaml_rust::{yaml::Hash, Yaml, YamlLoader};
 pub struct Step {
     pub command_matcher: CommandMatcher,
     pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
     pub exitcode: i32,
 }
 
@@ -32,6 +33,7 @@ impl Step {
         Step {
             command_matcher,
             stdout: vec![],
+            stderr: vec![],
             exitcode: 0,
         }
     }
@@ -49,7 +51,14 @@ impl Step {
 
     fn add_stdout(&mut self, object: &Hash) -> R<()> {
         if let Ok(stdout) = object.expect_field("stdout") {
-            self.stdout = stdout.expect_str()?.as_bytes().to_vec();
+            self.stdout = stdout.expect_bytes()?;
+        }
+        Ok(())
+    }
+
+    fn add_stderr(&mut self, object: &Hash) -> R<()> {
+        if let Ok(stderr) = object.expect_field("stderr") {
+            self.stderr = stderr.expect_bytes()?;
         }
         Ok(())
     }
@@ -58,7 +67,10 @@ impl Step {
         match yaml {
             Yaml::String(string) => Step::from_string(string),
             Yaml::Hash(object) => {
-                check_keys(&["command", "stdout", "exitcode", "regex"], object)?;
+                check_keys(
+                    &["command", "stdout", "stderr", "exitcode", "regex"],
+                    object,
+                )?;
                 let mut step = match (object.expect_field("command"), object.expect_field("regex"))
                 {
                     (Ok(command_field), Err(_)) => Step::from_string(command_field.expect_str()?)?,
@@ -68,6 +80,7 @@ impl Step {
                     _ => Err("please provide either a 'command' or 'regex' field but not both")?,
                 };
                 step.add_stdout(object)?;
+                step.add_stderr(object)?;
                 step.add_exitcode(object)?;
                 Ok(step)
             }
@@ -169,6 +182,15 @@ mod parse_step {
         Ok(())
     }
 
+    #[test]
+    fn allows_to_specify_stderr() -> R<()> {
+        assert_eq!(
+            test_parse_step(r#"{command: "foo", stderr: "bar"}"#)?.stderr,
+            b"bar".to_vec(),
+        );
+        Ok(())
+    }
+
     mod exitcode {
         use super::*;
 
@@ -196,6 +218,7 @@ pub struct Test {
     pub arguments: Vec<String>,
     pub env: HashMap<String, String>,
     pub cwd: Option<PathBuf>,
+    pub stdout: Option<Vec<u8>>,
     pub stderr: Option<Vec<u8>>,
     pub exitcode: Option<i32>,
     pub mocked_files: Vec<PathBuf>,
@@ -214,9 +237,10 @@ impl Test {
             arguments: vec![],
             env: HashMap::new(),
             cwd: None,
+            stdout: None,
+            stderr: None,
             exitcode: None,
             mocked_files: vec![],
-            stderr: None,
         }
     }
 
@@ -281,9 +305,16 @@ impl Test {
         Ok(())
     }
 
+    fn add_stdout(&mut self, object: &Hash) -> R<()> {
+        if let Ok(stdout) = object.expect_field("stdout") {
+            self.stdout = Some(stdout.expect_bytes()?);
+        }
+        Ok(())
+    }
+
     fn add_stderr(&mut self, object: &Hash) -> R<()> {
         if let Ok(stderr) = object.expect_field("stderr") {
-            self.stderr = Some(stderr.expect_str()?.as_bytes().to_vec());
+            self.stderr = Some(stderr.expect_bytes()?);
         }
         Ok(())
     }
@@ -312,6 +343,7 @@ impl Test {
                 "arguments",
                 "env",
                 "exitcode",
+                "stdout",
                 "stderr",
                 "cwd",
             ],
@@ -321,6 +353,7 @@ impl Test {
         test.add_arguments(&object)?;
         test.add_env(&object)?;
         test.add_cwd(&object)?;
+        test.add_stdout(&object)?;
         test.add_stderr(&object)?;
         test.add_exitcode(&object)?;
         test.add_mocked_files(&object)?;
@@ -575,7 +608,7 @@ mod load {
                      unexpected field 'foo', \
                      possible values: \
                      'steps', 'mockedFiles', 'arguments', 'env', \
-                     'exitcode', 'stderr', 'cwd'",
+                     'exitcode', 'stdout', 'stderr', 'cwd'",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -598,7 +631,7 @@ mod load {
                 format!(
                     "error in {}.test.yaml: \
                      unexpected field 'foo', \
-                     possible values: 'command', 'stdout', 'exitcode', 'regex'",
+                     possible values: 'command', 'stdout', 'stderr', 'exitcode', 'regex'",
                     path_to_string(&tempfile.path())?
                 )
             );
@@ -995,6 +1028,41 @@ mod load {
         Ok(())
     }
 
+    mod expected_stdout {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn allows_to_specify_the_expected_stdout() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r"
+                        |- steps: []
+                        |  stdout: foo
+                    "
+                )?
+                .stdout
+                .map(|s| String::from_utf8(s).unwrap()),
+                Some("foo".to_string())
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn none_is_the_default() -> R<()> {
+            assert_eq!(
+                test_parse_one(
+                    r"
+                        |- steps: []
+                    "
+                )?
+                .stdout,
+                None
+            );
+            Ok(())
+        }
+    }
+
     mod expected_stderr {
         use super::*;
         use pretty_assertions::assert_eq;
@@ -1213,6 +1281,7 @@ mod serialize {
         let test = Test::new(vec![Step {
             command_matcher: CommandMatcher::ExactMatch(Command::new("cp")?),
             stdout: vec![],
+            stderr: vec![],
             exitcode: 42,
         }]);
         roundtrip(Tests::new(vec![test]))

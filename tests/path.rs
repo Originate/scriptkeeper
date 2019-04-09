@@ -9,7 +9,7 @@ mod utils;
 
 use scriptkeeper::R;
 use test_utils::trim_margin;
-use utils::test_run;
+use utils::{test_run, Expect};
 
 #[test]
 fn looks_up_step_executable_in_path() -> R<()> {
@@ -22,7 +22,7 @@ fn looks_up_step_executable_in_path() -> R<()> {
             |steps:
             |  - cp
         ",
-        Ok(()),
+        Expect::ok(),
     )?;
     Ok(())
 }
@@ -40,7 +40,7 @@ fn looks_up_unmocked_command_executable_in_path() -> R<()> {
             |unmockedCommands:
             |  - ls
         ",
-        Ok(()),
+        Expect::ok(),
     )?;
     Ok(())
 }
@@ -56,7 +56,7 @@ fn shortens_received_executable_to_file_name_when_reporting_step_error() -> R<()
             |steps:
             |  - cp
         ",
-        Err(&trim_margin(
+        Expect::err(&trim_margin(
             "
                 |error:
                 |  expected: cp
@@ -78,7 +78,7 @@ fn runs_step_executable_that_is_not_in_path() -> R<()> {
             |steps:
             |  - /not/in/path
         ",
-        Ok(()),
+        Expect::ok(),
     )?;
     Ok(())
 }

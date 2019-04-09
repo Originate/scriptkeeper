@@ -8,39 +8,29 @@
 #[path = "./utils.rs"]
 mod utils;
 
-use scriptkeeper::{context::Context, R};
-use test_utils::{trim_margin, TempFile};
-use utils::{test_run, test_run_with_context, test_run_with_tempfile};
+use scriptkeeper::R;
+use test_utils::trim_margin;
+use utils::{test_run, Expect};
 
 #[test]
 fn relays_stdout_from_the_tested_script_to_the_user() -> R<()> {
-    let context = Context::new_mock();
-    let script = TempFile::write_temp_script(
-        trim_margin(
-            r"
-                |#!/usr/bin/env bash
-                |echo foo
-            ",
-        )?
-        .as_bytes(),
-    )?;
-    test_run_with_tempfile(
-        &context,
-        &script,
+    test_run(
+        r"
+            |#!/usr/bin/env bash
+            |echo foo
+        ",
         r"
             |tests:
             |  - steps: []
         ",
+        Expect::ok().stdout("foo\nAll tests passed.\n"),
     )?;
-    assert_eq!(context.get_captured_stdout(), "foo\nAll tests passed.\n");
     Ok(())
 }
 
 #[test]
 fn relays_stderr_from_the_tested_script_to_the_user() -> R<()> {
-    let context = Context::new_mock();
-    test_run_with_context(
-        &context,
+    test_run(
         r"
             |#!/usr/bin/env bash
             |echo foo 1>&2
@@ -49,10 +39,214 @@ fn relays_stderr_from_the_tested_script_to_the_user() -> R<()> {
             |tests:
             |  - steps: []
         ",
-        Ok(()),
+        Expect::ok().stderr("foo\n"),
     )?;
-    assert_eq!(context.get_captured_stderr(), "foo\n");
     Ok(())
+}
+
+mod mocked_stdout {
+    use super::*;
+
+    #[test]
+    fn mock_stdout() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |output=$(cp)
+                |cp $output
+            ",
+            r"
+                |steps:
+                |  - command: cp
+                |    stdout: test_output
+                |  - cp test_output
+            ",
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn mock_stdout_with_special_characters() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |output=$(cp)
+                |cp $output
+            ",
+            r#"
+                |steps:
+                |  - command: cp
+                |    stdout: 'foo"'
+                |  - 'cp foo\"'
+            "#,
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn mock_stdout_with_newlines() -> R<()> {
+        test_run(
+            r#"
+                |#!/usr/bin/env bash
+                |output=$(cp)
+                |cp "$output"
+            "#,
+            r#"
+                |steps:
+                |  - command: cp
+                |    stdout: "foo\nbar"
+                |  - 'cp foo\nbar'
+            "#,
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
+}
+
+mod expected_stdout {
+    use super::*;
+
+    #[test]
+    fn fails_when_not_matching() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |echo bar
+            ",
+            r#"
+                |tests:
+                |  - steps: []
+                |    stdout: "foo\n"
+            "#,
+            Expect::err(&trim_margin(
+                r#"
+                    |bar
+                    |error:
+                    |  expected output to stdout: "foo\n"
+                    |  received output to stdout: "bar\n"
+                "#,
+            )?),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn passes_when_matching() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |echo foo
+            ",
+            r#"
+                |tests:
+                |  - steps: []
+                |    stdout: "foo\n"
+            "#,
+            Expect::ok().stdout("foo\nAll tests passed.\n"),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn fails_when_expecting_stdout_but_none_printed() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+            ",
+            r#"
+                |tests:
+                |  - steps: []
+                |    stdout: "foo\n"
+            "#,
+            Expect::err(&trim_margin(
+                r#"
+                    |error:
+                    |  expected output to stdout: "foo\n"
+                    |  received output to stdout: ""
+                "#,
+            )?),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn when_not_specified_but_scripts_writes_to_stdout() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |echo foo
+            ",
+            r#"
+                |tests:
+                |  - steps: []
+            "#,
+            Expect::ok().stdout("foo\nAll tests passed.\n"),
+        )?;
+        Ok(())
+    }
+}
+
+mod mocked_stderr {
+    use super::*;
+
+    #[test]
+    fn mock_stderr() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |output=$(date 2>&1)
+                |mkdir $output
+            ",
+            r"
+                |steps:
+                |  - command: date
+                |    stderr: '2019-04-08'
+                |  - mkdir 2019-04-08
+            ",
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn mock_stderr_with_special_characters() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |output=$(cp 2>&1)
+                |cp $output
+            ",
+            r#"
+                |steps:
+                |  - command: cp
+                |    stderr: 'foo"'
+                |  - 'cp foo\"'
+            "#,
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn mock_stderr_with_newlines() -> R<()> {
+        test_run(
+            r#"
+                |#!/usr/bin/env bash
+                |output=$(cp 2>&1)
+                |cp "$output"
+            "#,
+            r#"
+                |steps:
+                |  - command: cp
+                |    stderr: "foo\nbar"
+                |  - 'cp foo\nbar'
+            "#,
+            Expect::ok(),
+        )?;
+        Ok(())
+    }
 }
 
 mod expected_stderr {
@@ -70,13 +264,14 @@ mod expected_stderr {
                 |  - steps: []
                 |    stderr: "foo\n"
             "#,
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 r#"
                     |error:
                     |  expected output to stderr: "foo\n"
                     |  received output to stderr: "bar\n"
                 "#,
-            )?),
+            )?)
+            .stderr("bar\n"),
         )?;
         Ok(())
     }
@@ -93,7 +288,7 @@ mod expected_stderr {
                 |  - steps: []
                 |    stderr: "foo\n"
             "#,
-            Ok(()),
+            Expect::ok().stderr("foo\n"),
         )?;
         Ok(())
     }
@@ -109,13 +304,29 @@ mod expected_stderr {
                 |  - steps: []
                 |    stderr: "foo\n"
             "#,
-            Err(&trim_margin(
+            Expect::err(&trim_margin(
                 r#"
                     |error:
                     |  expected output to stderr: "foo\n"
                     |  received output to stderr: ""
                 "#,
             )?),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn when_not_specified_but_scripts_writes_to_stderr() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |echo foo 1>&2
+            ",
+            r#"
+                |tests:
+                |  - steps: []
+            "#,
+            Expect::ok().stderr("foo\n"),
         )?;
         Ok(())
     }
