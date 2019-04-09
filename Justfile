@@ -19,9 +19,9 @@ scripts:
   cargo run -- build-docker-image.sh
   cargo run -- scriptkeeper-in-docker.sh
 
-dev:
+dev pattern='':
   clear ; printf "\e[3J"
-  cargo test --all --color=always --features 'dev test' -- --test-threads=1 --quiet
+  cargo test --all --color=always --features 'dev test' -- --test-threads=1 --quiet {{pattern}}
 
 run_bigger:
   cargo run -- tests/examples/bigger/script
