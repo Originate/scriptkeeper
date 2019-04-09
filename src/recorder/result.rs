@@ -10,6 +10,7 @@ use crate::tracer::Tracer;
 use crate::{ExitCode, R};
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
+use test_utils::with_env;
 
 #[derive(Debug, PartialEq)]
 pub enum RecorderResult {
@@ -136,12 +137,21 @@ fn run_against_test(
             )
         };
     }
-    if test.ends_with_hole {
-        run_against_mock!(HoleRecorder::new(context, unmocked_commands, test))
-    } else {
-        Ok(RecorderResult::Checked(
-            test.clone(),
-            run_against_mock!(TestChecker::new(context, test, unmocked_commands))?,
-        ))
-    }
+    let path_value: String = match test.env.get("PATH") {
+        Some(path) => path.to_string(),
+        None => match std::env::var("PATH") {
+            Ok(path) => path,
+            Err(_) => panic!("fixme"),
+        },
+    };
+    with_env("PATH", &path_value, || {
+        if test.ends_with_hole {
+            run_against_mock!(HoleRecorder::new(context, unmocked_commands, test))
+        } else {
+            Ok(RecorderResult::Checked(
+                test.clone(),
+                run_against_mock!(TestChecker::new(context, test, unmocked_commands))?,
+            ))
+        }
+    })
 }

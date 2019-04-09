@@ -697,6 +697,74 @@ mod environment {
         )?;
         Ok(())
     }
+
+    mod path {
+        use super::*;
+        use quale::which;
+        use tempdir::TempDir;
+        use test_utils::with_env;
+
+        #[test]
+        fn use_consistent_path_between_tracer_and_tracee() -> R<()> {
+            let tempdir = TempDir::new("test")?;
+            let cp_location = which("cp").ok_or("cp not found")?;
+            fs::copy(&cp_location, tempdir.path().join("cp"))?;
+            let path_value = format!(
+                "{}:{}",
+                path_to_string(tempdir.path())?,
+                path_to_string(cp_location.parent().ok_or("cp location has no parent")?)?
+            );
+            println!("{:?}", cp_location);
+            with_env("PATH", &path_value, || -> R<()> {
+                test_run(
+                    r"
+                        |#!/usr/bin/env bash
+                        |cp
+                    ",
+                    &format!(
+                        r"
+                            |steps:
+                            |  - {}
+                        ",
+                        path_to_string(tempdir.path())?
+                    ),
+                    Expect::tests_pass(),
+                )
+            })
+        }
+
+        #[test]
+        fn allows_to_overwrite_the_path() -> R<()> {
+            let tempdir = TempDir::new("test")?;
+            let cp_location = which("cp").ok_or("cp not found")?;
+            fs::copy(&cp_location, tempdir.path().join("cp"))?;
+            let path_value = format!(
+                "{}:{}",
+                path_to_string(tempdir.path())?,
+                path_to_string(cp_location.parent().ok_or("cp location has no parent")?)?
+            );
+            test_run(
+                r"
+                    |#!/usr/bin/env bash
+                    |cp
+                ",
+                &format!(
+                    r"
+                        |env:
+                        |  PATH: {}
+                        |steps:
+                        |  - cp
+                    ",
+                    path_value
+                ),
+                Expect::tests_pass(),
+            )?;
+            Ok(())
+        }
+
+        #[test]
+        fn separates_the_path_per_test() {}
+    }
 }
 
 #[test]

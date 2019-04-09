@@ -17,6 +17,7 @@ use nix::sys::wait::{wait, waitpid, WaitStatus};
 use nix::unistd::{execve, fork, getpid, ForkResult, Pid};
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::env;
 use std::ffi::CString;
 use std::ffi::OsString;
 use std::fs;
@@ -85,13 +86,24 @@ impl Tracer {
         interpreter: &Option<PathBuf>,
         program: &Path,
         args: Vec<String>,
-        env: HashMap<String, String>,
+        mut env: HashMap<String, String>,
     ) -> R<(CString, Vec<CString>, Vec<CString>)> {
         let c_executable = CString::new(program.as_os_str().as_bytes())?;
         let mut c_args = VecDeque::new();
         c_args.push_back(c_executable.clone());
         for arg in &args {
             c_args.push_back(CString::new(arg.clone())?);
+        }
+        if !env.contains_key("PATH") {
+            match env::var("PATH") {
+                Ok(path) => {
+                    env.insert("PATH".to_string(), path);
+                }
+                Err(env::VarError::NotPresent) => {}
+                err => {
+                    err?;
+                }
+            };
         }
         let mut c_env = vec![];
         for (key, value) in env {
@@ -346,6 +358,41 @@ mod test_tracer {
                 "update_syscall_state: exiting with the wrong syscall"
             );
             Ok(())
+        }
+    }
+
+    mod execve_params {
+        use super::*;
+        use test_utils::{with_env, TempFile};
+
+        #[test]
+        fn adds_the_existing_path_to_the_environment() -> R<()> {
+            with_env("PATH", "foo", || -> R<()> {
+                assert_eq!(
+                    Tracer::execve_params(
+                        &None,
+                        &PathBuf::from("test-script"),
+                        vec![],
+                        HashMap::new()
+                    )?
+                    .2,
+                    vec![CString::new("PATH=foo")?]
+                );
+                Ok(())
+            })
+        }
+
+        #[test]
+        fn path_can_be_overwritten_by_passed_in_environment() -> R<()> {
+            with_env("PATH", "foo", || -> R<()> {
+                let mut env = HashMap::new();
+                env.insert("PATH".to_string(), "bar".to_string());
+                assert_eq!(
+                    Tracer::execve_params(&None, &PathBuf::from("test-script"), vec![], env)?.2,
+                    vec![CString::new("PATH=bar")?]
+                );
+                Ok(())
+            })
         }
     }
 }

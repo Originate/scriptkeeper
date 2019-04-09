@@ -25,9 +25,9 @@ trim-margin = "*"
 memoffset = "*"
 clap = "*"
 regex = "*"
+test-utils = { path = "test-utils" }
 
 [dev-dependencies]
-test-utils = { path = "test-utils" }
 pretty_assertions = "*"
 
 [features]
