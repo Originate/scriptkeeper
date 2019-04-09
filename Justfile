@@ -1,7 +1,6 @@
 ci: test build fmt clippy doc scripts
 
 test:
-  cargo test -p test-utils --color=always -- --test-threads=1 --quiet
   cargo test --all --color=always --features 'ci test' -- --test-threads=1 --quiet
 
 build:
@@ -22,7 +21,6 @@ scripts:
 
 dev:
   clear ; printf "\e[3J"
-  cargo test -p test-utils --color=always -- --test-threads=1 --quiet
   cargo test --all --color=always --features 'dev test' -- --test-threads=1 --quiet
 
 run_bigger:
