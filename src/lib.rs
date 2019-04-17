@@ -4,7 +4,11 @@
 )]
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
-#![allow(clippy::needless_range_loop, clippy::large_enum_variant)]
+#![allow(
+    clippy::needless_range_loop,
+    clippy::large_enum_variant,
+    clippy::redundant_closure
+)]
 #![cfg_attr(test, allow(clippy::module_inception))]
 
 #[macro_use]
