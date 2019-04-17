@@ -1,0 +1,18 @@
+name: scriptkeeper
+version: git
+summary: Run tests against your scripts without changing your scripts.
+description: |
+  scriptkeeper is a tool that allows you to write tests against your Bash
+  scripts, without changing anything about your scripts.
+  Read more at https://github.com/Originate/scriptkeeper.
+license: MIT
+confinement: devmode
+grade: devel
+base: core18
+parts:
+  scriptkeeper:
+    plugin: rust
+    source: .
+apps:
+  scriptkeeper:
+    command: scriptkeeper
