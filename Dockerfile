@@ -1,4 +1,4 @@
-FROM rust:1.32.0
+FROM rust:1.34.0
 
 RUN cargo install cargo-watch
 RUN apt-get update && apt-get install -y ruby
