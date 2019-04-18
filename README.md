@@ -230,14 +230,27 @@ You can run the tool inside docker, for example like this:
 
 ## Contributing
 
-
-
 Contributions, feature requests, bug reports, etc. are all welcome.  Please
 consider the following guidelines when submitting:
 
 * For any pull request that you intend to merge, we ask that all tests pass for every commit that will end up on master.
 * We will address the top rated (by :thumbsup:) issues first, please cast your votes!
 * You can coordinate your work through this [ticket board](https://github.com/orgs/Originate/projects/1).
+
+### Running the test suite
+
+You can use [just](https://github.com/casey/just) to run the tests during
+development with:
+
+`just dev`
+
+or -- if you want to specify a pattern for which tests to run:
+
+`just dev PATTERN`
+
+To run all checks that would be run on CI, you can do:
+
+`just ci`
 
 ### For OSX
 
