@@ -262,3 +262,20 @@ within docker, when files change:
 ./build-docker-image.sh
 ./test-watch-in-docker.sh
 ```
+
+### Cutting a new release
+
+To cut a new release:
+
+- Bump the version number in the `Cargo.toml`
+- Run `just ci`
+- `git tag` with the version number (no leading `v`)
+- Run `git push --tags`
+- Create a release on github for the created tag
+- Run `just distribution_build`
+- Upload `distribution/scriptkeeper` as a binary release to github
+
+There's a script `distribution/smoke-test.sh` that allows to smoke-test the
+distribution executable in a bunch of different docker images. This can be used
+to make sure that all dynamically linked dependencies are available on those
+systems.

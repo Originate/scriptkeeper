@@ -1,0 +1,6 @@
+tests:
+  - steps:
+      - docker build --file distribution/Dockerfile . --tag scriptkeeper-distribution
+      - docker run --name scriptkeeper-distribution-container scriptkeeper-distribution true
+      - docker cp scriptkeeper-distribution-container:/usr/local/bin/scriptkeeper distribution/
+      - docker rm scriptkeeper-distribution-container
