@@ -18,6 +18,7 @@ doc:
 scripts:
   cargo run -- build-docker-image.sh
   cargo run -- scriptkeeper-in-docker.sh
+  cargo run -- distribution/build.sh
 
 dev pattern='':
   clear ; printf "\e[3J"
@@ -34,3 +35,9 @@ test_dockerfile:
     -v $(pwd)/tests/examples/bigger/script.test.yaml:/root/script.test.yaml \
     scriptkeeper \
     script
+
+distribution_smoke_test: distribution_build
+  ./distribution/smoke-test.sh
+
+distribution_build:
+  ./distribution/build.sh
