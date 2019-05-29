@@ -5,9 +5,6 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
-#[path = "./utils.rs"]
-mod utils;
-
 use path::PathBuf;
 use scriptkeeper::{context::Context, run_scriptkeeper, ExitCode, R};
 use std::*;

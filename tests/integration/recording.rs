@@ -5,13 +5,10 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
-#[path = "./utils.rs"]
-mod utils;
-
+use crate::utils::assert_eq_yaml;
 use scriptkeeper::context::Context;
 use scriptkeeper::{cli, run_main, R};
 use test_utils::{trim_margin, TempFile};
-use utils::assert_eq_yaml;
 
 mod yaml_formatting {
     use super::*;

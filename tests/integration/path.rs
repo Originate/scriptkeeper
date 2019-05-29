@@ -4,12 +4,9 @@
 )]
 #![deny(clippy::all)]
 
-#[path = "./utils.rs"]
-mod utils;
-
+use crate::utils::test_run;
 use scriptkeeper::R;
 use test_utils::trim_margin;
-use utils::test_run;
 
 #[test]
 fn looks_up_step_executable_in_path() -> R<()> {

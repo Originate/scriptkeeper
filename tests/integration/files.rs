@@ -5,11 +5,8 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
-#[path = "./utils.rs"]
-mod utils;
-
+use crate::utils::test_run;
 use scriptkeeper::R;
-use utils::test_run;
 
 #[test]
 fn allows_to_mock_files_existence() -> R<()> {

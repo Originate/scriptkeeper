@@ -5,12 +5,9 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
-#[path = "./utils.rs"]
-mod utils;
-
+use crate::utils::{test_run, test_run_with_context, test_run_with_tempfile};
 use scriptkeeper::{context::Context, R};
 use test_utils::{trim_margin, TempFile};
-use utils::{test_run, test_run_with_context, test_run_with_tempfile};
 
 #[test]
 fn relays_stdout_from_the_tested_script_to_the_user() -> R<()> {
