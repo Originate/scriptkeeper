@@ -5,16 +5,13 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
-#[path = "./utils.rs"]
-mod utils;
-
+use crate::utils::{assert_eq_yaml, prepare_script};
 use pretty_assertions::assert_eq;
 use scriptkeeper::context::Context;
 use scriptkeeper::utils::path_to_string;
 use scriptkeeper::{cli, run_main, R};
 use std::fs;
 use test_utils::trim_margin;
-use utils::{assert_eq_yaml, prepare_script};
 
 fn test_holes(script_code: &str, existing: &str, expected: &str) -> R<()> {
     let (script, test_file) = prepare_script(script_code, existing)?;

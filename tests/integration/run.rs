@@ -5,16 +5,13 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
-#[path = "./utils.rs"]
-mod utils;
-
+use crate::utils::{prepare_script, test_run, test_run_with_tempfile};
 use scriptkeeper::utils::path_to_string;
 use scriptkeeper::{context::Context, run_scriptkeeper, R};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
 use test_utils::{assert_error, trim_margin, TempFile};
-use utils::{prepare_script, test_run, test_run_with_tempfile};
 
 #[test]
 fn simple() -> R<()> {
