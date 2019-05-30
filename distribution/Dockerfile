@@ -5,7 +5,8 @@ RUN yum install --assumeyes gcc
 WORKDIR /root
 RUN curl https://sh.rustup.rs -sSf >> rustup.sh
 RUN chmod +x rustup.sh
-RUN ./rustup.sh -y
+ARG RUSTC_VERSION
+RUN ./rustup.sh -y --default-toolchain $RUSTC_VERSION
 ENV PATH=/root/.cargo/bin:$PATH
 
 # build scriptkeeper

@@ -16,7 +16,6 @@ doc:
   cargo doc
 
 scripts:
-  cargo run -- build-docker-image.sh
   cargo run -- scriptkeeper-in-docker.sh
   cargo run -- distribution/build.sh
 
@@ -27,8 +26,12 @@ dev pattern='':
 run_bigger:
   cargo run -- tests/examples/bigger/script
 
-test_dockerfile:
-  docker build -t scriptkeeper .
+export RUSTC_VERSION := "1.34.2"
+
+build_docker_image:
+  docker build --build-arg RUSTC_VERSION -t scriptkeeper .
+
+test_dockerfile: build_docker_image
   docker run --rm \
     --cap-add=SYS_PTRACE \
     -v $(pwd)/tests/examples/bigger/script:/root/script \
