@@ -47,7 +47,7 @@ impl TestChecker {
         let mock_config = match self.test.steps.pop_front() {
             Some(next_test_step) => {
                 if !next_test_step.command_matcher.matches(&received) {
-                    self.register_step_error(
+                    self.result.register_step_error(
                         &next_test_step.command_matcher.format(),
                         &received.format(),
                     );
@@ -58,7 +58,8 @@ impl TestChecker {
                 }
             }
             None => {
-                self.register_step_error("<script termination>", &received.format());
+                self.result
+                    .register_step_error("<script termination>", &received.format());
                 TestChecker::allow_failing_scripts_to_continue()
             }
         };
@@ -68,22 +69,6 @@ impl TestChecker {
         let path = temp_executable.path();
         self.temporary_executables.push(temp_executable);
         Ok(path)
-    }
-
-    fn register_step_error(&mut self, expected: &str, received: &str) {
-        self.register_error(format!(
-            "  expected: {}\n  received: {}\n",
-            expected, received
-        ));
-    }
-
-    fn register_error(&mut self, message: String) {
-        match self.result {
-            CheckerResult::Pass => {
-                self.result = CheckerResult::Failure(message);
-            }
-            CheckerResult::Failure(_) => {}
-        }
     }
 }
 
@@ -151,14 +136,14 @@ impl SyscallMock for TestChecker {
 
     fn handle_end(mut self, exitcode: i32, redirector: &Redirector) -> R<CheckerResult> {
         if let Some(expected_step) = self.test.steps.pop_front() {
-            self.register_step_error(
+            self.result.register_step_error(
                 &expected_step.command_matcher.format(),
                 "<script terminated>",
             );
         }
         let expected_exitcode = self.test.exitcode.unwrap_or(0);
         if exitcode != expected_exitcode {
-            self.register_step_error(
+            self.result.register_step_error(
                 &format!("<exitcode {}>", expected_exitcode),
                 &format!("<exitcode {}>", exitcode),
             );
@@ -168,7 +153,7 @@ impl SyscallMock for TestChecker {
                 None => panic!("scriptkeeper bug: stderr expected, but not captured"),
                 Some(captured_stderr) => {
                     if &captured_stderr != expected_stderr {
-                        self.register_error(format!(
+                        self.result.register_error(format!(
                             "  expected output to stderr: {:?}\
                              \n  received output to stderr: {:?}\n",
                             String::from_utf8_lossy(&expected_stderr).as_ref(),
