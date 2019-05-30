@@ -36,6 +36,7 @@ jobs:
             cp /bin/true /usr/bin/docker
             cargo run -- build-docker-image.sh
             cargo run -- scriptkeeper-in-docker.sh
+            cargo run -- distribution/build.sh
       - save_cache:
           key: v1-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
           paths:
