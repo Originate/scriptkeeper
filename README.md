@@ -259,7 +259,7 @@ run inside of docker. Luckily, we have set up a one-liner for you. This will run
 within docker, when files change:
 
 ``` bash
-./build-docker-image.sh
+just build_docker_image
 ./test-watch-in-docker.sh
 ```
 

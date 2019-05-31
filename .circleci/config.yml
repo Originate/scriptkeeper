@@ -3,7 +3,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: rust:1.34.0-stretch
+      - image: rust:1.34.2-stretch
 
     steps:
       - run:
@@ -34,7 +34,6 @@ jobs:
           name: test docker scripts
           command: |
             cp /bin/true /usr/bin/docker
-            cargo run -- build-docker-image.sh
             cargo run -- scriptkeeper-in-docker.sh
             cargo run -- distribution/build.sh
       - save_cache:
