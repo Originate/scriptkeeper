@@ -29,6 +29,13 @@ try it out, I'd be interested to hear which features you would want the most.
 Feel free to open (or vote on)
 [issues](https://github.com/Originate/scriptkeeper/issues).
 
+## Installation
+
+You can download `scriptkeeper` binaries on the [release
+page](https://github.com/Originate/scriptkeeper/releases). Download the binary,
+make it executable (`chmod +x scriptkeeper`) and optionally put it somewhere in
+your `$PATH`.
+
 ## Usage
 
 `scriptkeeper` allows you to write tests for scripts (or other executables) --
