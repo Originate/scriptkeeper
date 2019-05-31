@@ -34,7 +34,7 @@ Feel free to open (or vote on)
 You can download `scriptkeeper` binaries on the [release
 page](https://github.com/Originate/scriptkeeper/releases). Download the binary,
 make it executable (`chmod +x scriptkeeper`) and optionally put it somewhere in
-your `$PATH`.
+your `$PATH`. All executables in there are for Linux and `x86_64` cpus.
 
 ## Usage
 
