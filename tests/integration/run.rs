@@ -5,7 +5,7 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
-use crate::utils::{prepare_script, test_run, test_run_with_tempfile};
+use crate::utils::{prepare_script, test_run, test_run_with_tempfile, Expect};
 use scriptkeeper::utils::path_to_string;
 use scriptkeeper::{context::Context, run_scriptkeeper, R};
 use std::env;
@@ -24,7 +24,7 @@ fn simple() -> R<()> {
             |steps:
             |  - cp
         ",
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }
@@ -96,7 +96,7 @@ fn can_specify_interpreter() -> R<()> {
             |    - "true"
             |interpreter: /usr/bin/ruby
         "#,
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }
@@ -113,7 +113,7 @@ fn allows_to_match_command_with_regex() -> R<()> {
             |  - steps:
             |    - regex: cp \d
         "#,
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }
@@ -179,7 +179,7 @@ fn multiple() -> R<()> {
             |  - cp
             |  - ls
         ",
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }
@@ -195,13 +195,13 @@ fn failing() -> R<()> {
             |steps:
             |  - cp
         ",
-        Err(&trim_margin(
+        Expect::error_message(
             "
                 |error:
                 |  expected: cp
                 |  received: mv
             ",
-        )?),
+        )?,
     )?;
     Ok(())
 }
@@ -219,13 +219,13 @@ fn failing_later() -> R<()> {
             |  - ls
             |  - cp
         ",
-        Err(&trim_margin(
+        Expect::error_message(
             "
                 |error:
                 |  expected: cp
                 |  received: mv
             ",
-        )?),
+        )?,
     )?;
     Ok(())
 }
@@ -365,7 +365,7 @@ mod arguments {
                 |steps:
                 |  - cp foo
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -381,13 +381,13 @@ mod arguments {
                 |steps:
                 |  - cp foo
             ",
-            Err(&trim_margin(
+            Expect::error_message(
                 "
                     |error:
                     |  expected: cp foo
                     |  received: cp bar
                 ",
-            )?),
+            )?,
         )?;
         Ok(())
     }
@@ -403,7 +403,7 @@ mod arguments {
                 |steps:
                 |  - cp "foo bar"
             "#,
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -419,13 +419,13 @@ mod arguments {
                 |steps:
                 |  - cp "foo bar"
             "#,
-            Err(&trim_margin(
+            Expect::error_message(
                 r#"
                     |error:
                     |  expected: cp "foo bar"
                     |  received: cp foo bar
                 "#,
-            )?),
+            )?,
         )?;
         Ok(())
     }
@@ -444,13 +444,13 @@ fn reports_the_first_error() -> R<()> {
             |  - cp first
             |  - cp second
         ",
-        Err(&trim_margin(
+        Expect::error_message(
             "
                 |error:
                 |  expected: cp first
                 |  received: mv first
             ",
-        )?),
+        )?,
     )?;
     Ok(())
 }
@@ -470,13 +470,13 @@ mod mismatch_in_number_of_commands {
                 |  - ls
                 |  - cp
             ",
-            Err(&trim_margin(
+            Expect::error_message(
                 "
                     |error:
                     |  expected: cp
                     |  received: <script terminated>
                 ",
-            )?),
+            )?,
         )?;
         Ok(())
     }
@@ -493,13 +493,13 @@ mod mismatch_in_number_of_commands {
                 |steps:
                 |  - ls
             ",
-            Err(&trim_margin(
+            Expect::error_message(
                 "
                     |error:
                     |  expected: <script termination>
                     |  received: cp
                 ",
-            )?),
+            )?,
         )?;
         Ok(())
     }
@@ -522,7 +522,7 @@ mod stdout {
                 |    stdout: test_output
                 |  - cp test_output
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -541,7 +541,7 @@ mod stdout {
                 |    stdout: 'foo"'
                 |  - 'cp foo\"'
             "#,
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -560,7 +560,7 @@ mod stdout {
                 |    stdout: "foo\nbar"
                 |  - 'cp foo\nbar'
             "#,
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -578,7 +578,7 @@ fn pass_arguments_into_tested_script() -> R<()> {
             |steps:
             |  - cp foo
         ",
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }
@@ -601,7 +601,7 @@ mod multiple_tests {
                 |  steps:
                 |    - cp bar
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -619,7 +619,7 @@ mod multiple_tests {
                 |- steps:
                 |    - cp
             ",
-            Err(&trim_margin(
+            Expect::error_message(
                 "
                     |error in test 1:
                     |  expected: cp
@@ -628,7 +628,7 @@ mod multiple_tests {
                     |  expected: cp
                     |  received: mv
                 ",
-            )?),
+            )?,
         )?;
         Ok(())
     }
@@ -646,7 +646,7 @@ mod multiple_tests {
                 |- steps:
                 |    - cp
             ",
-            Err(&trim_margin(
+            Expect::error_message(
                 "
                     |test 1:
                     |  Tests passed.
@@ -654,7 +654,7 @@ mod multiple_tests {
                     |  expected: cp
                     |  received: mv
                 ",
-            )?),
+            )?,
         )?;
         Ok(())
     }
@@ -676,7 +676,7 @@ mod environment {
                 |steps:
                 |  - cp test-env-var
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -693,7 +693,7 @@ mod environment {
                 |steps:
                 |  - cp
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -710,7 +710,7 @@ fn detects_running_commands_from_ruby_scripts() -> R<()> {
             |steps:
             |  - ls
         ",
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }
@@ -733,7 +733,7 @@ mod mocked_exitcodes {
                 |    exitcode: 1
                 |  - ls
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -753,7 +753,7 @@ mod mocked_exitcodes {
                 |    exitcode: 0
                 |  - ls
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -772,7 +772,7 @@ mod mocked_exitcodes {
                 |  - grep foo
                 |  - ls
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -791,7 +791,7 @@ mod mocked_exitcodes {
                 |    exitcode: 42
                 |  - ls 42
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -812,7 +812,7 @@ mod working_directory {
                 |steps:
                 |  - ls /foo/file
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -829,7 +829,7 @@ mod working_directory {
                 |steps:
                 |  - ls /foo/bar/baz/foo/bar/baz/foo/bar/baz/foo/file
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -849,7 +849,7 @@ mod working_directory {
                 ",
                 path_to_string(&cwd)?
             ),
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -868,13 +868,13 @@ mod expected_exitcode {
             r"
                 |steps: []
             ",
-            Err(&trim_margin(
+            Expect::error_message(
                 "
                     |error:
                     |  expected: <exitcode 0>
                     |  received: <exitcode 42>
                 ",
-            )?),
+            )?,
         )?;
         Ok(())
     }
@@ -890,7 +890,7 @@ mod expected_exitcode {
                 |steps: []
                 |exitcode: 42
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -906,13 +906,13 @@ mod expected_exitcode {
                 |steps: []
                 |exitcode: 42
             ",
-            Err(&trim_margin(
+            Expect::error_message(
                 "
                 |error:
                 |  expected: <exitcode 42>
                 |  received: <exitcode 0>
             ",
-            )?),
+            )?,
         )?;
         Ok(())
     }
@@ -935,7 +935,7 @@ mod unmocked_commands {
                 |unmockedCommands:
                 |  - dirname
             ",
-            Ok(()),
+            Expect::tests_pass(),
         )?;
         Ok(())
     }
@@ -955,13 +955,13 @@ mod unmocked_commands {
                 |unmockedCommands:
                 |  - dirname
             ",
-            Err(&trim_margin(
+            Expect::error_message(
                 "
                     |error:
                     |  expected: dirname dir/file
                     |  received: ls dir
                 ",
-            )?),
+            )?,
         )?;
         Ok(())
     }

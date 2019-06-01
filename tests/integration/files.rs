@@ -5,7 +5,7 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
-use crate::utils::test_run;
+use crate::utils::{test_run, Expect};
 use scriptkeeper::R;
 
 #[test]
@@ -24,7 +24,7 @@ fn allows_to_mock_files_existence() -> R<()> {
             |    mockedFiles:
             |      - /foo
         ",
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }
@@ -45,7 +45,7 @@ fn allows_to_mock_directory_existence() -> R<()> {
             |    mockedFiles:
             |      - /foo/
         ",
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }
@@ -63,7 +63,7 @@ fn does_not_mock_existence_of_unspecified_files() -> R<()> {
             |tests:
             |  - steps: []
         ",
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }

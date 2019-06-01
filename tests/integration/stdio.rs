@@ -5,39 +5,28 @@
 #![cfg_attr(feature = "ci", deny(warnings))]
 #![deny(clippy::all)]
 
-use crate::utils::{test_run, test_run_with_context, test_run_with_tempfile};
-use scriptkeeper::{context::Context, R};
-use test_utils::{trim_margin, TempFile};
+use crate::utils::{test_run, Expect};
+use scriptkeeper::R;
 
 #[test]
 fn relays_stdout_from_the_tested_script_to_the_user() -> R<()> {
-    let context = Context::new_mock();
-    let script = TempFile::write_temp_script(
-        trim_margin(
-            r"
-                |#!/usr/bin/env bash
-                |echo foo
-            ",
-        )?
-        .as_bytes(),
-    )?;
-    test_run_with_tempfile(
-        &context,
-        &script,
+    test_run(
+        r"
+            |#!/usr/bin/env bash
+            |echo foo
+        ",
         r"
             |tests:
             |  - steps: []
         ",
+        Expect::tests_pass().with_stdout("foo\nAll tests passed.\n"),
     )?;
-    assert_eq!(context.get_captured_stdout(), "foo\nAll tests passed.\n");
     Ok(())
 }
 
 #[test]
 fn relays_stderr_from_the_tested_script_to_the_user() -> R<()> {
-    let context = Context::new_mock();
-    test_run_with_context(
-        &context,
+    test_run(
         r"
             |#!/usr/bin/env bash
             |echo foo 1>&2
@@ -46,9 +35,8 @@ fn relays_stderr_from_the_tested_script_to_the_user() -> R<()> {
             |tests:
             |  - steps: []
         ",
-        Ok(()),
+        Expect::tests_pass().with_stderr("foo\n"),
     )?;
-    assert_eq!(context.get_captured_stderr(), "foo\n");
     Ok(())
 }
 
@@ -67,13 +55,14 @@ mod expected_stderr {
                 |  - steps: []
                 |    stderr: "foo\n"
             "#,
-            Err(&trim_margin(
+            Expect::error_message(
                 r#"
                     |error:
                     |  expected output to stderr: "foo\n"
                     |  received output to stderr: "bar\n"
                 "#,
-            )?),
+            )?
+            .with_stderr("bar\n"),
         )?;
         Ok(())
     }
@@ -90,7 +79,7 @@ mod expected_stderr {
                 |  - steps: []
                 |    stderr: "foo\n"
             "#,
-            Ok(()),
+            Expect::tests_pass().with_stderr("foo\n"),
         )?;
         Ok(())
     }
@@ -106,13 +95,13 @@ mod expected_stderr {
                 |  - steps: []
                 |    stderr: "foo\n"
             "#,
-            Err(&trim_margin(
+            Expect::error_message(
                 r#"
                     |error:
                     |  expected output to stderr: "foo\n"
                     |  received output to stderr: ""
                 "#,
-            )?),
+            )?,
         )?;
         Ok(())
     }
