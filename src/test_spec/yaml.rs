@@ -6,6 +6,8 @@ use std::io::Cursor;
 use yaml_rust::{yaml::Hash, Yaml, YamlEmitter};
 
 pub trait YamlExt {
+    fn expect_bytes(&self) -> R<Vec<u8>>;
+
     fn expect_str(&self) -> R<&str>;
 
     fn expect_array(&self) -> R<&Vec<Yaml>>;
@@ -16,6 +18,11 @@ pub trait YamlExt {
 }
 
 impl YamlExt for Yaml {
+    fn expect_bytes(&self) -> R<Vec<u8>> {
+        let str = self.expect_str()?;
+        Ok(str.as_bytes().to_vec())
+    }
+
     fn expect_str(&self) -> R<&str> {
         Ok(self
             .as_str()
