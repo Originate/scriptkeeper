@@ -5,7 +5,7 @@ use crate::test_checker::{
     TestChecker,
 };
 use crate::test_spec::{yaml::write_yaml, Test, Tests};
-use crate::tracer::stdio_redirecting::CaptureStderr;
+use crate::tracer::stdio_redirecting::Capture;
 use crate::tracer::Tracer;
 use crate::{ExitCode, R};
 use std::fs::OpenOptions;
@@ -128,10 +128,9 @@ fn run_against_test(
                 program,
                 test.arguments.clone(),
                 test.env.clone(),
-                if test.stderr.is_some() {
-                    CaptureStderr::Capture
-                } else {
-                    CaptureStderr::NoCapture
+                Capture {
+                    stdout: test.stdout.is_some(),
+                    stderr: test.stderr.is_some(),
                 },
                 $syscall_mock,
             )

@@ -96,6 +96,9 @@ tests:
       # List of files and folders that are going to be mocked to exist.
       # Note that directories must include a trailing '/'.
       # Example: ["/www/logs"], default: []
+    stdout?: string
+      # Output that the script is expected to write to stdout.
+      # Example: "script output\n", default: stdout output is not checked.
     stderr?: string
       # Output that the script is expected to write to stderr.
       # Example: "error message\n", default: stderr output is not checked.

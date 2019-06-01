@@ -40,6 +40,89 @@ fn relays_stderr_from_the_tested_script_to_the_user() -> R<()> {
     Ok(())
 }
 
+mod expected_stdout {
+    use super::*;
+
+    #[test]
+    fn fails_when_not_matching() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |echo bar
+            ",
+            r#"
+                |tests:
+                |  - steps: []
+                |    stdout: "foo\n"
+            "#,
+            Expect::error_message(
+                r#"
+                    |bar
+                    |error:
+                    |  expected output to stdout: "foo\n"
+                    |  received output to stdout: "bar\n"
+                "#,
+            )?,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn passes_when_matching() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |echo foo
+            ",
+            r#"
+                |tests:
+                |  - steps: []
+                |    stdout: "foo\n"
+            "#,
+            Expect::tests_pass().with_stdout("foo\nAll tests passed.\n"),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn fails_when_expecting_stdout_but_none_printed() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+            ",
+            r#"
+                |tests:
+                |  - steps: []
+                |    stdout: "foo\n"
+            "#,
+            Expect::error_message(
+                r#"
+                    |error:
+                    |  expected output to stdout: "foo\n"
+                    |  received output to stdout: ""
+                "#,
+            )?,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn passes_when_stdout_not_specified_and_script_writes_to_stdout() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |echo foo
+            ",
+            r#"
+                |tests:
+                |  - steps: []
+            "#,
+            Expect::tests_pass().with_stdout("foo\nAll tests passed.\n"),
+        )?;
+        Ok(())
+    }
+}
+
 mod expected_stderr {
     use super::*;
 
@@ -102,6 +185,22 @@ mod expected_stderr {
                     |  received output to stderr: ""
                 "#,
             )?,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn passes_when_stderr_not_specified_and_script_writes_to_stderr() -> R<()> {
+        test_run(
+            r"
+                |#!/usr/bin/env bash
+                |echo foo 1>&2
+            ",
+            r#"
+                |tests:
+                |  - steps: []
+            "#,
+            Expect::tests_pass().with_stderr("foo\n"),
         )?;
         Ok(())
     }

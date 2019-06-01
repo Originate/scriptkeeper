@@ -2,6 +2,7 @@ use crate::context::Context;
 use crate::R;
 use libc::c_int;
 use nix::unistd::{close, dup2, pipe, read};
+use std::fmt;
 use std::io::{Cursor, Write};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -9,22 +10,27 @@ use std::thread;
 type RawFd = c_int;
 
 pub struct Redirector {
-    stdout: Redirect,
+    pub stdout: Redirect,
     pub stderr: Redirect,
 }
 
-pub enum CaptureStderr {
-    Capture,
-    NoCapture,
+pub struct Capture {
+    pub stdout: bool,
+    pub stderr: bool,
 }
 
 impl Redirector {
-    pub fn new(context: &Context, capture_stderr: CaptureStderr) -> R<Redirector> {
+    pub fn new(context: &Context, capture: Capture) -> R<Redirector> {
         Ok(Redirector {
-            stdout: Redirect::new(context, StreamType::Stdout)?,
-            stderr: match capture_stderr {
-                CaptureStderr::Capture => Redirect::new_capturing(context, StreamType::Stderr)?,
-                CaptureStderr::NoCapture => Redirect::new(context, StreamType::Stderr)?,
+            stdout: if capture.stdout {
+                Redirect::new_capturing(context, StreamType::Stdout)?
+            } else {
+                Redirect::new_non_capturing(context, StreamType::Stdout)?
+            },
+            stderr: if capture.stderr {
+                Redirect::new_capturing(context, StreamType::Stderr)?
+            } else {
+                Redirect::new_non_capturing(context, StreamType::Stderr)?
             },
         })
     }
@@ -47,13 +53,22 @@ impl Redirector {
 }
 
 #[derive(Clone, Copy)]
-enum StreamType {
+pub enum StreamType {
     Stdout,
     Stderr,
 }
 
+impl fmt::Display for StreamType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            StreamType::Stdout => write!(f, "stdout"),
+            StreamType::Stderr => write!(f, "stderr"),
+        }
+    }
+}
+
 pub struct Redirect {
-    stream_type: StreamType,
+    pub stream_type: StreamType,
     context: Context,
     read_end: RawFd,
     write_end: RawFd,
@@ -61,19 +76,19 @@ pub struct Redirect {
 }
 
 impl Redirect {
-    fn new(context: &Context, stream_type: StreamType) -> R<Redirect> {
-        Redirect::new_internal(context, stream_type, None)
-    }
-
     fn new_capturing(context: &Context, stream_type: StreamType) -> R<Redirect> {
-        Redirect::new_internal(
+        Redirect::new(
             context,
             stream_type,
             Some(Arc::new(Mutex::new(Cursor::new(vec![])))),
         )
     }
 
-    fn new_internal(
+    fn new_non_capturing(context: &Context, stream_type: StreamType) -> R<Redirect> {
+        Redirect::new(context, stream_type, None)
+    }
+
+    fn new(
         context: &Context,
         stream_type: StreamType,
         captured: Option<Arc<Mutex<Cursor<Vec<u8>>>>>,
