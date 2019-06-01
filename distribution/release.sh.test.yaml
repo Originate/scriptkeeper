@@ -1,0 +1,23 @@
+tests:
+  # aborts when not on master
+  - steps:
+      - command: git symbolic-ref --short HEAD
+        stdout: "some_branch"
+    stderr: "not on master, aborting...\n"
+    exitcode: 1
+  # aborts when git repo is not clean
+  - steps:
+      - command: git symbolic-ref --short HEAD
+        stdout: "master"
+      - command: git status --porcelain
+        stdout: " M some-changed-file\n"
+    stderr: "git repo not clean, aborting...\n"
+    exitcode: 1
+  # aborts when `cargo bump` doesn't exist
+  - steps:
+      - command: git symbolic-ref --short HEAD
+        stdout: "master"
+      - git status --porcelain
+      - command: cargo bump
+        exitcode: 101
+    exitcode: 1
