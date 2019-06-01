@@ -21,12 +21,10 @@ bincode = "*"
 quale = "*"
 serde_derive = "*"
 serde = "*"
+trim-margin = "*"
 memoffset = "*"
 clap = "*"
 regex = "*"
-
-[build-dependencies]
-trim-margin = "*"
 
 [dev-dependencies]
 test-utils = { path = "test-utils" }

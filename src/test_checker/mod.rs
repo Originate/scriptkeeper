@@ -15,6 +15,7 @@ use nix::unistd::Pid;
 use std::ffi::OsString;
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
+use trim_margin::MarginTrimmable;
 
 #[derive(Debug)]
 pub struct TestChecker {
@@ -79,14 +80,21 @@ impl TestChecker {
             ),
             Some(captured) => {
                 if captured != expected {
-                    self.result.register_error(format!(
-                        "  expected output to {}: {:?}\
-                         \n  received output to {}: {:?}\n",
-                        redirect.stream_type,
-                        String::from_utf8_lossy(&expected).as_ref(),
-                        redirect.stream_type,
-                        String::from_utf8_lossy(&captured).as_ref(),
-                    ));
+                    self.result.register_error(
+                        format!(
+                            r"
+                                |  expected output to {}: {:?}
+                                |  received output to {}: {:?}
+                                |
+                            ",
+                            redirect.stream_type,
+                            String::from_utf8_lossy(&expected).as_ref(),
+                            redirect.stream_type,
+                            String::from_utf8_lossy(&captured).as_ref(),
+                        )
+                        .trim_margin()
+                        .unwrap(),
+                    );
                 }
             }
         }

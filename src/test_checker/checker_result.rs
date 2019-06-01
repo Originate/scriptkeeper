@@ -1,4 +1,5 @@
 use crate::ExitCode;
+use trim_margin::MarginTrimmable;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CheckerResult {
@@ -30,10 +31,18 @@ impl CheckerResult {
     }
 
     pub fn register_step_error(&mut self, expected: &str, received: &str) {
-        self.register_error(format!(
-            "  expected: {}\n  received: {}\n",
-            expected, received
-        ));
+        self.register_error(
+            format!(
+                r"
+                  |  expected: {}
+                  |  received: {}
+                  |
+                ",
+                expected, received
+            )
+            .trim_margin()
+            .unwrap(),
+        );
     }
 
     pub fn register_error(&mut self, message: String) {
