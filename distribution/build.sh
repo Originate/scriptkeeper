@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eu
+set -eux
 
 image=scriptkeeper-distribution
 container=$image-container
@@ -14,3 +14,4 @@ docker build \
 docker run --name $container $image true
 docker cp $container:/usr/local/bin/scriptkeeper distribution/
 docker rm $container
+distribution/scriptkeeper --version
