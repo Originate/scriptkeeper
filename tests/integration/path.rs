@@ -4,9 +4,8 @@
 )]
 #![deny(clippy::all)]
 
-use crate::utils::test_run;
+use crate::utils::{test_run, Expect};
 use scriptkeeper::R;
-use test_utils::trim_margin;
 
 #[test]
 fn looks_up_step_executable_in_path() -> R<()> {
@@ -19,7 +18,7 @@ fn looks_up_step_executable_in_path() -> R<()> {
             |steps:
             |  - cp
         ",
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }
@@ -37,7 +36,7 @@ fn looks_up_unmocked_command_executable_in_path() -> R<()> {
             |unmockedCommands:
             |  - ls
         ",
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }
@@ -53,13 +52,13 @@ fn shortens_received_executable_to_file_name_when_reporting_step_error() -> R<()
             |steps:
             |  - cp
         ",
-        Err(&trim_margin(
+        Expect::error_message(
             "
                 |error:
                 |  expected: cp
                 |  received: mv
             ",
-        )?),
+        )?,
     )?;
     Ok(())
 }
@@ -75,7 +74,7 @@ fn runs_step_executable_that_is_not_in_path() -> R<()> {
             |steps:
             |  - /not/in/path
         ",
-        Ok(()),
+        Expect::tests_pass(),
     )?;
     Ok(())
 }
