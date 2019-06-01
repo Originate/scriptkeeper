@@ -271,11 +271,11 @@ just build_docker_image
 To cut a new release:
 
 - Bump the version number in the `Cargo.toml`
-- Run `just ci`
+- Commit that version bump
+- Run `just ci distribution_build`
 - `git tag` with the version number (no leading `v`)
 - Run `git push --tags`
 - Create a release on github for the created tag
-- Run `just distribution_build`
 - Upload `distribution/scriptkeeper` as a binary release to github
 
 There's a script `distribution/smoke-test.sh` that allows to smoke-test the
