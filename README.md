@@ -169,7 +169,7 @@ Multiple tests can be specified using a YAML array:
     - git add .
     - git push
 # when given the 'pull' argument, it just pulls
-- arguments: push
+- arguments: pull
   steps:
     - git pull
 ```
@@ -184,7 +184,7 @@ tests:
       - git add .
       - git push
   # when given the 'pull' argument, it just pulls
-  - arguments: push
+  - arguments: pull
     steps:
       - git pull
 ```
